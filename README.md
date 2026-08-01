@@ -6,11 +6,20 @@ Aplicação web mobile-first para apontamento e consulta da produção no chão 
 
 GitHub Pages: https://lucasvenancio0110.github.io/mes-operadores/
 
+## Catálogo fabril
+
+- 10 linhas de produção
+- 134 máquinas TNL
+- MILLTAP
+- DISCOVERY
+- 136 equipamentos cadastrados no total
+- Migração automática para aparelhos que já utilizaram versões anteriores
+
 ## Funcionalidades
 
 - Quatro postos de máquina por operador
 - Seleção encadeada de **Linha → Máquina**
-- Cadastro rápido de novas linhas e máquinas, sem limitar o mapa fabril
+- Cadastro rápido de novas linhas e máquinas
 - Registro de OP, item, produção, tempo de ciclo, frequências e observações
 - Cálculo automático de meta, produção esperada, liberações, saldo e minutos ganhos/perdidos
 - Aba **Histórico** com filtros por linha, máquina, período e busca
@@ -35,4 +44,5 @@ Contrato previsto da API:
 - `index.html`: estrutura das telas
 - `styles.css`: identidade visual e responsividade
 - `app.js`: regras, cálculos, histórico e persistência
-- `config.js`: configuração da API Cloudflare
+- `catalog.js`: catálogo oficial das linhas e máquinas
+- `config.js`: configuração da API Cloudflare e carregamento da migração
