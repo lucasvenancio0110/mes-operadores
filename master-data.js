@@ -64,6 +64,30 @@ async function loadCloudOperators() {
   ).join('');
   state.operatorCatalog = operators;
   persistState();
+  applyKnownOperator();
+}
+
+function applyKnownOperator() {
+  const name = el('f_operator').value.trim().toLocaleLowerCase('pt-BR');
+  if (!name) return;
+
+  const operator = (state.operatorCatalog || []).find(item =>
+    String(item.name || '').trim().toLocaleLowerCase('pt-BR') === name
+  );
+  if (!operator) return;
+
+  if (el('f_registration') && operator.registration) {
+    el('f_registration').value = operator.registration;
+    state.operatorRegistration = operator.registration;
+  }
+
+  if (operator.defaultShift && ['1', '2', '3'].includes(String(operator.defaultShift))) {
+    state.shift = String(operator.defaultShift);
+    el('f_shift').value = state.shift;
+    el('activeShiftBadge').textContent = `${state.shift}º turno`;
+  }
+
+  persistState();
 }
 
 async function lookupCloudItem() {
@@ -71,17 +95,20 @@ async function lookupCloudItem() {
   const itemNumber = el('f_item').value.trim();
   if (!itemNumber) return;
 
+  const machineId = currentSlot()?.machineId || '';
   const hint = el('hintItem');
   hint.textContent = 'Consultando item no banco...';
   hint.className = 'hint item-hint';
 
   try {
-    const payload = await fetchCloudJson(`/api/v1/items?itemNumber=${encodeURIComponent(itemNumber)}`);
+    const query = new URLSearchParams({ itemNumber });
+    if (machineId) query.set('machineId', machineId);
+    const payload = await fetchCloudJson(`/api/v1/items?${query.toString()}`);
     const item = Array.isArray(payload?.items) ? payload.items[0] : null;
 
     if (!item) {
-      hint.textContent = 'Item ainda não cadastrado no banco D1.';
-      hint.className = 'hint item-hint notfound';
+      hint.textContent = 'Item novo: os dados digitados serão aprendidos quando o registro for salvo.';
+      hint.className = 'hint item-hint';
       return;
     }
 
@@ -94,17 +121,48 @@ async function lookupCloudItem() {
     if (Number.isFinite(Number(item.frequency2))) {
       el('f_freq2').value = String(item.frequency2).replace('.', ',');
     }
+    if (el('f_item_description') && item.description) {
+      el('f_item_description').value = item.description;
+    }
 
-    hint.textContent = item.description
-      ? `✓ ${item.description} · parâmetros carregados da nuvem`
-      : '✓ Tempo e frequências carregados da nuvem';
+    hint.textContent = item.parameterSource === 'machine'
+      ? '✓ Parâmetros específicos desta máquina carregados do banco'
+      : '✓ Parâmetros gerais do item carregados do banco';
     hint.className = 'hint item-hint found';
     updateCalculations();
     saveDraft();
   } catch (error) {
     console.error('Falha ao consultar item:', error);
-    hint.textContent = 'Não foi possível consultar o item agora. Preencha manualmente.';
+    hint.textContent = 'Não foi possível consultar o item agora. O registro continuará salvo localmente.';
     hint.className = 'hint item-hint notfound';
+  }
+}
+
+async function lookupCloudOrder() {
+  if (!CLOUD_API_URL) return;
+  const opNumber = el('f_op').value.trim();
+  if (!opNumber) return;
+
+  try {
+    const payload = await fetchCloudJson(`/api/v1/orders?op=${encodeURIComponent(opNumber)}`);
+    const order = payload?.order;
+    if (!order) return;
+
+    if (!el('f_item').value && order.item) el('f_item').value = order.item;
+    if (!el('f_seq').value && order.sequence) el('f_seq').value = order.sequence;
+
+    const slot = currentSlot();
+    if (!slot.lineId && order.lineId && getLine(order.lineId)) {
+      slot.lineId = order.lineId;
+      slot.machineId = getMachine(order.lineId, order.machineId) ? order.machineId : '';
+      refreshCatalogInterface();
+    }
+
+    saveDraft();
+    if (el('f_item').value) await lookupCloudItem();
+    showToast(`OP ${opNumber} encontrada no histórico`);
+  } catch (error) {
+    console.error('Falha ao consultar OP:', error);
   }
 }
 
@@ -120,11 +178,22 @@ async function loadCloudMasterData() {
   }
 }
 
+el('f_operator').addEventListener('change', applyKnownOperator);
+el('f_operator').addEventListener('blur', applyKnownOperator);
+
 el('f_item').addEventListener('blur', lookupCloudItem);
 el('f_item').addEventListener('keydown', event => {
   if (event.key === 'Enter') {
     event.preventDefault();
     lookupCloudItem();
+  }
+});
+
+el('f_op').addEventListener('blur', lookupCloudOrder);
+el('f_op').addEventListener('keydown', event => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    lookupCloudOrder();
   }
 });
 
