@@ -22,7 +22,13 @@
       "wrangler.jsonc",
       "README.md"
     ]
-  }
-
-  // O bloco d1_databases será inserido quando o banco for criado no painel.
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "mes-operadores-db",
+      "database_id": "31666c87-0970-44e1-9969-51458e7888b5",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
