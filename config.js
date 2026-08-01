@@ -1,14 +1,8 @@
-window.APP_CONFIG = {
-  // Será preenchido na próxima etapa com a URL do Cloudflare Worker.
-  // Exemplo: "https://mes-operadores-api.seu-subdominio.workers.dev"
-  cloudApiUrl: ""
-};
+const cloudflareHost = ['workers.dev', 'pages.dev']
+  .some(suffix => window.location.hostname.endsWith(suffix));
 
-// Carrega o catálogo oficial depois que a aplicação principal estiver pronta.
-// Isso também executa a migração automática nos aparelhos que já usaram a versão anterior.
-window.addEventListener('DOMContentLoaded', () => {
-  const script = document.createElement('script');
-  script.src = `catalog.js?v=1`;
-  script.defer = true;
-  document.body.appendChild(script);
-});
+window.APP_CONFIG = {
+  // No endereço publicado pelo Cloudflare, a aplicação usa a própria origem
+  // para consultar a API. No GitHub Pages, continua funcionando apenas offline.
+  cloudApiUrl: cloudflareHost ? window.location.origin : ''
+};
