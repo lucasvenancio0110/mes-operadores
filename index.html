@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Painel de Produção</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <p class="eyebrow">Chão de fábrica · registro por peça</p>
+    <h1>Painel de Produção</h1>
+    <div class="cloud-status" id="cloudStatus"></div>
+  </div>
+
+  <div class="tabs" id="tabBar"></div>
+
+  <div class="rename-field">
+    <label>Nome da máquina</label>
+    <input type="text" id="f_machinename" placeholder="Máquina 1">
+  </div>
+
+  <!-- Signature digital readout -->
+  <div class="panel">
+    <div class="panel-label">Tempo real do ciclo (o que você mede no relógio)</div>
+    <div class="panel-readout" id="readoutTime">0:00</div>
+    <div class="panel-sub">convertido em <b id="readoutDecimal">0</b> min decimais (usado nos cálculos)</div>
+  </div>
+
+  <div class="card">
+    <p class="card-title"><span class="dot"></span>Novo registro</p>
+
+    <div class="row2">
+      <div class="field">
+        <label>TNL</label>
+        <input type="text" inputmode="numeric" id="f_tnl" placeholder="113">
+      </div>
+      <div class="field">
+        <label>OP</label>
+        <input type="text" inputmode="numeric" id="f_op" placeholder="5010822641">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Número do item</label>
+      <input type="text" inputmode="text" id="f_item" placeholder="Ex: 4521-A">
+      <div class="hint" id="hintItem"></div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Peças feitas</label>
+        <input type="text" inputmode="numeric" id="f_pecas" placeholder="277">
+      </div>
+      <div class="field">
+        <label>Tempo (min:seg)</label>
+        <input type="text" inputmode="text" id="f_tempo" placeholder="5:55">
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Sequência</label>
+        <input type="text" inputmode="numeric" id="f_seq" placeholder="9">
+      </div>
+      <div class="field">
+        <label>Produção final</label>
+        <input type="text" inputmode="numeric" id="f_final" placeholder="0">
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Freq I</label>
+        <input type="text" inputmode="decimal" id="f_freq1" placeholder="51,923">
+      </div>
+      <div class="field">
+        <label>Freq II</label>
+        <input type="text" inputmode="decimal" id="f_freq2" placeholder="40,307">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Minutos disponíveis (turno/OP)</label>
+      <input type="text" inputmode="numeric" id="f_minutos" placeholder="480">
+      <div class="hint" id="hintRestante"></div>
+    </div>
+
+    <div class="field">
+      <label>Observações (paradas, motivo, etc.)</label>
+      <textarea id="f_obs" rows="2" placeholder="Ex: 15 min parado aguardando peça"></textarea>
+    </div>
+
+    <div class="calc-grid" id="calcGrid">
+      <div class="calc-cell"><div class="k">Meta</div><div class="v" id="c_meta">–</div></div>
+      <div class="calc-cell"><div class="k">Produção esperada</div><div class="v" id="c_esperada">–</div></div>
+      <div class="calc-cell"><div class="k">Liberação I</div><div class="v" id="c_lib1">–</div></div>
+      <div class="calc-cell"><div class="k">Liberação II</div><div class="v" id="c_lib2">–</div></div>
+      <div class="calc-cell"><div class="k">Saldo</div><div class="v" id="c_saldo">–</div></div>
+      <div class="calc-cell"><div class="k">Tempo (min)</div><div class="v" id="c_tempomin">–</div></div>
+    </div>
+
+    <button class="btn btn-primary" id="btnSave">Salvar registro</button>
+    <button class="btn btn-ghost" id="btnTrocarOp" style="margin-top:8px;">🔁 Trocar OP (meio de turno)</button>
+  </div>
+
+  <div class="log-header">
+    <h2>Registros salvos</h2>
+    <span class="log-count" id="logCount">0</span>
+  </div>
+  <div id="logList"></div>
+  <button class="btn btn-ghost" id="btnClear" style="display:none;">Limpar todos os registros</button>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
