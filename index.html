@@ -1,120 +1,250 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>Painel de Produção</title>
-<link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17191c">
+  <title>Painel de Produção</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<div class="wrap">
+  <div class="app-shell">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Chão de fábrica · operadores</p>
+        <h1>Painel de Produção</h1>
+      </div>
+      <div class="cloud-status" id="cloudStatus" aria-live="polite"></div>
+    </header>
 
-  <div class="header">
-    <p class="eyebrow">Chão de fábrica · registro por peça</p>
-    <h1>Painel de Produção</h1>
-    <div class="cloud-status" id="cloudStatus"></div>
+    <main>
+      <section class="view active" id="viewRegister" aria-labelledby="registerTitle">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Apontamento</p>
+            <h2 id="registerTitle">Novo registro</h2>
+          </div>
+          <span class="shift-badge" id="activeShiftBadge">2º turno</span>
+        </div>
+
+        <div class="machine-tabs" id="machineTabs" aria-label="Postos do operador"></div>
+
+        <section class="card context-card">
+          <div class="card-title-row">
+            <p class="card-title"><span class="dot"></span>Contexto de produção</p>
+            <button class="text-button" id="btnOpenCatalog" type="button">+ Cadastrar</button>
+          </div>
+
+          <div class="field">
+            <label for="f_operator">Operador</label>
+            <input type="text" id="f_operator" autocomplete="name" placeholder="Digite seu nome">
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label for="f_shift">Turno</label>
+              <select id="f_shift">
+                <option value="1">1º turno</option>
+                <option value="2">2º turno</option>
+                <option value="3">3º turno</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="f_line">Linha</label>
+              <select id="f_line"></select>
+            </div>
+          </div>
+
+          <div class="field no-margin">
+            <label for="f_machine">Máquina</label>
+            <select id="f_machine"></select>
+            <div class="hint" id="machineContextHint">Selecione a linha para carregar as máquinas.</div>
+          </div>
+        </section>
+
+        <section class="digital-panel" aria-label="Tempo real do ciclo">
+          <div class="panel-label">Tempo real do ciclo</div>
+          <div class="panel-readout" id="readoutTime">0:00</div>
+          <div class="panel-sub">equivale a <b id="readoutDecimal">0</b> min decimais</div>
+        </section>
+
+        <section class="card">
+          <p class="card-title"><span class="dot"></span>Dados da produção</p>
+
+          <div class="row2">
+            <div class="field">
+              <label for="f_op">OP</label>
+              <input type="text" inputmode="numeric" id="f_op" placeholder="5010822641">
+            </div>
+            <div class="field">
+              <label for="f_item">Número do item</label>
+              <input type="text" id="f_item" placeholder="Ex.: 354649">
+            </div>
+          </div>
+          <div class="hint item-hint" id="hintItem"></div>
+
+          <div class="row2">
+            <div class="field">
+              <label for="f_pecas">Peças feitas</label>
+              <input type="text" inputmode="numeric" id="f_pecas" placeholder="277">
+            </div>
+            <div class="field">
+              <label for="f_tempo">Tempo (min:seg)</label>
+              <input type="text" inputmode="text" id="f_tempo" placeholder="5:55">
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label for="f_seq">Sequência</label>
+              <input type="text" inputmode="numeric" id="f_seq" placeholder="9">
+            </div>
+            <div class="field">
+              <label for="f_final">Produção final</label>
+              <input type="text" inputmode="numeric" id="f_final" placeholder="0">
+            </div>
+          </div>
+
+          <div class="row2">
+            <div class="field">
+              <label for="f_freq1">Freq. I</label>
+              <input type="text" inputmode="decimal" id="f_freq1" placeholder="51,923">
+            </div>
+            <div class="field">
+              <label for="f_freq2">Freq. II</label>
+              <input type="text" inputmode="decimal" id="f_freq2" placeholder="40,307">
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="f_minutos">Minutos disponíveis</label>
+            <input type="text" inputmode="numeric" id="f_minutos" placeholder="480">
+            <div class="hint" id="hintRestante"></div>
+          </div>
+
+          <div class="field">
+            <label for="f_obs">Observações</label>
+            <textarea id="f_obs" rows="2" placeholder="Paradas, motivo, atuação realizada..."></textarea>
+          </div>
+
+          <div class="calc-grid" id="calcGrid">
+            <div class="calc-cell"><div class="k">Meta</div><div class="v" id="c_meta">–</div></div>
+            <div class="calc-cell"><div class="k">Produção esperada</div><div class="v" id="c_esperada">–</div></div>
+            <div class="calc-cell"><div class="k">Liberação I</div><div class="v" id="c_lib1">–</div></div>
+            <div class="calc-cell"><div class="k">Liberação II</div><div class="v" id="c_lib2">–</div></div>
+            <div class="calc-cell"><div class="k">Saldo</div><div class="v" id="c_saldo">–</div></div>
+            <div class="calc-cell"><div class="k">Tempo ganho/perdido</div><div class="v" id="c_tempomin">–</div></div>
+          </div>
+
+          <div class="form-message" id="formMessage" aria-live="polite"></div>
+          <button class="btn btn-primary" id="btnSave" type="button">Salvar registro</button>
+          <button class="btn btn-ghost" id="btnTrocarOp" type="button">Trocar OP no meio do turno</button>
+        </section>
+
+        <section class="latest-section">
+          <div class="log-header">
+            <div>
+              <p class="section-kicker">Máquina selecionada</p>
+              <h2>Últimos lançamentos</h2>
+            </div>
+            <span class="log-count" id="latestCount">0</span>
+          </div>
+          <div id="latestList"></div>
+        </section>
+      </section>
+
+      <section class="view" id="viewHistory" aria-labelledby="historyTitle">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">Consulta operacional</p>
+            <h2 id="historyTitle">Histórico</h2>
+          </div>
+          <button class="icon-button" id="btnRefreshHistory" type="button" aria-label="Atualizar histórico">↻</button>
+        </div>
+
+        <section class="card filter-card">
+          <div class="row2">
+            <div class="field">
+              <label for="historyLine">Linha</label>
+              <select id="historyLine"></select>
+            </div>
+            <div class="field">
+              <label for="historyMachine">Máquina</label>
+              <select id="historyMachine"></select>
+            </div>
+          </div>
+
+          <div class="period-tabs" id="periodTabs" aria-label="Período do histórico">
+            <button class="period-tab active" type="button" data-period="today">Hoje</button>
+            <button class="period-tab" type="button" data-period="7days">7 dias</button>
+            <button class="period-tab" type="button" data-period="month">Mês</button>
+            <button class="period-tab" type="button" data-period="all">Todos</button>
+          </div>
+
+          <div class="field no-margin">
+            <label for="historySearch">Buscar</label>
+            <input type="search" id="historySearch" placeholder="OP, item, operador, linha ou máquina">
+          </div>
+        </section>
+
+        <section class="history-summary" aria-label="Resumo do período">
+          <div class="summary-cell"><span>Registros</span><strong id="summaryRecords">0</strong></div>
+          <div class="summary-cell"><span>Produção final</span><strong id="summaryProduction">0</strong></div>
+          <div class="summary-cell"><span>Meta total</span><strong id="summaryTarget">0</strong></div>
+          <div class="summary-cell"><span>Saldo</span><strong id="summaryBalance">0</strong></div>
+        </section>
+
+        <div class="history-result-header">
+          <span id="historyResultLabel">Nenhum registro</span>
+          <button class="text-button" id="btnClearHistoryFilters" type="button">Limpar filtros</button>
+        </div>
+        <div id="historyList"></div>
+      </section>
+    </main>
   </div>
 
-  <div class="tabs" id="tabBar"></div>
+  <nav class="bottom-nav" aria-label="Navegação principal">
+    <button class="nav-item active" type="button" data-view="register">
+      <span class="nav-icon">＋</span>
+      <span>Registro</span>
+    </button>
+    <button class="nav-item" type="button" data-view="history">
+      <span class="nav-icon">◷</span>
+      <span>Histórico</span>
+    </button>
+  </nav>
 
-  <div class="rename-field">
-    <label>Nome da máquina</label>
-    <input type="text" id="f_machinename" placeholder="Máquina 1">
-  </div>
+  <dialog class="catalog-dialog" id="catalogDialog">
+    <form method="dialog" id="catalogForm">
+      <div class="dialog-header">
+        <div>
+          <p class="section-kicker">Cadastro rápido</p>
+          <h2>Linha e máquina</h2>
+        </div>
+        <button class="dialog-close" value="cancel" aria-label="Fechar">×</button>
+      </div>
 
-  <!-- Signature digital readout -->
-  <div class="panel">
-    <div class="panel-label">Tempo real do ciclo (o que você mede no relógio)</div>
-    <div class="panel-readout" id="readoutTime">0:00</div>
-    <div class="panel-sub">convertido em <b id="readoutDecimal">0</b> min decimais (usado nos cálculos)</div>
-  </div>
-
-  <div class="card">
-    <p class="card-title"><span class="dot"></span>Novo registro</p>
-
-    <div class="row2">
       <div class="field">
-        <label>TNL</label>
-        <input type="text" inputmode="numeric" id="f_tnl" placeholder="113">
+        <label for="catalogExistingLine">Usar linha existente</label>
+        <select id="catalogExistingLine"></select>
+      </div>
+      <div class="dialog-divider"><span>ou</span></div>
+      <div class="field">
+        <label for="catalogNewLine">Cadastrar nova linha</label>
+        <input type="text" id="catalogNewLine" placeholder="Ex.: Linha 6">
       </div>
       <div class="field">
-        <label>OP</label>
-        <input type="text" inputmode="numeric" id="f_op" placeholder="5010822641">
+        <label for="catalogMachine">Máquina/TNL</label>
+        <input type="text" id="catalogMachine" placeholder="Ex.: 116 ou TNL 116" required>
       </div>
-    </div>
+      <div class="form-message" id="catalogMessage"></div>
+      <button class="btn btn-primary" type="submit">Salvar e selecionar</button>
+    </form>
+  </dialog>
 
-    <div class="field">
-      <label>Número do item</label>
-      <input type="text" inputmode="text" id="f_item" placeholder="Ex: 4521-A">
-      <div class="hint" id="hintItem"></div>
-    </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-    <div class="row2">
-      <div class="field">
-        <label>Peças feitas</label>
-        <input type="text" inputmode="numeric" id="f_pecas" placeholder="277">
-      </div>
-      <div class="field">
-        <label>Tempo (min:seg)</label>
-        <input type="text" inputmode="text" id="f_tempo" placeholder="5:55">
-      </div>
-    </div>
-
-    <div class="row2">
-      <div class="field">
-        <label>Sequência</label>
-        <input type="text" inputmode="numeric" id="f_seq" placeholder="9">
-      </div>
-      <div class="field">
-        <label>Produção final</label>
-        <input type="text" inputmode="numeric" id="f_final" placeholder="0">
-      </div>
-    </div>
-
-    <div class="row2">
-      <div class="field">
-        <label>Freq I</label>
-        <input type="text" inputmode="decimal" id="f_freq1" placeholder="51,923">
-      </div>
-      <div class="field">
-        <label>Freq II</label>
-        <input type="text" inputmode="decimal" id="f_freq2" placeholder="40,307">
-      </div>
-    </div>
-
-    <div class="field">
-      <label>Minutos disponíveis (turno/OP)</label>
-      <input type="text" inputmode="numeric" id="f_minutos" placeholder="480">
-      <div class="hint" id="hintRestante"></div>
-    </div>
-
-    <div class="field">
-      <label>Observações (paradas, motivo, etc.)</label>
-      <textarea id="f_obs" rows="2" placeholder="Ex: 15 min parado aguardando peça"></textarea>
-    </div>
-
-    <div class="calc-grid" id="calcGrid">
-      <div class="calc-cell"><div class="k">Meta</div><div class="v" id="c_meta">–</div></div>
-      <div class="calc-cell"><div class="k">Produção esperada</div><div class="v" id="c_esperada">–</div></div>
-      <div class="calc-cell"><div class="k">Liberação I</div><div class="v" id="c_lib1">–</div></div>
-      <div class="calc-cell"><div class="k">Liberação II</div><div class="v" id="c_lib2">–</div></div>
-      <div class="calc-cell"><div class="k">Saldo</div><div class="v" id="c_saldo">–</div></div>
-      <div class="calc-cell"><div class="k">Tempo (min)</div><div class="v" id="c_tempomin">–</div></div>
-    </div>
-
-    <button class="btn btn-primary" id="btnSave">Salvar registro</button>
-    <button class="btn btn-ghost" id="btnTrocarOp" style="margin-top:8px;">🔁 Trocar OP (meio de turno)</button>
-  </div>
-
-  <div class="log-header">
-    <h2>Registros salvos</h2>
-    <span class="log-count" id="logCount">0</span>
-  </div>
-  <div id="logList"></div>
-  <button class="btn btn-ghost" id="btnClear" style="display:none;">Limpar todos os registros</button>
-
-</div>
-
-<script src="app.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
