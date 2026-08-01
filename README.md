@@ -1,35 +1,38 @@
 # Painel de Produção — Mês Operadores
 
-Aplicação web responsiva para registro e acompanhamento da produção por máquina no chão de fábrica.
+Aplicação web mobile-first para apontamento e consulta da produção no chão de fábrica.
 
-## Acessar o painel
+## Acesso atual
 
-**GitHub Pages:** https://lucasvenancio0110.github.io/mes-operadores/
+GitHub Pages: https://lucasvenancio0110.github.io/mes-operadores/
 
 ## Funcionalidades
 
-- Controle de até quatro máquinas
-- Registro de TNL, OP, item, peças e tempo de ciclo
-- Cálculo automático de meta, produção esperada, liberações e saldo
-- Histórico separado por máquina
-- Observações e troca de OP no meio do turno
-- Estrutura preparada para integração com Google Sheets via Apps Script
+- Quatro postos de máquina por operador
+- Seleção encadeada de **Linha → Máquina**
+- Cadastro rápido de novas linhas e máquinas, sem limitar o mapa fabril
+- Registro de OP, item, produção, tempo de ciclo, frequências e observações
+- Cálculo automático de meta, produção esperada, liberações, saldo e minutos ganhos/perdidos
+- Aba **Histórico** com filtros por linha, máquina, período e busca
+- Resumo consolidado de registros, produção final, meta e saldo
+- Detalhamento completo de cada lançamento
+- Cancelamento auditável, preservando o registro no histórico
+- Armazenamento local offline no aparelho
+- Estrutura preparada para sincronização com Cloudflare Worker + D1
 
-## Estrutura
+## Nuvem
 
-- `index.html` — interface do painel
-- `styles.css` — identidade visual e responsividade
-- `app.js` — cálculos, registros e integração com a nuvem
-- `.nojekyll` — configuração para publicação direta no GitHub Pages
+A aplicação funciona offline e mantém os dados no navegador. A URL da futura API Cloudflare será configurada no arquivo `config.js`.
 
-## Integração com Google Sheets
+Contrato previsto da API:
 
-No arquivo `app.js`, substitua:
+- `GET /health`
+- `GET /api/v1/records`
+- `POST /api/v1/records`
 
-```js
-const SHEETS_API_URL = 'COLE_AQUI_A_URL_DO_SEU_APPS_SCRIPT';
-```
+## Arquivos
 
-pela URL publicada do Google Apps Script.
-
-Sem essa configuração, o painel abre e calcula normalmente, mas os registros não são persistidos na nuvem.
+- `index.html`: estrutura das telas
+- `styles.css`: identidade visual e responsividade
+- `app.js`: regras, cálculos, histórico e persistência
+- `config.js`: configuração da API Cloudflare
