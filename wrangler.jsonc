@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "mes-operadores",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/health",
+      "/api/*"
+    ],
+    "exclude": [
+      ".git/**",
+      ".github/**",
+      "worker/**",
+      "migrations/**",
+      "node_modules/**",
+      "package.json",
+      "package-lock.json",
+      "wrangler.jsonc",
+      "README.md"
+    ]
+  }
+
+  // O bloco d1_databases será inserido quando o banco for criado no painel.
+}
