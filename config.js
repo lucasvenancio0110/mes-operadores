@@ -6,3 +6,9 @@ window.APP_CONFIG = {
   // para consultar a API. No GitHub Pages, continua funcionando apenas offline.
   cloudApiUrl: cloudflareHost ? window.location.origin : ''
 };
+
+window.addEventListener('DOMContentLoaded', () => {
+  const script = document.createElement('script');
+  script.src = 'master-data.js?v=20260801-1';
+  document.body.appendChild(script);
+});
