@@ -39,6 +39,7 @@ jobs:
             node --check app/components.js
             node --check app/main.js
             node --check app/cloud-state.js
+            node --check app/exports.js
             node --check app/runtime.js
             node --check sw.js
             node --check worker/main.js
