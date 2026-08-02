@@ -89,14 +89,27 @@ function schedulePublish(machineId, reason) {
   timers.set(machineId,setTimeout(() => publish(machineId,reason),180));
 }
 
+function belongsToActiveSession(remote, activeSession) {
+  if (!remote || !activeSession) return false;
+  return String(remote.productionDate || '') === String(activeSession.productionDate || localDateKey())
+    && String(remote.shift || '') === String(activeSession.shift || '')
+    && String(remote.registration || '') === String(activeSession.registration || '');
+}
+
 export async function loadSharedMachineStates() {
   if (!API_BASE) return [];
   try {
     const payload = await api.get('/api/v1/machine-states');
     const states = Array.isArray(payload.states) ? payload.states : [];
     store.update(state => {
+      state.sharedMachineStates ||= {};
       for (const remote of states) {
         if (!remote?.machineId) continue;
+        state.sharedMachineStates[remote.machineId] = remote;
+
+        // O estado global alimenta o Andon, mas só restaura a sessão editável
+        // quando pertence ao mesmo operador, data e turno.
+        if (!belongsToActiveSession(remote,state.session)) continue;
         const local = state.machineSessions[remote.machineId];
         const remoteTime = new Date(remote.updatedAt || 0).getTime();
         const localTime = new Date(local?.updatedAt || local?.checkedAt || 0).getTime();
