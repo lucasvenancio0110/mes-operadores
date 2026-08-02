@@ -1,47 +1,174 @@
-/* Identidade visual NEODENT Manufacturing Execution System */
+/* Identidade NEODENT MES — versão limpa e compacta */
 :root{
-  --brand:#e34ba8;
-  --brand-strong:#bd2d87;
-  --brand-soft:rgba(227,75,168,.13);
-  --bg:#070a15;
-  --surface:#141824;
-  --surface-2:#1b202e;
-  --surface-3:#242a39;
-  --line:#30374a;
+  --brand:#d9469b;
+  --brand-strong:#a92572;
+  --brand-soft:rgba(217,70,155,.09);
+  --bg:#090c15;
+  --surface:#151923;
+  --surface-2:#1c212d;
+  --surface-3:#252b38;
+  --line:#303643;
   --amber:var(--brand);
   --amber-soft:var(--brand-soft);
-  --steel:#a982d8;
+  --steel:#98a1b5;
 }
-html{background:#050711}
-body{background:radial-gradient(circle at 50% -10%,rgba(52,65,126,.23),transparent 36%),radial-gradient(circle at 50% 14%,rgba(205,48,145,.08),transparent 30%),var(--bg)}
-html.brand-loading .app-shell,html.brand-loading .bottom-nav{opacity:0;transform:translateY(8px)}
-.app-shell,.bottom-nav{transition:opacity .55s ease,transform .55s ease}
-html.brand-ready .app-shell,html.brand-ready .bottom-nav{opacity:1;transform:none}
-.app-splash{position:fixed;z-index:9999;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;overflow:hidden;background:radial-gradient(circle at 50% 48%,rgba(214,55,155,.22),transparent 34%),radial-gradient(circle at 50% 8%,rgba(42,61,132,.28),transparent 45%),linear-gradient(180deg,#071022,#04060e);opacity:1;visibility:visible;transition:opacity .55s ease,visibility .55s ease,transform .65s cubic-bezier(.22,.8,.25,1)}
-.app-splash::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 20%,rgba(255,255,255,.025) 45%,transparent 70%);animation:splash-sheen 1.8s ease-in-out infinite;pointer-events:none}
-.app-splash.is-hiding{opacity:0;visibility:hidden;transform:scale(1.018)}
-.splash-logo-image{position:relative;z-index:2;width:min(760px,90vw);height:auto;filter:drop-shadow(0 14px 38px rgba(0,0,0,.38));animation:logo-enter .8s cubic-bezier(.2,.75,.2,1) both}
-.splash-loader{position:relative;z-index:2;width:min(220px,56vw);height:2px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.12)}
-.splash-loader::after{content:"";display:block;width:42%;height:100%;border-radius:inherit;background:linear-gradient(90deg,transparent,#e34ba8,#fff,#e34ba8,transparent);animation:splash-progress 1.05s ease-in-out infinite}
-@keyframes logo-enter{from{opacity:0;transform:translateY(12px) scale(.965);filter:blur(8px)}to{opacity:1;transform:none;filter:blur(0) drop-shadow(0 14px 38px rgba(0,0,0,.38))}}
-@keyframes splash-progress{from{transform:translateX(-110%)}to{transform:translateX(340%)}}
-@keyframes splash-sheen{0%,35%{transform:translateX(-65%)}75%,100%{transform:translateX(65%)}}
-.app-header{padding:12px 0 14px}
-.brand-header-card{position:relative;overflow:hidden;min-height:126px;border:1px solid rgba(227,75,168,.24);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.025),transparent),#080b17;box-shadow:0 16px 38px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.035);display:flex;align-items:center;justify-content:center;padding:8px 12px 20px}
-.brand-logo-image{display:block;width:min(100%,450px);height:auto;filter:drop-shadow(0 8px 22px rgba(0,0,0,.26))}
-.brand-header-caption{position:absolute;left:0;right:0;bottom:8px;margin:0;color:rgba(233,235,242,.62);font:600 9px/1.2 var(--mono);letter-spacing:.16em;text-align:center;text-transform:uppercase}
-.cloud-status{margin-top:9px;border-color:rgba(255,255,255,.08);background:rgba(15,18,29,.9);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
-.cloud-status.ok{color:#6ed7a0;border-color:rgba(110,215,160,.28)}
-.cloud-status.off{color:#e6a8cf;border-color:rgba(227,75,168,.25)}
-.card,.entry,.history-entry,.summary-cell{box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}
-.context-card{border-color:rgba(227,75,168,.22)}
-.dot{box-shadow:0 0 12px rgba(227,75,168,.65)}
-.field input:focus,.field select:focus,.field textarea:focus{box-shadow:0 0 0 3px rgba(227,75,168,.09)}
-.digital-panel{border-color:rgba(227,75,168,.18);background:radial-gradient(circle at 80% 20%,rgba(227,75,168,.08),transparent 35%),linear-gradient(180deg,#0a0d17,#070910)}
-.panel-readout{text-shadow:0 0 22px rgba(227,75,168,.28)}
-.btn-primary{color:#fff;background:linear-gradient(135deg,#bd2d87,#e34ba8 55%,#b568d5);box-shadow:0 10px 24px rgba(190,45,135,.22),inset 0 1px 0 rgba(255,255,255,.22)}
+
+html{background:#070a12}
+body{
+  background:
+    radial-gradient(circle at 50% -12%,rgba(48,61,112,.16),transparent 34%),
+    var(--bg);
+}
+
+html.brand-loading .app-shell,
+html.brand-loading .bottom-nav{
+  opacity:0;
+  transform:translateY(5px);
+}
+.app-shell,.bottom-nav{transition:opacity .42s ease,transform .42s ease}
+html.brand-ready .app-shell,
+html.brand-ready .bottom-nav{opacity:1;transform:none}
+
+/* Splash sem imagem e sem caixa */
+.app-splash{
+  position:fixed;
+  z-index:9999;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:34px;
+  padding:24px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 48%,rgba(192,43,128,.12),transparent 28%),
+    radial-gradient(circle at 50% 0%,rgba(39,52,100,.22),transparent 42%),
+    #070a12;
+  opacity:1;
+  visibility:visible;
+  transition:opacity .42s ease,visibility .42s ease,transform .48s ease;
+}
+.app-splash.is-hiding{opacity:0;visibility:hidden;transform:scale(1.012)}
+.splash-content{text-align:center;animation:splash-enter .62s cubic-bezier(.22,.8,.25,1) both}
+.splash-wordmark{display:flex;flex-direction:column;align-items:center}
+.splash-brand-name{
+  display:block;
+  font-family:var(--sans);
+  font-size:clamp(42px,12vw,68px);
+  line-height:.92;
+  font-weight:800;
+  letter-spacing:.055em;
+  color:#f5f6f8;
+  background:linear-gradient(180deg,#fff 8%,#d8dbe2 48%,#8d94a3 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:0 8px 24px rgba(0,0,0,.18);
+}
+.splash-brand-subtitle{
+  display:block;
+  margin-top:12px;
+  color:#db6eaf;
+  font:600 clamp(9px,2.7vw,13px)/1.25 var(--sans);
+  letter-spacing:.24em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.splash-rule{width:min(360px,72vw);height:1px;margin:21px auto 12px;background:linear-gradient(90deg,transparent,rgba(217,70,155,.75),transparent)}
+.splash-caption{color:rgba(235,237,243,.46);font:600 9px/1 var(--mono);letter-spacing:.2em;text-transform:uppercase}
+.splash-loader{width:min(170px,42vw);height:2px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.08)}
+.splash-loader span{display:block;width:38%;height:100%;border-radius:inherit;background:linear-gradient(90deg,transparent,#d9469b,#f0a7d1,transparent);animation:splash-progress .9s ease-in-out infinite}
+@keyframes splash-enter{from{opacity:0;transform:translateY(8px);filter:blur(5px)}to{opacity:1;transform:none;filter:blur(0)}}
+@keyframes splash-progress{from{transform:translateX(-120%)}to{transform:translateX(370%)}}
+
+/* Cabeçalho compacto */
+.app-header{padding:13px 4px 12px}
+.brand-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:8px 2px 13px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.header-wordmark{display:flex;min-width:0;flex-direction:column}
+.header-brand-name{
+  display:block;
+  color:#f2f3f6;
+  font-family:var(--sans);
+  font-size:29px;
+  line-height:.95;
+  font-weight:800;
+  letter-spacing:.045em;
+  background:linear-gradient(180deg,#fff,#b7bdc8);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.header-brand-subtitle{
+  display:block;
+  margin-top:6px;
+  color:#cc5c9e;
+  font:600 7.5px/1.1 var(--sans);
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.brand-mes-badge{
+  flex:none;
+  padding:7px 8px 6px;
+  border:1px solid rgba(217,70,155,.24);
+  border-radius:7px;
+  color:#d86ca9;
+  background:rgba(217,70,155,.045);
+  font:700 10px/1 var(--mono);
+  letter-spacing:.12em;
+}
+
+.cloud-status{
+  margin-top:9px;
+  padding:7px 9px;
+  border-color:rgba(255,255,255,.07);
+  background:rgba(17,20,29,.84);
+  box-shadow:none;
+  font-size:9.5px;
+}
+.cloud-status.ok{color:#72c99b;border-color:rgba(114,201,155,.2)}
+.cloud-status.off{color:#aaafbc;border-color:rgba(255,255,255,.07)}
+.cloud-status.err{color:#e07878;border-color:rgba(224,120,120,.2)}
+
+/* Tema mais sóbrio: magenta apenas como destaque */
+.card,.entry,.history-entry,.summary-cell{box-shadow:inset 0 1px 0 rgba(255,255,255,.018)}
+.context-card{border-color:var(--line)}
+.dot{box-shadow:0 0 8px rgba(217,70,155,.38)}
+.machine-tab.active,.period-tab.active,.nav-item.active{
+  border-color:rgba(217,70,155,.55);
+  background:rgba(217,70,155,.075);
+  color:#e36aad;
+}
+.field input:focus,.field select:focus,.field textarea:focus{box-shadow:0 0 0 3px rgba(217,70,155,.075)}
+.digital-panel{
+  border-color:rgba(255,255,255,.075);
+  background:linear-gradient(180deg,#0d1018,#090b11);
+}
+.panel-readout{text-shadow:0 0 17px rgba(217,70,155,.2)}
+.btn-primary{
+  color:#fff;
+  background:linear-gradient(135deg,#a92572,#d9469b);
+  box-shadow:0 8px 20px rgba(169,37,114,.18),inset 0 1px 0 rgba(255,255,255,.18);
+}
 .btn-primary:active{transform:scale(.99);filter:brightness(.96)}
-.bottom-nav{border-top-color:rgba(227,75,168,.13);background:rgba(6,8,17,.94)}
-.nav-item.active{box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
-@media(max-width:380px){.brand-header-card{min-height:112px}.brand-header-caption{font-size:8px}.splash-logo-image{width:94vw}}
-@media(prefers-reduced-motion:reduce){.app-splash,.app-shell,.bottom-nav{transition:none!important}.splash-loader::after,.app-splash::before,.splash-logo-image{animation:none!important}}
+.bottom-nav{border-top-color:rgba(255,255,255,.07);background:rgba(7,9,16,.96)}
+.nav-item.active{box-shadow:none}
+
+@media(max-width:380px){
+  .header-brand-name{font-size:26px}
+  .header-brand-subtitle{font-size:6.8px;letter-spacing:.14em}
+  .brand-mes-badge{font-size:9px}
+  .splash-brand-subtitle{letter-spacing:.17em}
+}
+@media(prefers-reduced-motion:reduce){
+  .app-splash,.app-shell,.bottom-nav{transition:none!important}
+  .splash-loader span,.splash-content{animation:none!important}
+}
