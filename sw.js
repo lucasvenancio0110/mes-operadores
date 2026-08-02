@@ -1,4 +1,4 @@
-const VERSION = 'neodent-mes-v3.0.3';
+const VERSION = 'neodent-mes-v3.0.4';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const APP_SHELL = [
@@ -13,6 +13,7 @@ const APP_SHELL = [
   '/app/components.js',
   '/app/main.js',
   '/app/cloud-state.js',
+  '/app/exports.js',
   '/app/runtime.js'
 ];
 
