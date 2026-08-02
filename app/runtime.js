@@ -109,6 +109,17 @@ function trapFocus(event) {
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
 }
 
+function preserveSearchFocus(event) {
+  if (event.target.id !== 'machineSearch') return;
+  const position = event.target.selectionStart ?? event.target.value.length;
+  requestAnimationFrame(() => {
+    const input = document.getElementById('machineSearch');
+    if (!input) return;
+    input.focus({ preventScroll:true });
+    input.setSelectionRange(position,position);
+  });
+}
+
 store.subscribe((state, reason) => normalizePointedSession(reason));
 new MutationObserver(syncLayerAccessibility).observe(layers, { childList:true, subtree:true });
 
@@ -135,6 +146,7 @@ document.addEventListener('click', event => {
   }
 }, true);
 
+document.addEventListener('input',preserveSearchFocus,true);
 document.addEventListener('keydown',trapFocus,true);
 
 navigator.serviceWorker?.addEventListener('message', event => {
