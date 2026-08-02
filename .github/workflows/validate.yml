@@ -20,6 +20,7 @@ jobs:
           node --check app/core.js
           node --check app/components.js
           node --check app/main.js
+          node --check app/cloud-state.js
           node --check app/runtime.js
           node --check sw.js
           node --check worker/main.js
@@ -27,6 +28,10 @@ jobs:
           node --check worker/database.js
           node --check worker/learning.js
           node --check worker/shift.js
+          node --check worker/operations.js
+          node --check tests/static-check.mjs
+      - name: Validate architecture and PWA
+        run: node tests/static-check.mjs
       - name: Validate manifest JSON
         run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
       - name: Check required PWA files
