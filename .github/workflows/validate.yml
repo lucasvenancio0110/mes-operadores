@@ -38,6 +38,7 @@ jobs:
             node --check app/core.js
             node --check app/components.js
             node --check app/main.js
+            node --check app/operator-main.js
             node --check app/cloud-state.js
             node --check app/exports.js
             node --check app/runtime.js
@@ -54,6 +55,8 @@ jobs:
             test -f offline.html
             test -f icons/mes-icon.svg
             test -f app/app.css
+            test -f app/operator.css
+            test -f app/operator-main.js
           } > validation/log.txt 2>&1
           STATUS=$?
           STATUS=$STATUS node - <<'NODE'
@@ -69,7 +72,8 @@ jobs:
               'worker-syntax',
               'static-architecture',
               'manifest-json',
-              'pwa-required-files'
+              'pwa-required-files',
+              'operator-simplification'
             ]
           };
           fs.writeFileSync('validation/latest.json', JSON.stringify(result, null, 2) + '\n');
