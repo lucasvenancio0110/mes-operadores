@@ -25,6 +25,18 @@
 /* A página principal termina no resumo, sem o formulário enorme no fluxo normal. */
 #viewRegister>.latest-section{margin-top:16px}
 
+.shift-change-modal{width:min(430px,100%)}
+.shift-choice-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}
+.shift-choice-grid button{
+  min-height:70px;border:1px solid var(--line);border-radius:12px;background:var(--surface);
+  color:var(--text);font:800 13px var(--mono);cursor:pointer
+}
+.shift-choice-grid button.active{
+  border-color:var(--brand);background:var(--brand-soft);color:var(--brand);
+  box-shadow:0 0 0 2px rgba(227,75,168,.10)
+}
+.shift-choice-grid button.active::after{content:' ✓';font-weight:800}
+
 @media(max-width:420px){
   .production-entry-modal{padding-left:12px;padding-right:12px}
   .production-entry-header{margin-left:-12px;margin-right:-12px;padding-left:12px;padding-right:12px}
@@ -34,4 +46,5 @@
 
 @media(max-width:350px){
   .production-entry-content .row2{grid-template-columns:1fr}
+  .shift-choice-grid{grid-template-columns:1fr}
 }
