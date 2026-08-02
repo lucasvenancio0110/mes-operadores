@@ -61,17 +61,28 @@
   }
 
   function enhanceOverview() {
-    overviewCard.querySelector('#openProductionEntryButton')?.remove();
     const actions = overviewCard.querySelector('.shift-overview-actions');
-    if (!actions || !conferenceReady()) return;
+    const existingButton = overviewCard.querySelector('#openProductionEntryButton');
+
+    if (!actions || !conferenceReady()) {
+      existingButton?.remove();
+      return;
+    }
+
+    const label = overviewCard.querySelector('.shift-status.closed')
+      ? 'Novo apontamento'
+      : 'Apontar produção';
+
+    if (existingButton) {
+      if (existingButton.textContent !== label) existingButton.textContent = label;
+      return;
+    }
 
     const button = document.createElement('button');
     button.id = 'openProductionEntryButton';
     button.type = 'button';
     button.className = 'btn btn-primary production-entry-trigger';
-    button.textContent = overviewCard.querySelector('.shift-status.closed')
-      ? 'Novo apontamento'
-      : 'Apontar produção';
+    button.textContent = label;
     button.addEventListener('click', openProductionEntry);
     actions.prepend(button);
   }
