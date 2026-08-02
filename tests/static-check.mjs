@@ -11,6 +11,8 @@ const manifest = JSON.parse(manifestText);
 assert(!html.includes('maximum-scale=1'),'O zoom do navegador não pode ser bloqueado.');
 assert(html.includes('viewport-fit=cover'),'O layout deve respeitar safe areas.');
 assert(html.includes('manifest.webmanifest'),'O manifesto PWA deve estar ligado ao HTML.');
+assert(!html.includes('src="/app/'),'Scripts absolutos quebram a publicação em subdiretório.');
+assert(!html.includes('href="/app/'),'Estilos absolutos quebram a publicação em subdiretório.');
 for (const moduleName of ['main.js','cloud-state.js','runtime.js']) assert(html.includes(moduleName),`Módulo ${moduleName} ausente.`);
 
 for (const token of ['--color-background','--color-surface','--color-brand','--color-success','--color-warning','--color-danger','--space-4','--radius-lg','--duration-normal']) {
@@ -21,6 +23,8 @@ assert(css.includes('@media(prefers-reduced-motion:reduce)'),'Preferência de mo
 assert(css.includes('@media(min-width:1024px)'),'Layout desktop não definido.');
 
 assert.equal(manifest.display,'standalone','PWA deve abrir em modo standalone.');
+assert(String(manifest.start_url).startsWith('./'),'O start_url deve funcionar em subdiretórios.');
+assert.equal(manifest.scope,'./','O escopo PWA deve ser relativo.');
 assert(manifest.icons?.length,'Manifesto sem ícones.');
 assert(serviceWorker.includes('/app/cloud-state.js'),'Service Worker não inclui o estado compartilhado.');
 
