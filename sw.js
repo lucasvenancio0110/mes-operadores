@@ -1,4 +1,4 @@
-const VERSION = 'neodent-mes-v3.0.0';
+const VERSION = 'neodent-mes-v3.0.1';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const APP_SHELL = [
@@ -11,7 +11,9 @@ const APP_SHELL = [
   '/app/catalog.js',
   '/app/core.js',
   '/app/components.js',
-  '/app/main.js'
+  '/app/main.js',
+  '/app/cloud-state.js',
+  '/app/runtime.js'
 ];
 
 self.addEventListener('install', event => {
