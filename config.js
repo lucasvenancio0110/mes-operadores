@@ -37,21 +37,21 @@ function loadApplicationScript(src) {
 window.addEventListener('DOMContentLoaded', async () => {
   try {
     await Promise.all([
-      loadApplicationStyle('branding.css?v=20260802-12'),
-      loadApplicationStyle('operations.css?v=20260802-12'),
-      loadApplicationStyle('assignment-confirm.css?v=20260802-12'),
-      loadApplicationStyle('production-entry.css?v=20260802-12'),
-      loadApplicationStyle('no-sequence.css?v=20260802-12')
+      loadApplicationStyle('branding.css?v=20260802-13'),
+      loadApplicationStyle('operations.css?v=20260802-13'),
+      loadApplicationStyle('assignment-confirm.css?v=20260802-13'),
+      loadApplicationStyle('production-entry.css?v=20260802-13'),
+      loadApplicationStyle('no-sequence.css?v=20260802-13')
     ]);
-    await loadApplicationScript('branding.js?v=20260802-12');
-    await loadApplicationScript('learning-ui.js?v=20260802-12');
-    await loadApplicationScript('session-v2.js?v=20260802-12');
-    await loadApplicationScript('shift-authority.js?v=20260802-12');
-    await loadApplicationScript('assignment-confirm.js?v=20260802-12');
-    await loadApplicationScript('master-data.js?v=20260802-12');
-    await loadApplicationScript('no-sequence.js?v=20260802-12');
-    await loadApplicationScript('production-flow.js?v=20260802-12');
-    await loadApplicationScript('production-entry.js?v=20260802-12');
+    await loadApplicationScript('branding.js?v=20260802-13');
+    await loadApplicationScript('learning-ui.js?v=20260802-13');
+    await loadApplicationScript('session-v2.js?v=20260802-13');
+    await loadApplicationScript('shift-authority.js?v=20260802-13');
+    await loadApplicationScript('assignment-confirm.js?v=20260802-13');
+    await loadApplicationScript('master-data.js?v=20260802-13');
+    await loadApplicationScript('no-sequence.js?v=20260802-13');
+    await loadApplicationScript('production-flow.js?v=20260802-13');
+    await loadApplicationScript('production-entry.js?v=20260802-13');
   } catch (error) {
     console.error('Falha ao carregar módulos complementares:', error);
     document.documentElement.classList.remove('brand-loading');
