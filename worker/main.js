@@ -19,6 +19,13 @@ import {
   getShiftContext,
   saveShiftSession
 } from './shift.js';
+import {
+  ensureOperations,
+  listMachineStates,
+  saveMachineState,
+  listMachineEvents,
+  saveMachineEvent
+} from './operations.js';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -45,6 +52,7 @@ export default {
     if (env.DB) {
       await ensureDatabase(env);
       await ensureOperationalTables(env);
+      await ensureOperations(env);
     }
 
     const url = new URL(request.url);
@@ -109,6 +117,36 @@ export default {
         const opNumber = url.searchParams.get('op') || '';
         const order = await getWorkOrder(env, opNumber);
         return json({ order });
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/v1/machine-states') {
+        const states = await listMachineStates(env, {
+          machineId: url.searchParams.get('machineId') || '',
+          lineId: url.searchParams.get('lineId') || '',
+          status: url.searchParams.get('status') || ''
+        });
+        return json({ states });
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/v1/machine-states') {
+        const payload = await requestJson(request);
+        if (!payload) return json({ error: 'JSON inválido.' }, 400);
+        return json({ state: await saveMachineState(env, payload) });
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/v1/events') {
+        const events = await listMachineEvents(env, {
+          machineId: url.searchParams.get('machineId') || '',
+          eventType: url.searchParams.get('eventType') || '',
+          from: url.searchParams.get('from') || ''
+        });
+        return json({ events });
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/v1/events') {
+        const payload = await requestJson(request);
+        if (!payload) return json({ error: 'JSON inválido.' }, 400);
+        return json({ event: await saveMachineEvent(env, payload) });
       }
 
       if (request.method === 'GET' && url.pathname === '/api/v1/database-summary') {
