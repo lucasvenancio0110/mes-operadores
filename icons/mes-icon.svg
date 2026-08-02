@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="NEODENT MES">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#151d2b"/><stop offset="1" stop-color="#070b14"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ef69b3"/><stop offset="1" stop-color="#b92d7e"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <rect x="22" y="22" width="468" height="468" rx="94" fill="none" stroke="#303b4d" stroke-width="4"/>
+  <path d="M120 334V178h44l92 92v-92h44v156h-39l-97-96v96h-44Z" fill="#f4f6fa"/>
+  <path d="M322 178h70v39h-70zm0 59h70v39h-70zm0 59h70v38h-70z" fill="url(#accent)"/>
+  <circle cx="405" cy="122" r="15" fill="#43c786"/>
+</svg>
