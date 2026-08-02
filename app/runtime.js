@@ -1,22 +1,39 @@
 import { store, api, loadAssignments, localDateKey, currentMachineSession } from './core.js';
 
+const appRoot = document.getElementById('app');
 const layers = document.getElementById('layers');
 const toastRegion = document.getElementById('toastRegion');
 let normalizing = false;
+let previousFocus = null;
 
 function showToast(message) {
   toastRegion.innerHTML = `<div class="toast is-visible" role="status">${String(message).replace(/[&<>]/g, value => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[value]))}</div>`;
   setTimeout(() => { toastRegion.innerHTML = ''; }, 3000);
 }
 
+function setModalState(opened) {
+  if (opened) {
+    appRoot.inert = true;
+    appRoot.setAttribute('aria-hidden','true');
+    document.body.style.overflow = 'hidden';
+  } else {
+    appRoot.inert = false;
+    appRoot.removeAttribute('aria-hidden');
+    document.body.style.overflow = '';
+  }
+}
+
 function close() {
   layers.innerHTML = '';
-  document.body.style.overflow = '';
+  setModalState(false);
+  previousFocus?.focus?.();
 }
 
 function open(content) {
+  previousFocus = document.activeElement;
   layers.innerHTML = `<div class="layer is-open"><section class="sheet" role="dialog" aria-modal="true"><header class="sheet-head"><div><p class="eyebrow">NEODENT MES</p><h2>Menu</h2></div><button class="close-button" type="button" data-runtime-close aria-label="Fechar">×</button></header>${content}</section></div>`;
-  document.body.style.overflow = 'hidden';
+  setModalState(true);
+  requestAnimationFrame(() => layers.querySelector('button,input,select,textarea')?.focus());
 }
 
 function openMenu() {
@@ -68,8 +85,32 @@ function repairDynamicControls() {
   if (shiftButton && String(shiftButton.dataset.value).includes('+current+')) shiftButton.dataset.value = store.state.session?.shift || '1';
 }
 
+function syncLayerAccessibility() {
+  const opened = Boolean(layers.querySelector('.layer.is-open'));
+  setModalState(opened);
+  repairDynamicControls();
+}
+
+function trapFocus(event) {
+  if (event.key === 'Escape' && layers.querySelector('.layer.is-open')) {
+    event.preventDefault();
+    close();
+    return;
+  }
+  if (event.key !== 'Tab') return;
+  const modal = layers.querySelector('.sheet');
+  if (!modal) return;
+  const focusable = [...modal.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])')]
+    .filter(element => !element.hidden && element.getClientRects().length);
+  if (!focusable.length) return;
+  const first = focusable[0];
+  const last = focusable.at(-1);
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+}
+
 store.subscribe((state, reason) => normalizePointedSession(reason));
-new MutationObserver(repairDynamicControls).observe(layers, { childList:true, subtree:true });
+new MutationObserver(syncLayerAccessibility).observe(layers, { childList:true, subtree:true });
 
 document.addEventListener('click', event => {
   if (event.target.closest('#headerMenu')) { event.preventDefault(); return openMenu(); }
@@ -88,7 +129,13 @@ document.addEventListener('click', event => {
   }
   const save = event.target.closest('[data-runtime-shift-save]');
   if (save) return saveShift(save.dataset.runtimeShiftSave);
+
+  if (event.target.closest('[data-action="close-order"],.btn-danger,[data-conference-save]')) {
+    navigator.vibrate?.(12);
+  }
 }, true);
+
+document.addEventListener('keydown',trapFocus,true);
 
 navigator.serviceWorker?.addEventListener('message', event => {
   if (event.data?.type === 'APP_UPDATED') showToast('Nova versão instalada. Atualize a página quando puder.');
