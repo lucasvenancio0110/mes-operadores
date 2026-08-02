@@ -55,14 +55,8 @@ async function resolveOperator(env, record) {
     ) VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
     ON CONFLICT(id) DO UPDATE SET
       name = excluded.name,
-      registration = CASE
-        WHEN excluded.registration <> '' THEN excluded.registration
-        ELSE operators.registration
-      END,
-      default_shift = CASE
-        WHEN excluded.default_shift <> '' THEN excluded.default_shift
-        ELSE operators.default_shift
-      END,
+      registration = CASE WHEN excluded.registration <> '' THEN excluded.registration ELSE operators.registration END,
+      default_shift = CASE WHEN excluded.default_shift <> '' THEN excluded.default_shift ELSE operators.default_shift END,
       active = 1,
       updated_at = CURRENT_TIMESTAMP`)
     .bind(id, name, registration, String(record.shift || ''))
@@ -86,10 +80,7 @@ async function resolveItem(env, record) {
       frequency_1, frequency_2, active, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
     ON CONFLICT(item_number) DO UPDATE SET
-      description = CASE
-        WHEN excluded.description <> '' THEN excluded.description
-        ELSE items.description
-      END,
+      description = CASE WHEN excluded.description <> '' THEN excluded.description ELSE items.description END,
       default_cycle_time_seconds = COALESCE(excluded.default_cycle_time_seconds, items.default_cycle_time_seconds),
       frequency_1 = COALESCE(excluded.frequency_1, items.frequency_1),
       frequency_2 = COALESCE(excluded.frequency_2, items.frequency_2),
@@ -141,19 +132,21 @@ async function saveWorkOrder(env, item, operator, record) {
   if (!opNumber) return;
 
   const id = `op-${slugify(opNumber)}`;
+  const active = record.orderStatus === 'closed' || record.eventType === 'order-close' ? 0 : 1;
+
   await env.DB.prepare(`INSERT INTO work_orders (
       id, op_number, item_id, item_number, line_id, machine_id,
       sequence, last_operator_id, last_operator_name, active, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+    ) VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(op_number) DO UPDATE SET
       item_id = COALESCE(excluded.item_id, work_orders.item_id),
       item_number = CASE WHEN excluded.item_number <> '' THEN excluded.item_number ELSE work_orders.item_number END,
       line_id = CASE WHEN excluded.line_id <> '' THEN excluded.line_id ELSE work_orders.line_id END,
       machine_id = CASE WHEN excluded.machine_id <> '' THEN excluded.machine_id ELSE work_orders.machine_id END,
-      sequence = CASE WHEN excluded.sequence <> '' THEN excluded.sequence ELSE work_orders.sequence END,
+      sequence = '',
       last_operator_id = COALESCE(excluded.last_operator_id, work_orders.last_operator_id),
       last_operator_name = CASE WHEN excluded.last_operator_name <> '' THEN excluded.last_operator_name ELSE work_orders.last_operator_name END,
-      active = 1,
+      active = excluded.active,
       updated_at = CURRENT_TIMESTAMP`)
     .bind(
       id,
@@ -162,9 +155,9 @@ async function saveWorkOrder(env, item, operator, record) {
       item?.itemNumber || String(record.item || '').trim(),
       String(record.lineId || '').trim(),
       String(record.machineId || '').trim(),
-      String(record.sequence || '').trim(),
       operator?.id || null,
-      operator?.name || String(record.operatorName || '').trim()
+      operator?.name || String(record.operatorName || '').trim(),
+      active
     )
     .run();
 }
@@ -230,11 +223,11 @@ export async function getWorkOrder(env, opNumber) {
       item_number AS item,
       line_id AS lineId,
       machine_id AS machineId,
-      sequence,
       last_operator_name AS lastOperatorName,
+      active,
       updated_at AS updatedAt
     FROM work_orders
-    WHERE active = 1 AND op_number = ?
+    WHERE op_number = ?
     LIMIT 1`)
     .bind(opNumber)
     .first();
