@@ -2,9 +2,9 @@
   "name": "NEODENT Manufacturing Execution System",
   "short_name": "NEODENT MES",
   "description": "Central operacional mobile-first para acompanhamento de máquinas CNC, turnos, produção, Andon e apontamentos.",
-  "id": "/",
-  "start_url": "/?source=pwa",
-  "scope": "/",
+  "id": "./",
+  "start_url": "./?source=pwa",
+  "scope": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
@@ -14,7 +14,7 @@
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
-      "src": "/icons/mes-icon.svg",
+      "src": "icons/mes-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -24,14 +24,14 @@
     {
       "name": "Visão geral",
       "short_name": "Visão geral",
-      "url": "/?route=overview",
-      "icons": [{ "src": "/icons/mes-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "url": "./?route=overview",
+      "icons": [{ "src": "icons/mes-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
       "name": "Andon",
       "short_name": "Andon",
-      "url": "/?route=andon",
-      "icons": [{ "src": "/icons/mes-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "url": "./?route=andon",
+      "icons": [{ "src": "icons/mes-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     }
   ]
 }
