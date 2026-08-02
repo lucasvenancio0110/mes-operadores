@@ -1,0 +1,47 @@
+/* Identidade visual NEODENT Manufacturing Execution System */
+:root{
+  --brand:#e34ba8;
+  --brand-strong:#bd2d87;
+  --brand-soft:rgba(227,75,168,.13);
+  --bg:#070a15;
+  --surface:#141824;
+  --surface-2:#1b202e;
+  --surface-3:#242a39;
+  --line:#30374a;
+  --amber:var(--brand);
+  --amber-soft:var(--brand-soft);
+  --steel:#a982d8;
+}
+html{background:#050711}
+body{background:radial-gradient(circle at 50% -10%,rgba(52,65,126,.23),transparent 36%),radial-gradient(circle at 50% 14%,rgba(205,48,145,.08),transparent 30%),var(--bg)}
+html.brand-loading .app-shell,html.brand-loading .bottom-nav{opacity:0;transform:translateY(8px)}
+.app-shell,.bottom-nav{transition:opacity .55s ease,transform .55s ease}
+html.brand-ready .app-shell,html.brand-ready .bottom-nav{opacity:1;transform:none}
+.app-splash{position:fixed;z-index:9999;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;overflow:hidden;background:radial-gradient(circle at 50% 48%,rgba(214,55,155,.22),transparent 34%),radial-gradient(circle at 50% 8%,rgba(42,61,132,.28),transparent 45%),linear-gradient(180deg,#071022,#04060e);opacity:1;visibility:visible;transition:opacity .55s ease,visibility .55s ease,transform .65s cubic-bezier(.22,.8,.25,1)}
+.app-splash::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 20%,rgba(255,255,255,.025) 45%,transparent 70%);animation:splash-sheen 1.8s ease-in-out infinite;pointer-events:none}
+.app-splash.is-hiding{opacity:0;visibility:hidden;transform:scale(1.018)}
+.splash-logo-image{position:relative;z-index:2;width:min(760px,90vw);height:auto;filter:drop-shadow(0 14px 38px rgba(0,0,0,.38));animation:logo-enter .8s cubic-bezier(.2,.75,.2,1) both}
+.splash-loader{position:relative;z-index:2;width:min(220px,56vw);height:2px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.12)}
+.splash-loader::after{content:"";display:block;width:42%;height:100%;border-radius:inherit;background:linear-gradient(90deg,transparent,#e34ba8,#fff,#e34ba8,transparent);animation:splash-progress 1.05s ease-in-out infinite}
+@keyframes logo-enter{from{opacity:0;transform:translateY(12px) scale(.965);filter:blur(8px)}to{opacity:1;transform:none;filter:blur(0) drop-shadow(0 14px 38px rgba(0,0,0,.38))}}
+@keyframes splash-progress{from{transform:translateX(-110%)}to{transform:translateX(340%)}}
+@keyframes splash-sheen{0%,35%{transform:translateX(-65%)}75%,100%{transform:translateX(65%)}}
+.app-header{padding:12px 0 14px}
+.brand-header-card{position:relative;overflow:hidden;min-height:126px;border:1px solid rgba(227,75,168,.24);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.025),transparent),#080b17;box-shadow:0 16px 38px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.035);display:flex;align-items:center;justify-content:center;padding:8px 12px 20px}
+.brand-logo-image{display:block;width:min(100%,450px);height:auto;filter:drop-shadow(0 8px 22px rgba(0,0,0,.26))}
+.brand-header-caption{position:absolute;left:0;right:0;bottom:8px;margin:0;color:rgba(233,235,242,.62);font:600 9px/1.2 var(--mono);letter-spacing:.16em;text-align:center;text-transform:uppercase}
+.cloud-status{margin-top:9px;border-color:rgba(255,255,255,.08);background:rgba(15,18,29,.9);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+.cloud-status.ok{color:#6ed7a0;border-color:rgba(110,215,160,.28)}
+.cloud-status.off{color:#e6a8cf;border-color:rgba(227,75,168,.25)}
+.card,.entry,.history-entry,.summary-cell{box-shadow:inset 0 1px 0 rgba(255,255,255,.02)}
+.context-card{border-color:rgba(227,75,168,.22)}
+.dot{box-shadow:0 0 12px rgba(227,75,168,.65)}
+.field input:focus,.field select:focus,.field textarea:focus{box-shadow:0 0 0 3px rgba(227,75,168,.09)}
+.digital-panel{border-color:rgba(227,75,168,.18);background:radial-gradient(circle at 80% 20%,rgba(227,75,168,.08),transparent 35%),linear-gradient(180deg,#0a0d17,#070910)}
+.panel-readout{text-shadow:0 0 22px rgba(227,75,168,.28)}
+.btn-primary{color:#fff;background:linear-gradient(135deg,#bd2d87,#e34ba8 55%,#b568d5);box-shadow:0 10px 24px rgba(190,45,135,.22),inset 0 1px 0 rgba(255,255,255,.22)}
+.btn-primary:active{transform:scale(.99);filter:brightness(.96)}
+.bottom-nav{border-top-color:rgba(227,75,168,.13);background:rgba(6,8,17,.94)}
+.nav-item.active{box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+@media(max-width:380px){.brand-header-card{min-height:112px}.brand-header-caption{font-size:8px}.splash-logo-image{width:94vw}}
+@media(prefers-reduced-motion:reduce){.app-splash,.app-shell,.bottom-nav{transition:none!important}.splash-loader::after,.app-splash::before,.splash-logo-image{animation:none!important}}
