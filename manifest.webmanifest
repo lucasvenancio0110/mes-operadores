@@ -1,0 +1,37 @@
+{
+  "name": "NEODENT Manufacturing Execution System",
+  "short_name": "NEODENT MES",
+  "description": "Central operacional mobile-first para acompanhamento de máquinas CNC, turnos, produção, Andon e apontamentos.",
+  "id": "/",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#090d17",
+  "theme_color": "#090d17",
+  "lang": "pt-BR",
+  "categories": ["business", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/icons/mes-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Visão geral",
+      "short_name": "Visão geral",
+      "url": "/?route=overview",
+      "icons": [{ "src": "/icons/mes-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Andon",
+      "short_name": "Andon",
+      "url": "/?route=andon",
+      "icons": [{ "src": "/icons/mes-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}
