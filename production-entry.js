@@ -336,10 +336,7 @@
   }
 
   function conferenceReady() {
-    return Boolean(
-      overviewCard.querySelector('.shift-status.open') ||
-      overviewCard.querySelector('.shift-status.closed')
-    );
+    return Boolean(overviewCard.querySelector('.shift-status.open'));
   }
 
   function improveOverviewLanguage() {
@@ -366,7 +363,9 @@
     }
 
     if (existingButton) {
-      existingButton.textContent = 'Confirmar apontamento';
+      if (existingButton.textContent !== 'Confirmar apontamento') {
+        existingButton.textContent = 'Confirmar apontamento';
+      }
       return;
     }
 
