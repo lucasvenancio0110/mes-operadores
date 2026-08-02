@@ -1,0 +1,4 @@
+/* Sequência não faz parte do processo operacional. */
+.sequence-legacy-field{display:none!important}
+.sequence-free-row{grid-template-columns:1fr!important}
+.sequence-free-row>.field:not(.sequence-legacy-field){grid-column:1/-1}
