@@ -1,13 +1,14 @@
 {
   "status": "success",
-  "commit": "9c081d331cbd3c401c6d0d05f5dd625d40fc87d6",
-  "workflowRun": "30771089360",
-  "validatedAt": "2026-08-02T22:53:36.847Z",
+  "commit": "d8047fa89bd759e8aacd541e5591747b0d88314d",
+  "workflowRun": "30771107660",
+  "validatedAt": "2026-08-02T22:54:12.159Z",
   "checks": [
     "javascript-syntax",
     "worker-syntax",
     "static-architecture",
     "manifest-json",
-    "pwa-required-files"
+    "pwa-required-files",
+    "operator-simplification"
   ]
 }
