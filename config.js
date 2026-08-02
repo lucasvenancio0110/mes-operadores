@@ -15,7 +15,7 @@ document.head.appendChild(criticalBrandStyle);
 
 const brandingStyles = document.createElement('link');
 brandingStyles.rel = 'stylesheet';
-brandingStyles.href = 'branding.css?v=20260802-1';
+brandingStyles.href = 'branding.css?v=20260802-2';
 document.head.appendChild(brandingStyles);
 
 function loadApplicationScript(src) {
@@ -30,7 +30,7 @@ function loadApplicationScript(src) {
 
 window.addEventListener('DOMContentLoaded', async () => {
   try {
-    await loadApplicationScript('branding.js?v=20260802-1');
+    await loadApplicationScript('branding.js?v=20260802-2');
     // O catálogo oficial já é carregado diretamente pelo index.html.
     // Estes módulos adicionam o aprendizado automático e a consulta ao D1.
     await loadApplicationScript('learning-ui.js?v=20260801-4');
