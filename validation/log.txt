@@ -1,5 +1,19 @@
-Commit: d8047fa89bd759e8aacd541e5591747b0d88314d
-Started: 2026-08-02T22:54:11Z
+Commit: 4c1ae1029c1987d8dfedff46d108aab3aca34b2f
+Started: 2026-08-02T22:54:59Z
 
-Static MES checks passed.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Módulo runtime.js ausente.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:16:82 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Manifest JSON passed.
