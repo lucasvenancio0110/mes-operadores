@@ -9,7 +9,9 @@
   const observer = new MutationObserver(() => scheduleRefresh());
 
   function observe() {
-    observer.observe(body, { childList: true, subtree: true });
+    // Observa somente a troca da tela do assistente. Alterações internas como
+    // "Linha 5 selecionada" não devem reiniciar a seleção.
+    observer.observe(body, { childList: true });
   }
 
   function scheduleRefresh() {
@@ -32,8 +34,9 @@
   function updateConfirmButton() {
     const button = body.querySelector('[data-confirm-selection]');
     if (!button) return;
-    button.disabled = !selectedCard;
-    button.classList.toggle('is-ready', Boolean(selectedCard));
+    const hasSelection = Boolean(selectedCard);
+    button.disabled = !hasSelection;
+    button.classList.toggle('is-ready', hasSelection);
   }
 
   function selectionType() {
@@ -98,7 +101,7 @@
     card.setAttribute('aria-pressed', 'true');
 
     const status = body.querySelector('.assignment-confirm-status span:last-child');
-    const title = card.querySelector('strong')?.textContent?.trim() || 'Opção selecionada';
+    const title = card.querySelector('strong')?.textContent?.trim() || 'Opção';
     if (status) status.textContent = `${title} selecionada`;
     updateConfirmButton();
   }, true);
