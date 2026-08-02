@@ -1,4 +1,4 @@
-const VERSION = 'neodent-mes-v3.0.1';
+const VERSION = 'neodent-mes-v3.0.2';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const APP_SHELL = [
