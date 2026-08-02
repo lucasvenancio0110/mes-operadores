@@ -37,15 +37,13 @@ function loadApplicationScript(src) {
 window.addEventListener('DOMContentLoaded', async () => {
   try {
     await Promise.all([
-      loadApplicationStyle('branding.css?v=20260802-4'),
-      loadApplicationStyle('operations.css?v=20260802-4')
+      loadApplicationStyle('branding.css?v=20260802-5'),
+      loadApplicationStyle('operations.css?v=20260802-5')
     ]);
-    await loadApplicationScript('branding.js?v=20260802-4');
-    // learning-ui cria os campos internos de matrícula e descrição antes
-    // de a sessão do operador reorganizar a tela.
-    await loadApplicationScript('learning-ui.js?v=20260802-4');
-    await loadApplicationScript('session-ui.js?v=20260802-4');
-    await loadApplicationScript('master-data.js?v=20260802-4');
+    await loadApplicationScript('branding.js?v=20260802-5');
+    await loadApplicationScript('learning-ui.js?v=20260802-5');
+    await loadApplicationScript('session-v2.js?v=20260802-5');
+    await loadApplicationScript('master-data.js?v=20260802-5');
   } catch (error) {
     console.error('Falha ao carregar módulos complementares:', error);
     document.documentElement.classList.remove('brand-loading');
