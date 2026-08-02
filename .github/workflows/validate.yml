@@ -3,7 +3,13 @@ name: Validate MES
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - validation/latest.json
+      - validation/log.txt
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   validate:
@@ -11,28 +17,77 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check JavaScript syntax
+
+      - name: Run validation suite
+        id: validation
+        continue-on-error: true
+        shell: bash
         run: |
-          node --check app/catalog.js
-          node --check app/core.js
-          node --check app/components.js
-          node --check app/main.js
-          node --check app/cloud-state.js
-          node --check app/runtime.js
-          node --check sw.js
-          node --check worker/main.js
-          node --check worker/index.js
-          node --check worker/database.js
-          node --check worker/learning.js
-          node --check worker/shift.js
-          node --check worker/operations.js
-          node --check tests/static-check.mjs
-      - name: Validate architecture and PWA
-        run: node tests/static-check.mjs
-      - name: Validate manifest JSON
-        run: node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('manifest ok')"
-      - name: Check required PWA files
-        run: test -f offline.html && test -f icons/mes-icon.svg && test -f app/app.css
+          mkdir -p validation
+          set +e
+          {
+            echo "Commit: $GITHUB_SHA"
+            echo "Started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            node --check app/catalog.js
+            node --check app/core.js
+            node --check app/components.js
+            node --check app/main.js
+            node --check app/cloud-state.js
+            node --check app/runtime.js
+            node --check sw.js
+            node --check worker/main.js
+            node --check worker/index.js
+            node --check worker/database.js
+            node --check worker/learning.js
+            node --check worker/shift.js
+            node --check worker/operations.js
+            node --check tests/static-check.mjs
+            node tests/static-check.mjs
+            node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest JSON passed.')"
+            test -f offline.html
+            test -f icons/mes-icon.svg
+            test -f app/app.css
+          } > validation/log.txt 2>&1
+          STATUS=$?
+          STATUS=$STATUS node - <<'NODE'
+          const fs = require('fs');
+          const status = process.env.STATUS === '0' ? 'success' : 'failure';
+          const result = {
+            status,
+            commit: process.env.GITHUB_SHA,
+            workflowRun: process.env.GITHUB_RUN_ID,
+            validatedAt: new Date().toISOString(),
+            checks: [
+              'javascript-syntax',
+              'worker-syntax',
+              'static-architecture',
+              'manifest-json',
+              'pwa-required-files'
+            ]
+          };
+          fs.writeFileSync('validation/latest.json', JSON.stringify(result, null, 2) + '\n');
+          NODE
+          cat validation/log.txt
+          exit $STATUS
+
+      - name: Publish validation result
+        if: always()
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add validation/latest.json validation/log.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: atualiza validação automática [skip ci]"
+            git push
+          fi
+
+      - name: Fail workflow when validation fails
+        if: steps.validation.outcome == 'failure'
+        run: exit 1
