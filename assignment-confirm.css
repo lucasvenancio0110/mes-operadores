@@ -1,0 +1,119 @@
+/* Confirmação explícita e layout responsivo do assistente de máquinas */
+.selector-card{
+  position:relative;
+  transition:border-color .16s ease,background .16s ease,transform .12s ease,box-shadow .16s ease;
+}
+.selector-card:active{transform:scale(.985)}
+.selector-card.is-selected{
+  border-color:var(--brand);
+  background:linear-gradient(145deg,rgba(227,75,168,.16),rgba(169,130,216,.08));
+  box-shadow:0 0 0 2px rgba(227,75,168,.11),inset 0 1px 0 rgba(255,255,255,.04);
+}
+.selector-card.is-selected::after{
+  content:'✓';
+  position:absolute;
+  top:9px;
+  right:10px;
+  width:24px;
+  height:24px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:var(--brand);
+  color:#fff;
+  font:800 13px var(--sans);
+  box-shadow:0 6px 16px rgba(227,75,168,.24);
+}
+.selector-card.is-selected strong{color:#fff}
+.selector-card.is-selected span{color:#d9b9d0}
+
+.assignment-confirm-bar{
+  position:sticky;
+  z-index:8;
+  bottom:-18px;
+  margin:14px -18px -18px;
+  padding:12px 18px calc(14px + env(safe-area-inset-bottom));
+  border-top:1px solid rgba(255,255,255,.08);
+  background:linear-gradient(180deg,rgba(17,21,34,.88),#111522 24%);
+  backdrop-filter:blur(14px);
+}
+.assignment-confirm-status{
+  min-height:22px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  margin-bottom:9px;
+  color:var(--muted);
+  font:600 10.5px var(--mono);
+}
+.assignment-confirm-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:var(--muted);
+  transition:.16s ease;
+}
+.assignment-confirm-button{opacity:.48;transition:opacity .16s ease,transform .12s ease}
+.assignment-confirm-button.is-ready{opacity:1}
+.assignment-confirm-button.is-ready + *{display:none}
+.assignment-confirm-button:not(:disabled) ~ .assignment-confirm-status .assignment-confirm-dot,
+.assignment-confirm-status:has(+ .assignment-confirm-button.is-ready) .assignment-confirm-dot{background:var(--brand);box-shadow:0 0 10px rgba(227,75,168,.65)}
+.assignment-confirm-button:disabled{cursor:not-allowed}
+.assignment-confirm-button:not(:disabled):active{transform:scale(.99)}
+.assignment-final-actions{
+  position:sticky;
+  z-index:8;
+  bottom:-18px;
+  margin:15px -18px -18px;
+  padding:12px 18px calc(14px + env(safe-area-inset-bottom));
+  border-top:1px solid rgba(255,255,255,.08);
+  background:#111522;
+}
+
+@media(max-width:600px){
+  #assignmentLayer{
+    padding:0;
+    background:#080b14;
+    align-items:stretch!important;
+  }
+  #assignmentLayer .app-modal.wide{
+    width:100%;
+    min-height:100dvh;
+    max-height:100dvh;
+    border:0;
+    border-radius:0;
+    padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+    box-shadow:none;
+  }
+  #assignmentLayer .modal-head{
+    position:sticky;
+    z-index:10;
+    top:calc(-16px - env(safe-area-inset-top));
+    margin:calc(-16px - env(safe-area-inset-top)) -16px 15px;
+    padding:calc(16px + env(safe-area-inset-top)) 16px 13px;
+    border-bottom:1px solid rgba(255,255,255,.07);
+    background:rgba(17,21,34,.96);
+    backdrop-filter:blur(14px);
+  }
+  #assignmentLayer .modal-head h2{font-size:25px;line-height:1.08}
+  #assignmentLayer .assignment-progress{margin-top:4px;font-size:11px}
+  #assignmentLayer .selector-title{font-size:16px;margin-bottom:12px}
+  #assignmentLayer .selector-grid{gap:9px}
+  #assignmentLayer .selector-card{min-height:82px;padding:14px}
+  #assignmentLayer .selector-card strong{font-size:15px}
+  #assignmentLayer .selector-card span{font-size:11px}
+  #assignmentLayer .assignment-confirm-bar,
+  #assignmentLayer .assignment-final-actions{
+    bottom:calc(-16px - env(safe-area-inset-bottom));
+    margin-left:-16px;
+    margin-right:-16px;
+    margin-bottom:calc(-16px - env(safe-area-inset-bottom));
+    padding-left:16px;
+    padding-right:16px;
+  }
+}
+
+@media(max-width:360px){
+  #assignmentLayer .selector-grid{grid-template-columns:1fr}
+}
