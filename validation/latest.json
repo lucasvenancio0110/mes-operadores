@@ -1,8 +1,8 @@
 {
   "status": "success",
-  "commit": "8f8d6a43dd01d63328dfbd99ddac57fc08c005b3",
-  "workflowRun": "30827572812",
-  "validatedAt": "2026-08-03T15:27:38.073Z",
+  "commit": "0a9d851fd9f39d6878da14d92a5d5e81d4c7d598",
+  "workflowRun": "30827607780",
+  "validatedAt": "2026-08-03T15:27:57.645Z",
   "checks": [
     "javascript-syntax",
     "worker-syntax",
@@ -13,6 +13,10 @@
     "brand-responsive-header",
     "brand-menu-login-splash",
     "brand-pwa-icons",
+    "cloudflare-worker-assets",
+    "cloudflare-d1-binding",
+    "cloudflare-deploy-workflow",
+    "sync-warning-only-on-errors",
     "operator-simplification",
     "premium-design-system",
     "production-planning",
