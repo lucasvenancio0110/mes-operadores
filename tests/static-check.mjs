@@ -5,15 +5,17 @@ const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const [
   html, baseCss, operatorCss, premiumCss, brandCss, cloudSyncCss, manifestText,
   worker, operatorMain, premiumRuntime, brandRuntime, planningRuntime,
-  measurementRuntime, measurementEngine, settingsWorker, core, exportsModule,
-  serviceWorker, officialLogo, officialSymbol, appIcon, maskableIcon, offline,
-  wranglerText, deployWorkflow, shiftPerformance, shiftTimeEngine, shiftTimeFix
+  measurementRuntime, measurementEngine, measurementFrequencyParser, measurementFrequencyFix,
+  settingsWorker, core, exportsModule, serviceWorker, officialLogo, officialSymbol,
+  appIcon, maskableIcon, offline, wranglerText, deployWorkflow, shiftPerformance,
+  shiftTimeEngine, shiftTimeFix
 ] = await Promise.all([
   read('index.html'), read('app/app.css'), read('app/operator.css'), read('app/premium.css'),
   read('app/brand.css'), read('app/cloud-sync.css'), read('manifest.webmanifest'),
   read('worker/main.js'), read('app/operator-main.js'), read('app/premium-runtime.js'),
   read('app/brand.js'), read('app/production-planning.js'), read('app/measurement-plan.js'),
-  read('app/measurement-engine.js'), read('worker/settings.js'), read('app/core.js'),
+  read('app/measurement-engine.js'), read('app/measurement-frequency-parser.js'),
+  read('app/measurement-frequency-fix.js'), read('worker/settings.js'), read('app/core.js'),
   read('app/exports.js'), read('sw.js'), read('assets/brand/neomes-logo-horizontal.svg'),
   read('assets/brand/neomes-symbol.svg'), read('icons/neomes-app-icon.svg'),
   read('icons/neomes-app-icon-maskable.svg'), read('offline.html'), read('wrangler.jsonc'),
@@ -29,10 +31,11 @@ assert(!html.includes('maximum-scale=1'), 'O zoom do navegador não pode ser blo
 assert(html.includes('viewport-fit=cover'), 'O layout deve respeitar safe areas.');
 assert(!html.includes('src="/app/') && !html.includes('href="/app/'), 'Caminhos absolutos quebram o GitHub Pages.');
 assert(html.includes('<title>NEOMES — Gestão Operacional</title>'), 'Título oficial NEOMES ausente.');
-assert.equal(publishedVersion, '3.7.3', 'Versão 3.7.3 não foi publicada no ponto de entrada.');
+assert.equal(publishedVersion, '3.7.4', 'Versão 3.7.4 não foi publicada no ponto de entrada.');
 assert(html.includes('app/cloud-sync.css'), 'Camada de sincronização discreta não foi carregada.');
 assert(html.includes('app/shift-performance.js'), 'Desempenho do turno não foi carregado.');
 assert(html.includes('app/shift-time-fix.js'), 'Correção de duração do turno não foi carregada.');
+assert(html.includes('app/measurement-frequency-fix.js'), 'Correção das duas frequências não foi carregada.');
 assert(!html.includes('NEODENT MES'), 'Identidade antiga permanece no ponto de entrada.');
 
 // Marca oficial: magenta, transparente e sem resíduos brancos.
@@ -73,14 +76,16 @@ assert(cloudSyncCss.includes('.ops-page-head .ops-eyebrow'), 'Rótulo explicativ
 assert.equal(manifest.name, 'NEOMES');
 assert.equal(manifest.short_name, 'NEOMES');
 assert.equal(manifest.display, 'standalone');
+assert(manifest.start_url.includes('v=3.7.4'), 'Manifesto não aponta para 3.7.4.');
 assert(manifest.icons.some(icon => icon.purpose === 'any'), 'Ícone principal ausente.');
 assert(manifest.icons.some(icon => icon.purpose === 'maskable'), 'Ícone maskable ausente.');
-assert(serviceWorker.includes('neomes-v3.7.3'), 'Cache PWA não foi renovado para 3.7.3.');
+assert(serviceWorker.includes('neomes-v3.7.4'), 'Cache PWA não foi renovado para 3.7.4.');
 for (const asset of [
   './assets/brand/neomes-logo-horizontal.svg', './assets/brand/neomes-symbol.svg',
   './icons/neomes-app-icon.svg', './icons/neomes-app-icon-maskable.svg',
   './app/brand.js', './app/brand.css', './app/cloud-sync.css',
-  './app/shift-performance.js', './app/shift-time-engine.js', './app/shift-time-fix.js'
+  './app/shift-performance.js', './app/shift-time-engine.js', './app/shift-time-fix.js',
+  './app/measurement-frequency-parser.js', './app/measurement-frequency-fix.js'
 ]) assert(serviceWorker.includes(asset), `Service Worker não inclui ${asset}.`);
 assert(!manifestText.includes('NEODENT MES') && !offline.includes('NEODENT MES') && !offline.includes('>NM<'), 'Identidade antiga permanece no PWA ou modo offline.');
 
@@ -108,6 +113,11 @@ assert(planningRuntime.includes('barLengthMm: 3600') && planningRuntime.includes
 assert(planningRuntime.includes('barLengthMm / (pieceLengthMm + kerfMm)'), 'Fórmula de peças por barra incorreta.');
 assert(planningRuntime.includes('currentBarPieces + feederBars * piecesPerFullBar'), 'Potencial de matéria-prima incorreto.');
 assert(measurementEngine.includes('totalMeasurements') && measurementEngine.includes('previousMeasurements'), 'Plano total de medições ausente.');
+assert(measurementEngine.includes('QUOTIENT_SNAP_TOLERANCE'), 'Frequência arredondada não possui tolerância de cálculo.');
+assert(measurementEngine.includes('totalMeasurements - previousMeasurements - measurementsThisShift'), 'Depois do turno não fecha a soma do total da OP.');
+assert(measurementFrequencyParser.includes('parseFrequencyPair'), 'Separador de duas frequências ausente.');
+assert(measurementFrequencyFix.includes('Adicionar segunda frequência'), 'Campo opcional de Frequência II não foi reforçado.');
+assert(measurementFrequencyFix.includes('measurementPlanVersion: FIXED_PLAN_VERSION'), 'Planos antigos não serão recalculados.');
 assert(measurementRuntime.includes('Faça a medição') && measurementRuntime.includes('peças no turno'), 'Orientação de medição ausente.');
 assert(measurementRuntime.includes('/api/v1/machine-states'), 'Plano não é compartilhado com a linha.');
 assert(settingsWorker.includes('CREATE TABLE IF NOT EXISTS app_settings'), 'Ajustes globais ausentes.');
@@ -123,4 +133,4 @@ assert(shiftTimeFix.includes('availableMinutes: FULL_SHIFT_MINUTES'), 'A confer�
 assert(shiftTimeFix.includes('Turno completo de 480 minutos'), 'A interface não explica a base de 480 minutos.');
 assert(shiftPerformance.includes('stoppageSeconds') && shiftPerformance.includes('targetReached'), 'Tempo de parada ou comparação com a meta ausente.');
 
-console.log('NEOMES Cloudflare, D1, 480-minute target and operational checks passed.');
+console.log('NEOMES 3.7.4: frequências separadas, soma reconciliada e controles operacionais validados.');
