@@ -1,0 +1,5 @@
+.ops-manual-label{display:none;align-items:center;min-height:24px;margin-left:4px;padding:0 8px;border:1px solid rgba(101,157,232,.18);border-radius:999px;background:rgba(101,157,232,.07);color:#92b9ed;font:700 .52rem var(--font-mono);letter-spacing:.055em;text-transform:uppercase;white-space:nowrap}
+.ops-menu-brand{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:14px;border:1px solid rgba(224,82,165,.18);border-radius:18px;background:linear-gradient(145deg,rgba(224,82,165,.1),rgba(101,157,232,.035));box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
+.ops-menu-brand img{width:44px;height:44px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.24))}
+.ops-menu-brand strong,.ops-menu-brand span{display:block}.ops-menu-brand strong{font-size:.88rem;letter-spacing:.055em}.ops-menu-brand span{margin-top:4px;color:var(--premium-text-3);font-size:.65rem}
+@media(min-width:720px){.ops-manual-label{display:inline-flex}}
