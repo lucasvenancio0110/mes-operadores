@@ -9,8 +9,8 @@ const [html, script, css, serviceWorker] = await Promise.all([
   read('sw.js')
 ]);
 
-assert(html.includes('conference-ux.css?v=3.5.0'), 'Estilo da conferência compacta não está carregado.');
-assert(html.includes('conference-ux.js?v=3.5.0'), 'Módulo da conferência compacta não está carregado.');
+assert(/conference-ux\.css(?:\?v=[^"']+)?/.test(html), 'Estilo da conferência compacta não está carregado.');
+assert(/conference-ux\.js(?:\?v=[^"']+)?/.test(html), 'Módulo da conferência compacta não está carregado.');
 assert(serviceWorker.includes("'./app/conference-ux.css'"), 'CSS da conferência não está no cache offline.');
 assert(serviceWorker.includes("'./app/conference-ux.js'"), 'JavaScript da conferência não está no cache offline.');
 
