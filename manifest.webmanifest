@@ -1,20 +1,20 @@
 {
-  "name": "NEODENT Manufacturing Execution System",
+  "name": "NEODENT MES — Operação Industrial",
   "short_name": "NEODENT MES",
-  "description": "Central operacional mobile-first para acompanhamento de máquinas CNC, turnos, produção, Andon e apontamentos.",
+  "description": "Aplicativo industrial para conferência de máquinas CNC, registro manual de situações e fechamento da produção do turno.",
   "id": "./",
-  "start_url": "./?source=pwa",
+  "start_url": "./?source=pwa&v=3.2.0",
   "scope": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
-  "background_color": "#090d17",
-  "theme_color": "#090d17",
+  "background_color": "#070b13",
+  "theme_color": "#070b13",
   "lang": "pt-BR",
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
-      "src": "icons/mes-icon.svg",
+      "src": "icons/mes-icon.svg?v=3.2.0",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -22,15 +22,17 @@
   ],
   "shortcuts": [
     {
-      "name": "Visão geral",
-      "short_name": "Visão geral",
-      "url": "./?route=overview",
+      "name": "Meu turno",
+      "short_name": "Turno",
+      "description": "Abrir as máquinas e pendências do turno",
+      "url": "./?route=turn",
       "icons": [{ "src": "icons/mes-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
-      "name": "Andon",
-      "short_name": "Andon",
-      "url": "./?route=andon",
+      "name": "Histórico",
+      "short_name": "Histórico",
+      "description": "Consultar apontamentos e encerramentos",
+      "url": "./?route=history",
       "icons": [{ "src": "icons/mes-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     }
   ]
