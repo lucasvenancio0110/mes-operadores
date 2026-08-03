@@ -107,6 +107,7 @@ jobs:
 
           echo "subdomain=$SUBDOMAIN" >> "$GITHUB_OUTPUT"
 
+      # Migração da antiga cloudflare/wrangler-action@v3 para o Wrangler CLI direto.
       - name: Publicar no Cloudflare Workers
         id: deploy
         env:
