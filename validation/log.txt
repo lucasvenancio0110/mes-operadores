@@ -1,7 +1,21 @@
-Commit: f892b53312442292fca6fd0c8ee24a3c7044f083
-Started: 2026-08-03T14:31:41Z
+Commit: 013ac7654bd9c734e72205f529fa2734df9a0cee
+Started: 2026-08-03T14:53:50Z
 
-Static NEOMES official branding and operational checks passed.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Logo horizontal oficial incompleta.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:86:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Measurement plan checks passed.
 node:internal/modules/run_main:123
     triggerUncaughtException(
