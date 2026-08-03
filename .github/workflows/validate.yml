@@ -37,6 +37,7 @@ jobs:
             node --check app/catalog.js
             node --check app/core.js
             node --check app/components.js
+            node --check app/brand.js
             node --check app/operator-main.js
             node --check app/cloud-state.js
             node --check app/exports.js
@@ -61,15 +62,19 @@ jobs:
             node tests/conference-ux.test.mjs
             node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest JSON passed.')"
             test -f offline.html
-            test -f icons/mes-icon.svg
-            test -f icons/neomes-mark.svg
+            test -f assets/brand/neomes-logo-horizontal.svg
+            test -f assets/brand/neomes-symbol.svg
+            test -f icons/neomes-app-icon.svg
+            test -f icons/neomes-app-icon-maskable.svg
             test -f app/app.css
             test -f app/operator.css
             test -f app/premium.css
             test -f app/premium-runtime.css
+            test -f app/brand.css
             test -f app/planning.css
             test -f app/measurement-plan.css
             test -f app/conference-ux.css
+            test -f app/brand.js
             test -f app/operator-main.js
             test -f app/premium-runtime.js
             test -f app/production-planning.js
@@ -93,8 +98,11 @@ jobs:
               'static-architecture',
               'manifest-json',
               'pwa-required-files',
+              'official-neomes-branding',
+              'brand-responsive-header',
+              'brand-menu-login-splash',
+              'brand-pwa-icons',
               'operator-simplification',
-              'premium-branding',
               'premium-design-system',
               'production-planning',
               'measurement-op-total',
