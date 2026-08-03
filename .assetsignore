@@ -1,0 +1,13 @@
+.git/**
+.github/**
+node_modules/**
+worker/**
+migrations/**
+tests/**
+docs/**
+validation/**
+package.json
+package-lock.json
+wrangler.jsonc
+README.md
+.assetsignore
