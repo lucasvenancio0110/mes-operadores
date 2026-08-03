@@ -2,7 +2,7 @@ import { store } from './core.js';
 import { calculateMeasurementPlans } from './measurement-engine.js';
 import { parseFrequencyPair } from './measurement-frequency-parser.js';
 
-const FIXED_PLAN_VERSION = 3;
+const FIXED_PLAN_VERSION = 4;
 let frame = 0;
 let normalizing = false;
 
@@ -32,9 +32,13 @@ function planIsBalanced(plan) {
 function correctedSession(session) {
   if (!session?.opTarget) return null;
 
-  const pair = parseFrequencyPair(session.frequency1);
-  const frequency1 = pair?.frequency1 || positive(session.frequency1);
-  const frequency2 = pair?.frequency2 || positive(session.frequency2);
+  // Compatibilidade apenas para registros antigos que foram salvos com "/".
+  // A interface atual nunca divide automaticamente o que o operador digita.
+  const legacyPair = typeof session.frequency1 === 'string' && session.frequency1.includes('/')
+    ? parseFrequencyPair(session.frequency1)
+    : null;
+  const frequency1 = legacyPair?.frequency1 || positive(session.frequency1);
+  const frequency2 = legacyPair?.frequency2 || positive(session.frequency2);
   if (!(frequency1 > 0)) return null;
 
   const shiftTarget = [session.plannedShiftTarget, session.turnTarget, session.target]
@@ -100,9 +104,29 @@ function normalizeStoredPlans() {
   normalizing = false;
 }
 
-function revealSecondFrequency(field, button) {
+function revealSecondFrequency(form, field, button) {
+  if (form) form.dataset.secondFrequencyRequested = 'true';
   if (field) field.hidden = false;
   if (button) button.hidden = true;
+}
+
+function hideSecondFrequency(form, field, button) {
+  if (form) delete form.dataset.secondFrequencyRequested;
+  if (field) field.hidden = true;
+  if (button) button.hidden = false;
+}
+
+function validateSeparatedFrequency(form, frequency1) {
+  if (!form || !frequency1 || form.dataset.frequencySubmitGuard === 'true') return;
+  form.dataset.frequencySubmitGuard = 'true';
+  form.addEventListener('submit', event => {
+    if (!/[\/;]/.test(frequency1.value)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const output = document.getElementById('conferenceError');
+    if (output) output.textContent = 'Informe uma frequência por campo. Para a segunda, toque em “Adicionar outra frequência”.';
+    frequency1.focus();
+  }, true);
 }
 
 function enhanceFrequencyFields() {
@@ -117,28 +141,31 @@ function enhanceFrequencyFields() {
   const label1 = field1?.querySelector('label');
   const label2 = field2?.querySelector('label');
 
-  if (label1) label1.textContent = 'Frequência I';
+  if (field2 && !field2.hidden) form.dataset.secondFrequencyRequested = 'true';
+
+  const hasSavedSecondFrequency = positive(String(frequency2.value).replace(',', '.')) > 0;
+  const secondFrequencyRequested = form.dataset.secondFrequencyRequested === 'true';
+  if (hasSavedSecondFrequency || secondFrequencyRequested) revealSecondFrequency(form, field2, button);
+  else hideSecondFrequency(form, field2, button);
+
+  const secondFrequencyVisible = Boolean(field2 && !field2.hidden);
+  if (label1) label1.textContent = secondFrequencyVisible ? 'Frequência I' : 'Frequência de medição';
   if (label2) label2.innerHTML = 'Frequência II <span>(opcional)</span>';
-  if (button) button.textContent = '＋ Adicionar segunda frequência';
+  if (button) button.textContent = '＋ Adicionar outra frequência';
 
-  const pair = parseFrequencyPair(frequency1.value);
-  if (pair) {
-    frequency1.value = pair.display1;
-    frequency2.value = pair.display2;
-    revealSecondFrequency(field2, button);
-    frequency1.dispatchEvent(new Event('input', { bubbles: true }));
-    frequency2.dispatchEvent(new Event('input', { bubbles: true }));
-  } else if (positive(String(frequency2.value).replace(',', '.')) > 0) {
-    revealSecondFrequency(field2, button);
-  }
+  frequency1.placeholder = 'Ex.: 84,308';
+  frequency2.placeholder = 'Ex.: 54,8';
 
-  if (field1 && !field1.querySelector('[data-frequency-separate-hint]')) {
+  const previousHints = field1?.querySelectorAll('[data-frequency-separate-hint]') || [];
+  if (!previousHints.length && field1) {
     const hint = document.createElement('small');
     hint.className = 'field-hint';
     hint.dataset.frequencySeparateHint = 'true';
-    hint.textContent = 'Caso exista outra frequência, use “Adicionar segunda frequência”.';
+    hint.textContent = 'Caso exista uma segunda frequência, toque no botão abaixo.';
     field1.appendChild(hint);
   }
+
+  validateSeparatedFrequency(form, frequency1);
 }
 
 function repairRenderedTotals() {
@@ -176,6 +203,15 @@ store.subscribe((_state, reason) => {
     queueMicrotask(normalizeStoredPlans);
   }
   schedule();
+});
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('#addFrequency2');
+  if (!button) return;
+  const form = button.closest('form');
+  const field2 = document.getElementById('confFrequency2')?.closest('.field');
+  revealSecondFrequency(form, field2, button);
+  queueMicrotask(() => document.getElementById('confFrequency2')?.focus());
 });
 
 document.addEventListener('input', event => {
