@@ -1,5 +1,5 @@
-Commit: 02d4c78ef7b82e83663da7d34f70ef36bf817237
-Started: 2026-08-03T20:31:11Z
+Commit: 0f7676c5e000876342f251333be885418d631880
+Started: 2026-08-03T20:31:50Z
 
 NEOMES Cloudflare, D1, 480-minute target and operational checks passed.
 Measurement plan checks passed.
@@ -19,4 +19,5 @@ AssertionError [ERR_ASSERTION]: CSS do desempenho do turno não está carregado.
 }
 
 Node.js v22.23.1
+Shift duration and cycle fraction checks passed.
 Manifest JSON passed.
