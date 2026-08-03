@@ -1,0 +1,47 @@
+/* NEOMES — sincronização discreta e orientada a problemas reais */
+
+/* Quando está tudo certo, o cabeçalho permanece limpo. */
+.ops-sync[data-state="synced"],
+.ops-sync[data-state="local"]{
+  display:none!important;
+}
+
+/* A versão GitHub Pages continua funcionando como contingência local,
+   mas não ocupa a home com um aviso permanente. */
+.ops-connection[data-state="synced"],
+.ops-connection[data-state="local"]{
+  display:none!important;
+}
+
+/* Avisos aparecem somente quando existe uma ação real: offline,
+   fila pendente ou erro de sincronização. */
+.ops-connection[data-state="offline"],
+.ops-connection[data-state="pending"],
+.ops-connection[data-state="error"]{
+  display:flex;
+}
+
+/* A home começa direto no contexto operacional. */
+.ops-page-head .ops-eyebrow,
+.ops-page-head>div>p:last-child{
+  display:none!important;
+}
+.ops-page-head{
+  margin-bottom:18px;
+}
+.ops-page-head h1{
+  margin:0;
+}
+
+/* Sem o indicador permanente, as ações do topo se reorganizam sem lacunas. */
+.ops-header__actions{
+  justify-content:flex-end;
+}
+
+@media(max-width:430px){
+  .ops-page-head{margin-bottom:15px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .ops-connection{transition:none!important}
+}
