@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v3.7.2-shift-performance';
+const VERSION = 'neomes-v3.7.3-shift-time';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -35,7 +35,9 @@ const APP_SHELL = [
   './app/measurement-engine.js',
   './app/measurement-plan.js',
   './app/conference-ux.js',
-  './app/shift-performance.js'
+  './app/shift-performance.js',
+  './app/shift-time-engine.js',
+  './app/shift-time-fix.js'
 ].map(asset);
 
 self.addEventListener('install', event => {
