@@ -1,8 +1,8 @@
 {
   "status": "success",
-  "commit": "00e3b35d18d27812aac5a2b679b8a9db05b7fc75",
-  "workflowRun": "30847932202",
-  "validatedAt": "2026-08-03T19:56:21.817Z",
+  "commit": "f958c2cdea51eba8c0050ceea1235993876f6f4d",
+  "workflowRun": "30847970211",
+  "validatedAt": "2026-08-03T19:56:48.316Z",
   "checks": [
     "javascript-syntax",
     "worker-syntax",
@@ -28,6 +28,9 @@
     "compact-conference",
     "order-continuity",
     "production-reconciliation",
-    "material-stepper"
+    "material-stepper",
+    "shift-performance",
+    "stoppage-time",
+    "target-color-status"
   ]
 }
