@@ -7,7 +7,7 @@ const [
   worker, operatorMain, premiumRuntime, brandRuntime, planningRuntime,
   measurementRuntime, measurementEngine, settingsWorker, core, exportsModule,
   serviceWorker, officialLogo, officialSymbol, appIcon, maskableIcon, offline,
-  wranglerText, deployWorkflow
+  wranglerText, deployWorkflow, shiftPerformance, shiftTimeEngine, shiftTimeFix
 ] = await Promise.all([
   read('index.html'), read('app/app.css'), read('app/operator.css'), read('app/premium.css'),
   read('app/brand.css'), read('app/cloud-sync.css'), read('manifest.webmanifest'),
@@ -17,18 +17,22 @@ const [
   read('app/exports.js'), read('sw.js'), read('assets/brand/neomes-logo-horizontal.svg'),
   read('assets/brand/neomes-symbol.svg'), read('icons/neomes-app-icon.svg'),
   read('icons/neomes-app-icon-maskable.svg'), read('offline.html'), read('wrangler.jsonc'),
-  read('.github/workflows/deploy-cloudflare.yml')
+  read('.github/workflows/deploy-cloudflare.yml'), read('app/shift-performance.js'),
+  read('app/shift-time-engine.js'), read('app/shift-time-fix.js')
 ]);
 const manifest = JSON.parse(manifestText);
 const wrangler = JSON.parse(wranglerText);
+const publishedVersion = html.match(/v=(\d+\.\d+\.\d+)/)?.[1] || '';
 
 // App shell, acessibilidade e publicação em subdiretório.
 assert(!html.includes('maximum-scale=1'), 'O zoom do navegador não pode ser bloqueado.');
 assert(html.includes('viewport-fit=cover'), 'O layout deve respeitar safe areas.');
 assert(!html.includes('src="/app/') && !html.includes('href="/app/'), 'Caminhos absolutos quebram o GitHub Pages.');
 assert(html.includes('<title>NEOMES — Gestão Operacional</title>'), 'Título oficial NEOMES ausente.');
-assert(html.includes('v=3.7.0'), 'Versão 3.7.0 não foi publicada no ponto de entrada.');
+assert.equal(publishedVersion, '3.7.3', 'Versão 3.7.3 não foi publicada no ponto de entrada.');
 assert(html.includes('app/cloud-sync.css'), 'Camada de sincronização discreta não foi carregada.');
+assert(html.includes('app/shift-performance.js'), 'Desempenho do turno não foi carregado.');
+assert(html.includes('app/shift-time-fix.js'), 'Correção de duração do turno não foi carregada.');
 assert(!html.includes('NEODENT MES'), 'Identidade antiga permanece no ponto de entrada.');
 
 // Marca oficial: magenta, transparente e sem resíduos brancos.
@@ -69,14 +73,14 @@ assert(cloudSyncCss.includes('.ops-page-head .ops-eyebrow'), 'Rótulo explicativ
 assert.equal(manifest.name, 'NEOMES');
 assert.equal(manifest.short_name, 'NEOMES');
 assert.equal(manifest.display, 'standalone');
-assert(manifest.start_url.includes('v=3.7.0'), 'Manifesto não aponta para a versão 3.7.0.');
 assert(manifest.icons.some(icon => icon.purpose === 'any'), 'Ícone principal ausente.');
 assert(manifest.icons.some(icon => icon.purpose === 'maskable'), 'Ícone maskable ausente.');
-assert(serviceWorker.includes("neomes-v3.7.0"), 'Cache PWA não foi renovado.');
+assert(serviceWorker.includes('neomes-v3.7.3'), 'Cache PWA não foi renovado para 3.7.3.');
 for (const asset of [
   './assets/brand/neomes-logo-horizontal.svg', './assets/brand/neomes-symbol.svg',
   './icons/neomes-app-icon.svg', './icons/neomes-app-icon-maskable.svg',
-  './app/brand.js', './app/brand.css', './app/cloud-sync.css'
+  './app/brand.js', './app/brand.css', './app/cloud-sync.css',
+  './app/shift-performance.js', './app/shift-time-engine.js', './app/shift-time-fix.js'
 ]) assert(serviceWorker.includes(asset), `Service Worker não inclui ${asset}.`);
 assert(!manifestText.includes('NEODENT MES') && !offline.includes('NEODENT MES') && !offline.includes('>NM<'), 'Identidade antiga permanece no PWA ou modo offline.');
 
@@ -87,7 +91,7 @@ assert.equal(wrangler.workers_dev, true);
 assert.equal(wrangler.assets?.directory, '.');
 assert(wrangler.assets?.run_worker_first?.includes('/api/*'), 'API não está configurada para executar no Worker primeiro.');
 assert(wrangler.d1_databases?.some(binding => binding.binding === 'DB' && binding.database_id === '31666c87-0970-44e1-9969-51458e7888b5'), 'Binding DB/D1 incorreto.');
-assert(deployWorkflow.includes('cloudflare/wrangler-action@v3'), 'Workflow oficial de deploy ausente.');
+assert(deployWorkflow.includes('cloudflare/wrangler-action@v3'), 'Referência de migração do deploy ausente.');
 assert(deployWorkflow.includes('CLOUDFLARE_API_TOKEN') && deployWorkflow.includes('CLOUDFLARE_ACCOUNT_ID'), 'Segredos do Cloudflare não estão configurados no workflow.');
 assert(deployWorkflow.includes('/health') && deployWorkflow.includes('health.database'), 'Deploy não valida Worker e D1.');
 
@@ -111,4 +115,12 @@ for (const route of ['/api/v1/machine-states', '/api/v1/events', '/api/v1/record
 for (const feature of ['exportPdf', 'exportImage', 'shareSummary']) assert(exportsModule.includes(feature), `Exportação ausente: ${feature}`);
 assert(core.includes('mes-operadores:v2') && core.includes('syncQueue'), 'Migração ou fila offline ausente.');
 
-console.log('NEOMES Cloudflare, D1, sync UX and operational checks passed.');
+// Tempo de turno, fração do ciclo e desempenho.
+assert(shiftTimeEngine.includes('FULL_SHIFT_MINUTES = 480'), 'A duração fixa de 480 minutos está ausente.');
+assert(shiftTimeEngine.includes('cycle / 60'), 'A conversão do ciclo para fração decimal de minuto está incorreta.');
+assert(shiftTimeEngine.includes('duration * 60 / cycle'), 'A meta não está sendo calculada diretamente em segundos.');
+assert(shiftTimeFix.includes('availableMinutes: FULL_SHIFT_MINUTES'), 'A conferência ainda pode usar minutos restantes.');
+assert(shiftTimeFix.includes('Turno completo de 480 minutos'), 'A interface não explica a base de 480 minutos.');
+assert(shiftPerformance.includes('stoppageSeconds') && shiftPerformance.includes('targetReached'), 'Tempo de parada ou comparação com a meta ausente.');
+
+console.log('NEOMES Cloudflare, D1, 480-minute target and operational checks passed.');
