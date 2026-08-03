@@ -1,5 +1,19 @@
-Commit: 909953383fca9f9ffda44f44255db35f608c8f04
-Started: 2026-08-03T02:58:44Z
+Commit: 6b70eef38d73100e29948a4afb9f1ab93c817298
+Started: 2026-08-03T02:59:24Z
 
-Static simplified MES checks passed.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Modo PWA standalone não refinado.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:48:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Manifest JSON passed.
