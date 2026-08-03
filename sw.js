@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v3.7.1';
+const VERSION = 'neomes-v3.7.0-desktop-nav';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
