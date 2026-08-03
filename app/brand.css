@@ -1,0 +1,130 @@
+/* NEOMES — identidade oficial do produto */
+:root{
+  --brand-primary:#af249d;
+  --brand-primary-hover:#c238ae;
+  --brand-primary-active:#8f197f;
+  --brand-primary-soft:rgba(175,36,157,.14);
+  --brand-primary-border:rgba(175,36,157,.30);
+  --brand-primary-contrast:#fff;
+  --premium-brand:var(--brand-primary);
+  --premium-brand-strong:var(--brand-primary-active);
+  --premium-brand-soft:var(--brand-primary-soft);
+  --premium-brand-glow:rgba(175,36,157,.20);
+  --color-brand:var(--brand-primary);
+}
+
+.brand-logo{
+  display:block;
+  width:auto;
+  height:auto;
+  max-width:100%;
+  object-fit:contain;
+  flex:none;
+  user-select:none;
+  -webkit-user-drag:none;
+}
+.brand-logo-responsive{
+  display:flex!important;
+  min-width:0;
+  margin:0!important;
+  align-items:center;
+  flex:none;
+}
+.brand-logo-responsive__horizontal{
+  width:auto;
+  height:clamp(32px,8vw,42px);
+  max-width:min(42vw,176px);
+}
+.brand-logo-responsive__symbol{display:none;width:38px;height:38px}
+
+.ops-header{
+  min-height:72px;
+  gap:12px;
+  padding-top:calc(env(safe-area-inset-top) + 9px);
+  padding-bottom:9px;
+}
+.ops-brand{
+  display:flex;
+  min-width:0;
+  flex:1 1 auto;
+  align-items:center;
+  gap:0!important;
+}
+.ops-brand>.ops-brand__mark,.ops-brand>div>strong,.ops-brand>div>span{display:none}
+.neomes-brand-lockup{
+  display:flex;
+  min-width:0;
+  align-items:center;
+  gap:10px;
+}
+.neomes-brand-subtitle{
+  display:none!important;
+  margin:0!important;
+  color:var(--premium-text-3)!important;
+  font-size:.58rem!important;
+  font-weight:650!important;
+  line-height:1.2!important;
+  letter-spacing:.035em!important;
+  white-space:nowrap;
+}
+.ops-header__actions{flex:none;gap:7px}
+.ops-shift{min-width:64px;padding-inline:10px}
+.ops-sync,.ops-header .ops-icon-btn{width:42px;height:42px}
+.ops-manual-label{display:none!important}
+
+.ops-menu-brand{
+  display:block;
+  padding:16px;
+  border-color:var(--brand-primary-border);
+  background:linear-gradient(145deg,rgba(175,36,157,.11),rgba(101,157,232,.025));
+}
+.ops-menu-brand>img,.ops-menu-brand>div{display:none}
+.neomes-menu-branding{display:grid;justify-items:start;gap:7px}
+.neomes-menu-branding .brand-logo{height:44px;max-width:190px}
+.neomes-menu-branding>span{margin:0!important;color:var(--premium-text-3)!important;font-size:.64rem!important;letter-spacing:.04em!important}
+
+.ops-login-brand{
+  display:grid;
+  justify-items:center;
+  gap:8px;
+  margin:0 0 18px;
+  padding:8px 0 16px;
+  border-bottom:1px solid rgba(255,255,255,.055);
+}
+.ops-login-brand .brand-logo{height:52px;max-width:220px}
+.ops-login-brand span{color:var(--premium-text-3);font-size:.68rem;font-weight:650;letter-spacing:.035em}
+
+.boot-logo{width:92px!important;height:92px!important;object-fit:contain;filter:none!important}
+.boot strong{letter-spacing:.12em!important}
+.boot i::after{background:var(--brand-primary)!important}
+
+.ops-btn--primary{
+  background:linear-gradient(180deg,var(--brand-primary-hover),var(--brand-primary));
+  box-shadow:0 12px 30px rgba(175,36,157,.24),inset 0 1px 0 rgba(255,255,255,.16);
+}
+.ops-btn--primary:hover{background:linear-gradient(180deg,#ca47b7,var(--brand-primary-hover))}
+.ops-btn--primary:active{background:var(--brand-primary-active)}
+.ops-nav__item[aria-current=page]{color:#df66ce}
+.ops-nav__item[aria-current=page]::before{background:var(--brand-primary-soft);border-color:var(--brand-primary-border)}
+input:focus,select:focus,textarea:focus{border-color:var(--brand-primary)!important;box-shadow:0 0 0 3px rgba(175,36,157,.14)!important}
+
+@media(max-width:390px){
+  .brand-logo-responsive__horizontal{height:34px;max-width:132px}
+  .ops-header__actions{gap:6px}
+  .ops-shift{min-width:60px;height:40px;padding-inline:8px;font-size:.64rem}
+  .ops-sync,.ops-header .ops-icon-btn{width:40px;height:40px;border-radius:13px}
+}
+@media(max-width:340px){
+  .brand-logo-responsive__horizontal{display:none}
+  .brand-logo-responsive__symbol{display:block}
+  .ops-header{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));gap:8px}
+  .ops-shift{min-width:56px;padding-inline:6px}
+  .ops-sync,.ops-header .ops-icon-btn{width:38px;height:38px}
+}
+@media(min-width:720px){
+  .neomes-brand-lockup{gap:14px}
+  .brand-logo-responsive__horizontal{height:44px;max-width:190px}
+  .neomes-brand-subtitle{display:block!important}
+}
+@media(min-width:1024px){.brand-logo-responsive__horizontal{height:48px;max-width:205px}}
+@media(prefers-reduced-motion:reduce){.brand-logo{transition:none!important}}
