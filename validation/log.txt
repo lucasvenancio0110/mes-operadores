@@ -1,19 +1,5 @@
-Commit: cbfe3336f19f473e53fab1be8b34feb4290ed16e
-Started: 2026-08-03T02:59:49Z
+Commit: 12ce5e42daa1d6020c121fd957cc631cafa9593f
+Started: 2026-08-03T03:00:26Z
 
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
-
-AssertionError [ERR_ASSERTION]: Modo PWA standalone não refinado.
-    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:48:1 {
-  generatedMessage: false,
-  code: 'ERR_ASSERTION',
-  actual: false,
-  expected: true,
-  operator: '==',
-  diff: 'simple'
-}
-
-Node.js v22.23.1
+Static premium NEODENT MES checks passed.
 Manifest JSON passed.
