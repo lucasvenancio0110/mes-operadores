@@ -1,21 +1,7 @@
-Commit: 5327589f76d2fe41ac24f149313847c9768bdef1
-Started: 2026-08-03T17:18:56Z
+Commit: a82b0c13785cc957cb0095a10cbd6fdde5df7ad6
+Started: 2026-08-03T17:22:06Z
 
 NEOMES Cloudflare, D1, sync UX and operational checks passed.
 Measurement plan checks passed.
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
-
-AssertionError [ERR_ASSERTION]: Estilo da conferência compacta não está carregado.
-    at file:///home/runner/work/mes-operadores/mes-operadores/tests/conference-ux.test.mjs:12:1 {
-  generatedMessage: false,
-  code: 'ERR_ASSERTION',
-  actual: false,
-  expected: true,
-  operator: '==',
-  diff: 'simple'
-}
-
-Node.js v22.23.1
+Compact conference UX checks passed.
 Manifest JSON passed.
