@@ -1,7 +1,21 @@
-Commit: 8b2b30148fa4e74bf3d20a8172c4684b44434776
-Started: 2026-08-03T18:39:50Z
+Commit: 7e5bb17794805c55b3eeb84f5e316565b341b49e
+Started: 2026-08-03T18:40:15Z
 
-NEOMES Cloudflare, D1, sync UX and operational checks passed.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Cache PWA não foi renovado.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:75:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Measurement plan checks passed.
 Compact conference UX checks passed.
 Manifest JSON passed.
