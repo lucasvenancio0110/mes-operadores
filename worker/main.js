@@ -26,6 +26,11 @@ import {
   listMachineEvents,
   saveMachineEvent
 } from './operations.js';
+import {
+  ensureSettings,
+  getAppSettings,
+  saveAppSettings
+} from './settings.js';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -53,6 +58,7 @@ export default {
       await ensureDatabase(env);
       await ensureOperationalTables(env);
       await ensureOperations(env);
+      await ensureSettings(env);
     }
 
     const url = new URL(request.url);
@@ -64,6 +70,16 @@ export default {
 
       if (request.method === 'GET' && url.pathname === '/api/v1/operators') {
         return json({ operators: await getOperators(env) });
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/v1/settings') {
+        return json({ settings: await getAppSettings(env) });
+      }
+
+      if (request.method === 'POST' && url.pathname === '/api/v1/settings') {
+        const payload = await requestJson(request);
+        if (!payload) return json({ error: 'JSON inválido.' }, 400);
+        return json({ settings: await saveAppSettings(env, payload) });
       }
 
       if (request.method === 'POST' && url.pathname === '/api/v1/session/login') {
