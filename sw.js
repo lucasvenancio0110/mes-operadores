@@ -1,4 +1,4 @@
-const VERSION = 'neodent-mes-v3.4.0';
+const VERSION = 'neodent-mes-v3.5.0';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -16,6 +16,7 @@ const APP_SHELL = [
   './app/premium-runtime.css',
   './app/planning.css',
   './app/measurement-plan.css',
+  './app/conference-ux.css',
   './app/catalog.js',
   './app/core.js',
   './app/components.js',
@@ -25,7 +26,8 @@ const APP_SHELL = [
   './app/premium-runtime.js',
   './app/production-planning.js',
   './app/measurement-engine.js',
-  './app/measurement-plan.js'
+  './app/measurement-plan.js',
+  './app/conference-ux.js'
 ].map(asset);
 
 self.addEventListener('install', event => {
