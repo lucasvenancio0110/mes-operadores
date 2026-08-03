@@ -1,5 +1,5 @@
-Commit: 978964e1c3532c94b40f12dedc1c84dbf6339515
-Started: 2026-08-03T14:24:34Z
+Commit: e66dece5efb4bfa2f2557596e09423382c650a61
+Started: 2026-08-03T14:25:23Z
 
 node:internal/modules/run_main:123
     triggerUncaughtException(
@@ -17,5 +17,19 @@ AssertionError [ERR_ASSERTION]: Identidade manual/premium incompleta.
 
 Node.js v22.23.1
 Measurement plan checks passed.
-Compact conference UX checks passed.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Estilo da conferência compacta não está carregado.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/conference-ux.test.mjs:12:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Manifest JSON passed.
