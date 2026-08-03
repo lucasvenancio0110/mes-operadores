@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v3.7.4-measurement-frequency';
+const VERSION = 'neomes-v3.7.4-single-frequency-ui';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
