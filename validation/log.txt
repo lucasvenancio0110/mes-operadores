@@ -1,5 +1,5 @@
-Commit: b9bf2dc94803c3ccf48ba68ae865cf7289d5a615
-Started: 2026-08-03T20:28:54Z
+Commit: 2a9a2e4569cab8f12f8b185acdc8693a4c926ec4
+Started: 2026-08-03T20:29:51Z
 
 node:internal/modules/run_main:123
     triggerUncaughtException(
@@ -18,5 +18,19 @@ AssertionError [ERR_ASSERTION]: Versão 3.7.0 não foi publicada no ponto de ent
 Node.js v22.23.1
 Measurement plan checks passed.
 Compact conference UX checks passed.
-Shift performance and stoppage checks passed.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: CSS do desempenho do turno não está carregado.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/shift-performance.test.mjs:12:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Manifest JSON passed.
