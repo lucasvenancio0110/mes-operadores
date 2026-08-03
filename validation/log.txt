@@ -1,7 +1,21 @@
-Commit: 6e957d468434231e86d026189587a40aaaa4fc8f
-Started: 2026-08-03T14:24:08Z
+Commit: 978964e1c3532c94b40f12dedc1c84dbf6339515
+Started: 2026-08-03T14:24:34Z
 
-Static premium measurement planning checks passed.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Identidade manual/premium incompleta.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:46:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Measurement plan checks passed.
 Compact conference UX checks passed.
 Manifest JSON passed.
