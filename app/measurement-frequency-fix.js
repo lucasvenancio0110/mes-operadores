@@ -124,7 +124,7 @@ function validateSeparatedFrequency(form, frequency1) {
     event.preventDefault();
     event.stopImmediatePropagation();
     const output = document.getElementById('conferenceError');
-    if (output) output.textContent = 'Informe uma frequência por campo. Para a segunda, toque em “Adicionar outra frequência”.';
+    if (output) output.textContent = 'Informe uma frequência por campo. Para a segunda, toque em “Adicionar segunda frequência”.';
     frequency1.focus();
   }, true);
 }
@@ -151,7 +151,7 @@ function enhanceFrequencyFields() {
   const secondFrequencyVisible = Boolean(field2 && !field2.hidden);
   if (label1) label1.textContent = secondFrequencyVisible ? 'Frequência I' : 'Frequência de medição';
   if (label2) label2.innerHTML = 'Frequência II <span>(opcional)</span>';
-  if (button) button.textContent = '＋ Adicionar outra frequência';
+  if (button) button.textContent = '＋ Adicionar segunda frequência';
 
   frequency1.placeholder = 'Ex.: 84,308';
   frequency2.placeholder = 'Ex.: 54,8';
