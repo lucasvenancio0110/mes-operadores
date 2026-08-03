@@ -1,8 +1,8 @@
 {
   "status": "success",
-  "commit": "6892a88636aedb4a1ac8987612439c6b9cff84d6",
-  "workflowRun": "30783314282",
-  "validatedAt": "2026-08-03T04:02:47.554Z",
+  "commit": "9aa5c950b9a9220aa9b961c09f23c65f7539acc1",
+  "workflowRun": "30783326902",
+  "validatedAt": "2026-08-03T04:03:06.134Z",
   "checks": [
     "javascript-syntax",
     "worker-syntax",
@@ -11,6 +11,10 @@
     "pwa-required-files",
     "operator-simplification",
     "premium-branding",
-    "premium-design-system"
+    "premium-design-system",
+    "production-planning",
+    "measurement-frequency",
+    "material-calculation",
+    "global-settings"
   ]
 }
