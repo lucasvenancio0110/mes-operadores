@@ -37,11 +37,10 @@ jobs:
             node --check app/catalog.js
             node --check app/core.js
             node --check app/components.js
-            node --check app/main.js
             node --check app/operator-main.js
             node --check app/cloud-state.js
             node --check app/exports.js
-            node --check app/runtime.js
+            node --check app/premium-runtime.js
             node --check sw.js
             node --check worker/main.js
             node --check worker/index.js
@@ -54,9 +53,13 @@ jobs:
             node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest JSON passed.')"
             test -f offline.html
             test -f icons/mes-icon.svg
+            test -f icons/neomes-mark.svg
             test -f app/app.css
             test -f app/operator.css
+            test -f app/premium.css
+            test -f app/premium-runtime.css
             test -f app/operator-main.js
+            test -f app/premium-runtime.js
           } > validation/log.txt 2>&1
           STATUS=$?
           STATUS=$STATUS node - <<'NODE'
@@ -73,7 +76,9 @@ jobs:
               'static-architecture',
               'manifest-json',
               'pwa-required-files',
-              'operator-simplification'
+              'operator-simplification',
+              'premium-branding',
+              'premium-design-system'
             ]
           };
           fs.writeFileSync('validation/latest.json', JSON.stringify(result, null, 2) + '\n');
