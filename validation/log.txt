@@ -1,7 +1,21 @@
-Commit: a955e6a938f1f1b1889defb07f37a15f30d18a8f
-Started: 2026-08-03T22:36:22Z
+Commit: 456bb20aa8ba775af3e0751aefed5f3a7ce08f8b
+Started: 2026-08-03T23:00:51Z
 
-NEOMES 3.7.4: frequências separadas, soma reconciliada e controles operacionais validados.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Campo opcional de Frequência II não foi reforçado.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:119:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Measurement plan checks passed.
 Compact conference UX checks passed.
 node:internal/modules/run_main:123
