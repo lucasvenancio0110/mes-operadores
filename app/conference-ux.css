@@ -1,0 +1,475 @@
+#conferenceLayer .ops-sheet__body {
+  padding: 14px 16px 160px;
+}
+
+#conferenceLayer .ops-context {
+  min-height: 72px;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+}
+
+#conferenceLayer .ops-context strong {
+  font-size: 1.05rem;
+}
+
+#conferenceLayer .conference-section,
+#conferenceLayer .conference-order-summary,
+#conferenceLayer .conference-planning-compact,
+#conferenceLayer .conference-measurements-compact {
+  margin: 0 0 14px;
+  border: 1px solid rgba(126, 151, 190, .18);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(19, 29, 45, .94), rgba(9, 16, 28, .96));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .025);
+}
+
+#conferenceLayer .conference-section {
+  padding: 16px;
+}
+
+#conferenceLayer .conference-section > header,
+#conferenceLayer .conference-order-summary > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+#conferenceLayer .conference-section > header > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#conferenceLayer .conference-section > header > div > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(224, 82, 165, .14);
+  color: #f174bd;
+  font-size: .78rem;
+  font-weight: 800;
+}
+
+#conferenceLayer .conference-section > header strong {
+  color: #f6f8fc;
+  font-size: 1rem;
+}
+
+#conferenceLayer .conference-section > header small {
+  color: #7f8ca0;
+  font-size: .72rem;
+  text-align: right;
+}
+
+#conferenceLayer .conference-fields-grid,
+#conferenceLayer .conference-live-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#conferenceLayer .conference-fields-grid .field,
+#conferenceLayer .conference-live-grid .field,
+#conferenceLayer .conference-status-field {
+  min-width: 0;
+  margin: 0;
+}
+
+#conferenceLayer .conference-fields-grid .field label,
+#conferenceLayer .conference-live-grid .field label,
+#conferenceLayer .conference-status-field label,
+#conferenceLayer .conference-reconcile > label {
+  display: block;
+  margin: 0 0 7px;
+  color: #aeb8c8;
+  font-size: .78rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+#conferenceLayer .conference-fields-grid input,
+#conferenceLayer .conference-live-grid input,
+#conferenceLayer .conference-fields-grid select,
+#conferenceLayer .conference-live-grid select,
+#conferenceLayer .conference-reconcile input {
+  min-height: 50px;
+  height: 50px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-size: 1rem;
+}
+
+#conferenceLayer .conference-fields-grid .field-hint,
+#conferenceLayer .conference-live-grid .field-hint {
+  margin-top: 6px;
+  font-size: .67rem;
+  line-height: 1.3;
+}
+
+#conferenceLayer .planning-input-wrap > span {
+  right: 12px;
+  font-size: .72rem;
+}
+
+#conferenceLayer .planning-add-frequency {
+  align-self: end;
+  min-height: 50px;
+  margin: 0;
+  border-radius: 14px;
+}
+
+#conferenceLayer .conference-order-summary {
+  padding: 16px;
+  border-color: rgba(224, 82, 165, .28);
+  background: linear-gradient(145deg, rgba(45, 25, 49, .78), rgba(14, 21, 35, .96));
+}
+
+#conferenceLayer .conference-order-summary header div {
+  display: grid;
+  gap: 4px;
+}
+
+#conferenceLayer .conference-order-summary header span:first-child {
+  color: #ee75ba;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+#conferenceLayer .conference-order-summary header strong {
+  color: #fff;
+  font-size: 1.15rem;
+}
+
+#conferenceLayer .conference-inherited-badge {
+  padding: 7px 10px;
+  border: 1px solid rgba(224, 82, 165, .28);
+  border-radius: 999px;
+  background: rgba(224, 82, 165, .1);
+  color: #f174bd;
+  font-size: .66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+#conferenceLayer .conference-order-summary dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin: 0;
+  border: 1px solid rgba(126, 151, 190, .14);
+  border-radius: 14px;
+  background: rgba(126, 151, 190, .12);
+}
+
+#conferenceLayer .conference-order-summary dl > div {
+  min-width: 0;
+  padding: 10px 12px;
+  background: #0d1625;
+}
+
+#conferenceLayer .conference-order-summary dt {
+  color: #7f8ca0;
+  font-size: .66rem;
+  text-transform: uppercase;
+}
+
+#conferenceLayer .conference-order-summary dd {
+  overflow: hidden;
+  margin: 4px 0 0;
+  color: #eef2f8;
+  font-size: .9rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#conferenceLayer .conference-edit-order {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(126, 151, 190, .09);
+  color: #aebbd0;
+  font-size: .78rem;
+  font-weight: 750;
+}
+
+#conferenceLayer .conference-reconcile {
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid rgba(81, 172, 132, .24);
+  border-radius: 16px;
+  background: rgba(81, 172, 132, .07);
+}
+
+#conferenceLayer .conference-reconcile > div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#conferenceLayer .conference-reconcile input {
+  min-width: 0;
+  flex: 1;
+  color: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+#conferenceLayer .conference-reconcile > div span {
+  color: #8e9bad;
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+#conferenceLayer .conference-reconcile small {
+  display: block;
+  margin-top: 7px;
+  color: #7f8ca0;
+  font-size: .68rem;
+}
+
+#conferenceLayer .conference-stepper {
+  display: grid;
+  grid-template-columns: 50px minmax(54px, 1fr) 50px;
+  min-height: 50px;
+  overflow: hidden;
+  border: 1px solid rgba(126, 151, 190, .18);
+  border-radius: 14px;
+  background: #0b1422;
+}
+
+#conferenceLayer .conference-stepper button {
+  min-width: 44px;
+  border: 0;
+  background: rgba(126, 151, 190, .08);
+  color: #f174bd;
+  font-size: 1.45rem;
+  font-weight: 500;
+  touch-action: manipulation;
+}
+
+#conferenceLayer .conference-stepper button:active {
+  background: rgba(224, 82, 165, .18);
+  transform: scale(.96);
+}
+
+#conferenceLayer .conference-stepper input {
+  width: 100%;
+  height: 48px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+#conferenceLayer .conference-stepper input::-webkit-inner-spin-button,
+#conferenceLayer .conference-stepper input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+#conferenceLayer .conference-status-field {
+  margin-top: 14px;
+}
+
+#conferenceLayer .conference-status-buttons {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 1px 1px 4px;
+  scrollbar-width: none;
+}
+
+#conferenceLayer .conference-status-buttons::-webkit-scrollbar {
+  display: none;
+}
+
+#conferenceLayer .conference-status-buttons button {
+  min-width: max-content;
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(126, 151, 190, .18);
+  border-radius: 13px;
+  background: rgba(126, 151, 190, .06);
+  color: #9eabbd;
+  font-size: .78rem;
+  font-weight: 750;
+}
+
+#conferenceLayer .conference-status-buttons button[aria-pressed="true"] {
+  border-color: rgba(224, 82, 165, .48);
+  background: rgba(224, 82, 165, .14);
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(224, 82, 165, .08) inset;
+}
+
+#conferenceLayer .conference-planning-compact {
+  padding: 14px;
+}
+
+#conferenceLayer .conference-planning-compact .planning-preview__head {
+  margin-bottom: 10px;
+}
+
+#conferenceLayer .conference-planning-compact .planning-preview__head strong {
+  font-size: 1rem;
+}
+
+#conferenceLayer .conference-planning-compact .planning-preview__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+#conferenceLayer .conference-planning-compact .planning-preview__grid > div {
+  min-height: 72px;
+  padding: 10px;
+  border-radius: 13px;
+}
+
+#conferenceLayer .conference-planning-compact .planning-preview__grid span {
+  font-size: .64rem;
+  line-height: 1.15;
+}
+
+#conferenceLayer .conference-planning-compact .planning-preview__grid strong {
+  margin-top: 5px;
+  font-size: 1.02rem;
+}
+
+#conferenceLayer .conference-planning-compact > p {
+  margin: 9px 0 0;
+  font-size: .65rem;
+}
+
+#conferenceLayer .conference-measurements-compact {
+  padding: 14px;
+}
+
+#conferenceLayer .conference-measurements-compact .measurement-plan-head {
+  margin-bottom: 10px;
+}
+
+#conferenceLayer .conference-measurements-compact .measurement-plan-head strong {
+  font-size: 1rem;
+}
+
+#conferenceLayer .conference-measurements-compact .measurement-plan-head > span {
+  padding: 6px 8px;
+  font-size: .58rem;
+}
+
+#conferenceLayer .conference-measurements-compact .measurement-frequency {
+  border-radius: 15px;
+}
+
+#conferenceLayer .conference-measurements-compact .measurement-frequency > header {
+  padding: 11px 12px;
+}
+
+#conferenceLayer .conference-measurements-compact .measurement-frequency > header strong {
+  font-size: .9rem;
+}
+
+#conferenceLayer .conference-measurements-compact .measurement-totals,
+#conferenceLayer .conference-measurements-compact .measurement-point:not(:first-child),
+#conferenceLayer .conference-measurements-compact .measurement-details {
+  display: none;
+}
+
+#conferenceLayer .conference-measurements-compact.is-expanded .measurement-totals {
+  display: grid;
+}
+
+#conferenceLayer .conference-measurements-compact.is-expanded .measurement-point {
+  display: flex;
+}
+
+#conferenceLayer .conference-measurements-compact .measurement-point {
+  margin: 10px;
+  padding: 10px;
+  border-radius: 13px;
+}
+
+#conferenceLayer .conference-measurements-compact .measurement-point__quantity {
+  min-width: 86px;
+  padding: 8px;
+}
+
+#conferenceLayer .conference-measurement-expand {
+  width: 100%;
+  min-height: 42px;
+  margin-top: 8px;
+  border: 1px solid rgba(126, 151, 190, .16);
+  border-radius: 12px;
+  background: rgba(126, 151, 190, .06);
+  color: #aebbd0;
+  font-size: .76rem;
+  font-weight: 750;
+}
+
+#conferenceLayer .ops-details {
+  margin-top: 12px;
+  border-radius: 16px;
+}
+
+#conferenceLayer .ops-sheet__actions {
+  gap: 10px;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+}
+
+#conferenceLayer .ops-sheet__actions .ops-btn {
+  min-height: 52px;
+}
+
+@media (max-width: 370px) {
+  #conferenceLayer .conference-fields-grid,
+  #conferenceLayer .conference-live-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #conferenceLayer .conference-planning-compact .planning-preview__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  #conferenceLayer .conference-planning-compact .planning-preview__grid > div:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 700px) {
+  #conferenceLayer .ops-sheet__body {
+    padding-inline: 24px;
+  }
+
+  #conferenceLayer .conference-fields-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #conferenceLayer .conference-live-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #conferenceLayer .conference-stepper button,
+  #conferenceLayer .conference-status-buttons button {
+    transition: none;
+  }
+}
