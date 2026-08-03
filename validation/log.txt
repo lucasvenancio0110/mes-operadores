@@ -1,21 +1,7 @@
-Commit: d145af3060cb79a67930a5ac40073009133c3aba
-Started: 2026-08-03T15:26:28Z
+Commit: 8f8d6a43dd01d63328dfbd99ddac57fc08c005b3
+Started: 2026-08-03T15:27:37Z
 
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
-
-AssertionError [ERR_ASSERTION]: Versão 3.6.1 não foi publicada no ponto de entrada.
-    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:27:1 {
-  generatedMessage: false,
-  code: 'ERR_ASSERTION',
-  actual: false,
-  expected: true,
-  operator: '==',
-  diff: 'simple'
-}
-
-Node.js v22.23.1
+NEOMES Cloudflare, D1, sync UX and operational checks passed.
 Measurement plan checks passed.
 node:internal/modules/run_main:123
     triggerUncaughtException(
