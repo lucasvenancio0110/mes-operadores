@@ -1,21 +1,7 @@
-Commit: 8d3f07abf75dd83a7f7d9e7eeae0635a616b3034
-Started: 2026-08-03T17:18:14Z
+Commit: 5327589f76d2fe41ac24f149313847c9768bdef1
+Started: 2026-08-03T17:18:56Z
 
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
-
-AssertionError [ERR_ASSERTION]: Workflow oficial de deploy ausente.
-    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:90:1 {
-  generatedMessage: false,
-  code: 'ERR_ASSERTION',
-  actual: false,
-  expected: true,
-  operator: '==',
-  diff: 'simple'
-}
-
-Node.js v22.23.1
+NEOMES Cloudflare, D1, sync UX and operational checks passed.
 Measurement plan checks passed.
 node:internal/modules/run_main:123
     triggerUncaughtException(
