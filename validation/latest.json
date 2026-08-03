@@ -1,8 +1,8 @@
 {
   "status": "success",
-  "commit": "af046f99b6e6a4c6d5aefc77a9480d926d9ac27e",
-  "workflowRun": "30859153112",
-  "validatedAt": "2026-08-03T22:34:32.415Z",
+  "commit": "1b3e5614f2f9a5f2a689d129cc551a12fafbfd0b",
+  "workflowRun": "30859230772",
+  "validatedAt": "2026-08-03T22:35:42.090Z",
   "checks": [
     "javascript-syntax",
     "worker-syntax",
@@ -23,6 +23,9 @@
     "measurement-op-total",
     "measurement-shift-triggers",
     "measurement-secondary-frequency",
+    "measurement-rounded-frequency",
+    "measurement-balanced-after-shift",
+    "measurement-frequency-pair-parser",
     "material-calculation",
     "global-settings",
     "compact-conference",
