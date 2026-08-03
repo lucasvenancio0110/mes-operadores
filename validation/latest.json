@@ -1,14 +1,16 @@
 {
   "status": "success",
-  "commit": "6b70eef38d73100e29948a4afb9f1ab93c817298",
-  "workflowRun": "30780618262",
-  "validatedAt": "2026-08-03T02:59:25.328Z",
+  "commit": "cbfe3336f19f473e53fab1be8b34feb4290ed16e",
+  "workflowRun": "30780628636",
+  "validatedAt": "2026-08-03T02:59:49.940Z",
   "checks": [
     "javascript-syntax",
     "worker-syntax",
     "static-architecture",
     "manifest-json",
     "pwa-required-files",
-    "operator-simplification"
+    "operator-simplification",
+    "premium-branding",
+    "premium-design-system"
   ]
 }
