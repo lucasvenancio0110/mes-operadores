@@ -31,6 +31,9 @@ jobs:
           node --check worker/index.js
           node --check app/core.js
           node --check app/operator-main.js
+          node --check app/measurement-engine.js
+          node --check app/measurement-frequency-parser.js
+          node --check app/measurement-frequency-fix.js
           node --check app/shift-performance.js
           node --check app/shift-time-engine.js
           node --check app/shift-time-fix.js
