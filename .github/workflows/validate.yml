@@ -71,6 +71,7 @@ jobs:
             test -f app/premium.css
             test -f app/premium-runtime.css
             test -f app/brand.css
+            test -f app/cloud-sync.css
             test -f app/planning.css
             test -f app/measurement-plan.css
             test -f app/conference-ux.css
@@ -82,6 +83,9 @@ jobs:
             test -f app/measurement-plan.js
             test -f app/conference-ux.js
             test -f worker/settings.js
+            test -f wrangler.jsonc
+            test -f .assetsignore
+            test -f .github/workflows/deploy-cloudflare.yml
           } > validation/log.txt 2>&1
           STATUS=$?
           STATUS=$STATUS node - <<'NODE'
@@ -102,6 +106,10 @@ jobs:
               'brand-responsive-header',
               'brand-menu-login-splash',
               'brand-pwa-icons',
+              'cloudflare-worker-assets',
+              'cloudflare-d1-binding',
+              'cloudflare-deploy-workflow',
+              'sync-warning-only-on-errors',
               'operator-simplification',
               'premium-design-system',
               'production-planning',
@@ -126,7 +134,7 @@ jobs:
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email "4189822+github-actions[bot]@users.noreply.github.com"
           git add validation/latest.json validation/log.txt
           if ! git diff --cached --quiet; then
             git commit -m "chore: atualiza validação automática [skip ci]"
