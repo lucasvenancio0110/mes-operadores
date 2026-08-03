@@ -1,4 +1,5 @@
 const EPSILON = 1e-9;
+const QUOTIENT_SNAP_TOLERANCE = 1e-3;
 
 function positive(value) {
   const number = Number(value);
@@ -8,6 +9,16 @@ function positive(value) {
 function wholeNonNegative(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? Math.floor(number) : fallback;
+}
+
+function measurementCountAt(pieceCount, frequency, maximum = Infinity) {
+  if (!(frequency > 0)) return 0;
+  const quotient = Math.max(0, Number(pieceCount) || 0) / frequency;
+  const nearestInteger = Math.round(quotient);
+  const normalizedQuotient = Math.abs(quotient - nearestInteger) <= QUOTIENT_SNAP_TOLERANCE
+    ? nearestInteger
+    : quotient;
+  return Math.min(maximum, Math.max(0, Math.floor(normalizedQuotient + EPSILON)));
 }
 
 /**
@@ -37,21 +48,17 @@ export function calculateFrequencyMeasurementPlan(input = {}) {
     };
   }
 
-  // Só existe medição quando um múltiplo completo da frequência é atingido.
-  const totalMeasurements = Math.max(0, Math.floor((opTarget + EPSILON) / frequency));
-  const previousMeasurements = Math.min(
-    totalMeasurements,
-    Math.max(0, Math.floor((producedSoFar + EPSILON) / frequency))
-  );
-  const measurementsByShiftEnd = Math.min(
-    totalMeasurements,
-    Math.max(0, Math.floor((expectedEnd + EPSILON) / frequency))
-  );
+  // Frequências podem chegar arredondadas a três casas decimais.
+  // Quando o quociente está praticamente inteiro, ele é normalizado para
+  // evitar que 12,99995 seja interpretado como somente 12 medições.
+  const totalMeasurements = measurementCountAt(opTarget, frequency);
+  const previousMeasurements = measurementCountAt(producedSoFar, frequency, totalMeasurements);
+  const measurementsByShiftEnd = measurementCountAt(expectedEnd, frequency, totalMeasurements);
 
   const points = [];
   for (let measurementNumber = previousMeasurements + 1; measurementNumber <= measurementsByShiftEnd; measurementNumber += 1) {
     const exactAccumulatedPoint = measurementNumber * frequency;
-    const accumulatedPiece = Math.ceil(exactAccumulatedPoint - EPSILON);
+    const accumulatedPiece = Math.min(opTarget, Math.ceil(exactAccumulatedPoint - EPSILON));
     const shiftPiece = Math.max(1, accumulatedPiece - producedSoFar);
     points.push({
       measurementNumber,
@@ -63,6 +70,14 @@ export function calculateFrequencyMeasurementPlan(input = {}) {
     });
   }
 
+  const measurementsThisShift = points.length;
+  // Regra invariável da tela:
+  // anteriores + neste turno + depois do turno = total da OP.
+  const remainingAfterShift = Math.max(
+    totalMeasurements - previousMeasurements - measurementsThisShift,
+    0
+  );
+
   return {
     frequency,
     opTarget,
@@ -71,9 +86,9 @@ export function calculateFrequencyMeasurementPlan(input = {}) {
     expectedEnd,
     totalMeasurements,
     previousMeasurements,
-    measurementsThisShift: points.length,
-    measurementsByShiftEnd,
-    remainingAfterShift: Math.max(totalMeasurements - measurementsByShiftEnd, 0),
+    measurementsThisShift,
+    measurementsByShiftEnd: previousMeasurements + measurementsThisShift,
+    remainingAfterShift,
     points
   };
 }
