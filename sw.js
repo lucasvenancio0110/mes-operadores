@@ -1,4 +1,4 @@
-const VERSION = 'neodent-mes-v3.1.0';
+const VERSION = 'neodent-mes-v3.2.0';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -9,14 +9,18 @@ const APP_SHELL = [
   './offline.html',
   './manifest.webmanifest',
   './icons/mes-icon.svg',
+  './icons/neomes-mark.svg',
   './app/app.css',
   './app/operator.css',
+  './app/premium.css',
+  './app/premium-runtime.css',
   './app/catalog.js',
   './app/core.js',
   './app/components.js',
   './app/operator-main.js',
   './app/cloud-state.js',
-  './app/exports.js'
+  './app/exports.js',
+  './app/premium-runtime.js'
 ].map(asset);
 
 self.addEventListener('install', event => {
@@ -41,13 +45,13 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/api/')) return;
+  if (url.pathname.includes('/api/')) return;
 
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then(response => {
-          caches.open(RUNTIME_CACHE).then(cache => cache.put(request, response.clone()));
+          if (response.ok) caches.open(RUNTIME_CACHE).then(cache => cache.put(request, response.clone()));
           return response;
         })
         .catch(async () =>
