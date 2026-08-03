@@ -4,7 +4,9 @@
 .planning-input-wrap:focus-within{border-color:rgba(224,82,165,.7);box-shadow:0 0 0 4px rgba(224,82,165,.1)}
 .planning-input-wrap input{width:100%;min-height:50px;border:0!important;background:transparent!important;box-shadow:none!important}
 .planning-input-wrap>span{padding:0 13px;color:var(--premium-text-3,var(--color-text-muted));font-size:.7rem;font-weight:700;white-space:nowrap}
-.planning-add-frequency{align-self:end;min-height:50px;padding:0 14px;border:1px dashed rgba(224,82,165,.38);border-radius:14px;background:rgba(224,82,165,.07);color:var(--premium-brand,#e052a5);font-weight:750;cursor:pointer}
+.planning-add-frequency{grid-column:1/-1;display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;margin-top:-2px;padding:0 16px;border:1px dashed rgba(224,82,165,.46);border-radius:14px;background:rgba(224,82,165,.09);color:var(--premium-brand,#e052a5);font-weight:800;cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .16s ease}
+.planning-add-frequency:active{transform:scale(.985)}
+.planning-add-frequency:focus-visible{outline:2px solid var(--premium-brand,#e052a5);outline-offset:3px}
 .planning-frequency-2[hidden],.planning-add-frequency[hidden]{display:none!important}
 
 .planning-preview{margin:16px 0;padding:15px;border:1px solid rgba(101,157,232,.2);border-radius:18px;background:linear-gradient(145deg,rgba(25,39,59,.86),rgba(11,18,29,.92));box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
