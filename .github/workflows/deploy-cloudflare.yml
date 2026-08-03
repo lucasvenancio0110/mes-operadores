@@ -26,9 +26,6 @@ jobs:
         with:
           node-version: 22
 
-      - name: Instalar dependências
-        run: npm install --no-audit --no-fund
-
       - name: Validar aplicação antes do deploy
         run: |
           node --check worker/main.js
