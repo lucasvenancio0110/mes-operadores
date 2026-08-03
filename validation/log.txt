@@ -1,7 +1,21 @@
-Commit: 218dddf492b10ffab92108c10304b9edc48ed052
-Started: 2026-08-03T15:25:08Z
+Commit: 44686bc296988929f98ef2fc63f5e81be2404f40
+Started: 2026-08-03T15:25:39Z
 
-NEOMES clean branding, responsive layout and operational checks passed.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Versão 3.6.1 não foi publicada no ponto de entrada.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:27:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Measurement plan checks passed.
 node:internal/modules/run_main:123
     triggerUncaughtException(
