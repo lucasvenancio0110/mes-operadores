@@ -3,7 +3,7 @@
   "short_name": "NEODENT MES",
   "description": "Aplicativo industrial para conferência de máquinas CNC, planejamento manual de metas, medições, matéria-prima e fechamento da produção do turno.",
   "id": "./",
-  "start_url": "./?source=pwa&v=3.3.0",
+  "start_url": "./?source=pwa&v=3.4.0",
   "scope": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
@@ -14,7 +14,7 @@
   "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
-      "src": "icons/mes-icon.svg?v=3.3.0",
+      "src": "icons/mes-icon.svg?v=3.4.0",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -26,14 +26,14 @@
       "short_name": "Turno",
       "description": "Abrir as máquinas, metas e pendências do turno",
       "url": "./?route=turn",
-      "icons": [{ "src": "icons/mes-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "icons/mes-icon.svg?v=3.4.0", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
       "name": "Histórico",
       "short_name": "Histórico",
       "description": "Consultar apontamentos e encerramentos",
       "url": "./?route=history",
-      "icons": [{ "src": "icons/mes-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [{ "src": "icons/mes-icon.svg?v=3.4.0", "sizes": "any", "type": "image/svg+xml" }]
     }
   ]
 }
