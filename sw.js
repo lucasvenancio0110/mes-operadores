@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v3.7.0-desktop-nav';
+const VERSION = 'neomes-v3.7.2-shift-performance';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -22,6 +22,7 @@ const APP_SHELL = [
   './app/brand.css',
   './app/cloud-sync.css',
   './app/desktop-nav.css',
+  './app/shift-performance.css',
   './app/catalog.js',
   './app/core.js',
   './app/components.js',
@@ -33,7 +34,8 @@ const APP_SHELL = [
   './app/production-planning.js',
   './app/measurement-engine.js',
   './app/measurement-plan.js',
-  './app/conference-ux.js'
+  './app/conference-ux.js',
+  './app/shift-performance.js'
 ].map(asset);
 
 self.addEventListener('install', event => {
