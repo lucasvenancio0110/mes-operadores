@@ -1,0 +1,77 @@
+name: Deploy NEOMES to Cloudflare
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: neomes-cloudflare-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Publicar aplicação e API
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v6
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Validar aplicação antes do deploy
+        run: |
+          node --check worker/main.js
+          node --check worker/index.js
+          node --check app/core.js
+          node --check app/operator-main.js
+          node tests/static-check.mjs
+          node tests/measurement-plan.test.mjs
+          node tests/conference-ux.test.mjs
+
+      - name: Publicar no Cloudflare Workers
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4.68.0"
+          command: deploy
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verificar Worker e banco D1
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          if [ -z "$DEPLOYMENT_URL" ]; then
+            echo "O Cloudflare não retornou o endereço do deploy."
+            exit 1
+          fi
+
+          HEALTH="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 "$DEPLOYMENT_URL/health")"
+          echo "$HEALTH"
+
+          node -e '
+            const health = JSON.parse(process.argv[1]);
+            if (!health.ok) throw new Error("Worker não respondeu como saudável.");
+            if (!health.database) throw new Error("O binding DB não está conectado ao D1.");
+          ' "$HEALTH"
+
+          {
+            echo "### NEOMES publicado com sucesso"
+            echo ""
+            echo "- Aplicação: $DEPLOYMENT_URL"
+            echo "- API: $DEPLOYMENT_URL/api/v1/catalog"
+            echo "- Saúde do banco: $DEPLOYMENT_URL/health"
+          } >> "$GITHUB_STEP_SUMMARY"
