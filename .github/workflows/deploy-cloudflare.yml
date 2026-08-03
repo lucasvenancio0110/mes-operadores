@@ -5,7 +5,6 @@ on:
 
 permissions:
   contents: read
-  deployments: write
 
 concurrency:
   group: neomes-cloudflare-production
@@ -36,26 +35,112 @@ jobs:
           node tests/measurement-plan.test.mjs
           node tests/conference-ux.test.mjs
 
-      - name: Publicar no Cloudflare Workers
-        id: deploy
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4.68.0"
-          command: deploy
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verificar Worker e banco D1
+      - name: Verificar token, conta e banco D1
+        id: preflight
         env:
-          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if [ -z "$DEPLOYMENT_URL" ]; then
-            echo "O Cloudflare não retornou o endereço do deploy."
+          set -euo pipefail
+
+          TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
+          ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
+          DATABASE_ID="31666c87-0970-44e1-9969-51458e7888b5"
+
+          if [ -z "$TOKEN" ]; then
+            echo "Secret CLOUDFLARE_API_TOKEN não foi encontrado."
+            exit 1
+          fi
+          if [ -z "$ACCOUNT_ID" ]; then
+            echo "Secret CLOUDFLARE_ACCOUNT_ID não foi encontrado."
             exit 1
           fi
 
-          HEALTH="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 "$DEPLOYMENT_URL/health")"
+          VERIFY="$(curl --silent --show-error \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          node -e '
+            const response = JSON.parse(process.argv[1]);
+            if (!response.success || response.result?.status !== "active") {
+              console.error("Token do Cloudflare inválido ou inativo:", (response.errors || []).map(item => item.message).join("; "));
+              process.exit(1);
+            }
+            console.log("Token do Cloudflare: ativo.");
+          ' "$VERIFY"
+
+          ACCOUNT_RESPONSE="$(curl --silent --show-error \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID")"
+          node -e '
+            const response = JSON.parse(process.argv[1]);
+            if (!response.success) {
+              console.error("Account ID inválido ou sem acesso:", (response.errors || []).map(item => item.message).join("; "));
+              process.exit(1);
+            }
+            console.log("Conta Cloudflare: acessível.");
+          ' "$ACCOUNT_RESPONSE"
+
+          DATABASE_RESPONSE="$(curl --silent --show-error \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/d1/database/$DATABASE_ID")"
+          node -e '
+            const response = JSON.parse(process.argv[1]);
+            if (!response.success) {
+              console.error("Banco D1 não encontrado ou sem acesso:", (response.errors || []).map(item => item.message).join("; "));
+              process.exit(1);
+            }
+            console.log("Banco D1: acessível.");
+          ' "$DATABASE_RESPONSE"
+
+          SUBDOMAIN_RESPONSE="$(curl --silent --show-error \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/subdomain")"
+          SUBDOMAIN="$(node -e '
+            const response = JSON.parse(process.argv[1]);
+            if (!response.success) process.exit(0);
+            process.stdout.write(response.result?.subdomain || "");
+          ' "$SUBDOMAIN_RESPONSE")"
+
+          echo "subdomain=$SUBDOMAIN" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar no Cloudflare Workers
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WORKERS_SUBDOMAIN: ${{ steps.preflight.outputs.subdomain }}
+        run: |
+          set -euo pipefail
+
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
+
+          npx --yes wrangler@4.68.0 deploy 2>&1 | tee wrangler-deploy.log
+
+          DEPLOYMENT_URL="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' wrangler-deploy.log | tail -n 1 || true)"
+          if [ -z "$DEPLOYMENT_URL" ] && [ -n "$WORKERS_SUBDOMAIN" ]; then
+            DEPLOYMENT_URL="https://mes-operadores.$WORKERS_SUBDOMAIN.workers.dev"
+          fi
+
+          if [ -z "$DEPLOYMENT_URL" ]; then
+            echo "O deploy terminou, mas não foi possível identificar o endereço workers.dev."
+            exit 1
+          fi
+
+          echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+          echo "Aplicação publicada em $DEPLOYMENT_URL"
+
+      - name: Verificar Worker, API e banco D1
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: |
+          set -euo pipefail
+
+          HEALTH="$(curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 "$DEPLOYMENT_URL/health")"
           echo "$HEALTH"
 
           node -e '
@@ -63,6 +148,12 @@ jobs:
             if (!health.ok) throw new Error("Worker não respondeu como saudável.");
             if (!health.database) throw new Error("O binding DB não está conectado ao D1.");
           ' "$HEALTH"
+
+          CATALOG="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 3 "$DEPLOYMENT_URL/api/v1/catalog")"
+          node -e '
+            const response = JSON.parse(process.argv[1]);
+            if (!Array.isArray(response.lines)) throw new Error("A API do catálogo não respondeu corretamente.");
+          ' "$CATALOG"
 
           {
             echo "### NEOMES publicado com sucesso"
