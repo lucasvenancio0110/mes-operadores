@@ -1,4 +1,4 @@
-const VERSION = 'neodent-mes-v3.5.0';
+const VERSION = 'neomes-v3.6.0';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -8,8 +8,10 @@ const APP_SHELL = [
   './index.html',
   './offline.html',
   './manifest.webmanifest',
-  './icons/mes-icon.svg',
-  './icons/neomes-mark.svg',
+  './assets/brand/neomes-logo-horizontal.svg',
+  './assets/brand/neomes-symbol.svg',
+  './icons/neomes-app-icon.svg',
+  './icons/neomes-app-icon-maskable.svg',
   './app/app.css',
   './app/operator.css',
   './app/premium.css',
@@ -17,9 +19,11 @@ const APP_SHELL = [
   './app/planning.css',
   './app/measurement-plan.css',
   './app/conference-ux.css',
+  './app/brand.css',
   './app/catalog.js',
   './app/core.js',
   './app/components.js',
+  './app/brand.js',
   './app/operator-main.js',
   './app/cloud-state.js',
   './app/exports.js',
