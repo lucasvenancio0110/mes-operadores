@@ -32,10 +32,13 @@ jobs:
           node --check app/core.js
           node --check app/operator-main.js
           node --check app/shift-performance.js
+          node --check app/shift-time-engine.js
+          node --check app/shift-time-fix.js
           node tests/static-check.mjs
           node tests/measurement-plan.test.mjs
           node tests/conference-ux.test.mjs
           node tests/shift-performance.test.mjs
+          node tests/shift-time.test.mjs
 
       - name: Verificar token, conta e banco D1
         id: preflight
