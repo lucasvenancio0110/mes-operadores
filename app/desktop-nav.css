@@ -1,0 +1,94 @@
+/* NEOMES — navegação adaptativa para tablet e desktop */
+
+/* Proteção contra qualquer regra anterior que estique a navegação. */
+@media (min-width:720px){
+  .ops-nav{
+    top:auto!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:86px!important;
+    align-self:auto!important;
+    overflow:hidden!important;
+  }
+}
+
+/* Desktop: transforma a bottom navigation em rail lateral compacto. */
+@media (min-width:1100px){
+  .ops-shell{
+    padding-bottom:32px!important;
+    padding-left:112px;
+  }
+
+  .ops-page{
+    width:min(100%,1040px);
+  }
+
+  .ops-nav{
+    position:fixed!important;
+    z-index:60!important;
+    top:50%!important;
+    right:auto!important;
+    bottom:auto!important;
+    left:20px!important;
+    width:84px!important;
+    max-width:84px!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    grid-auto-flow:row!important;
+    grid-auto-rows:auto!important;
+    gap:7px!important;
+    padding:8px!important;
+    transform:translateY(-50%)!important;
+    border-radius:22px!important;
+    overflow:hidden!important;
+  }
+
+  .ops-nav__item{
+    width:100%!important;
+    min-width:0!important;
+    min-height:68px!important;
+    padding:8px 5px!important;
+    border-radius:15px!important;
+  }
+
+  .ops-nav__item svg{
+    width:21px!important;
+    height:21px!important;
+  }
+
+  .ops-nav__item span{
+    font-size:.62rem!important;
+    line-height:1.15!important;
+    text-align:center;
+  }
+
+  .ops-nav__item[aria-current=page]{
+    background:var(--brand-primary-soft)!important;
+  }
+}
+
+/* Monitores largos: mantém o rail próximo ao conteúdo, sem ficar perdido na borda. */
+@media (min-width:1440px){
+  .ops-nav{
+    left:max(24px,calc((100vw - 1280px)/2))!important;
+  }
+
+  .ops-shell{
+    padding-left:124px;
+  }
+}
+
+/* Telas desktop baixas: reduz a altura dos itens para evitar corte. */
+@media (min-width:1100px) and (max-height:680px){
+  .ops-nav{
+    gap:5px!important;
+    padding:7px!important;
+  }
+
+  .ops-nav__item{
+    min-height:58px!important;
+  }
+}
