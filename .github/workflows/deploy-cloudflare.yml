@@ -43,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
+          TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
           ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
           DATABASE_ID="31666c87-0970-44e1-9969-51458e7888b5"
 
@@ -117,7 +117,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
           export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
 
           npx --yes wrangler@4.68.0 deploy 2>&1 | tee wrangler-deploy.log
