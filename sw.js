@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v3.6.1';
+const VERSION = 'neomes-v3.7.0';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -20,6 +20,7 @@ const APP_SHELL = [
   './app/measurement-plan.css',
   './app/conference-ux.css',
   './app/brand.css',
+  './app/cloud-sync.css',
   './app/catalog.js',
   './app/core.js',
   './app/components.js',
