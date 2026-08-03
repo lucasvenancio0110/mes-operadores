@@ -19,16 +19,15 @@ jobs:
 
     steps:
       - name: Baixar repositório
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Preparar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Instalar dependências
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Validar aplicação antes do deploy
         run: |
