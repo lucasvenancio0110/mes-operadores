@@ -44,6 +44,7 @@ jobs:
             node --check app/production-planning.js
             node --check app/measurement-engine.js
             node --check app/measurement-plan.js
+            node --check app/conference-ux.js
             node --check sw.js
             node --check worker/main.js
             node --check worker/index.js
@@ -54,8 +55,10 @@ jobs:
             node --check worker/settings.js
             node --check tests/static-check.mjs
             node --check tests/measurement-plan.test.mjs
+            node --check tests/conference-ux.test.mjs
             node tests/static-check.mjs
             node tests/measurement-plan.test.mjs
+            node tests/conference-ux.test.mjs
             node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest JSON passed.')"
             test -f offline.html
             test -f icons/mes-icon.svg
@@ -66,11 +69,13 @@ jobs:
             test -f app/premium-runtime.css
             test -f app/planning.css
             test -f app/measurement-plan.css
+            test -f app/conference-ux.css
             test -f app/operator-main.js
             test -f app/premium-runtime.js
             test -f app/production-planning.js
             test -f app/measurement-engine.js
             test -f app/measurement-plan.js
+            test -f app/conference-ux.js
             test -f worker/settings.js
           } > validation/log.txt 2>&1
           STATUS=$?
@@ -96,7 +101,11 @@ jobs:
               'measurement-shift-triggers',
               'measurement-secondary-frequency',
               'material-calculation',
-              'global-settings'
+              'global-settings',
+              'compact-conference',
+              'order-continuity',
+              'production-reconciliation',
+              'material-stepper'
             ]
           };
           fs.writeFileSync('validation/latest.json', JSON.stringify(result, null, 2) + '\n');
