@@ -1,21 +1,7 @@
-Commit: 6bdafb01ca729136588be1b4344277acf9459835
-Started: 2026-08-03T14:26:24Z
+Commit: 7acdf777da44792b0fa48930a0f07478d4e9e842
+Started: 2026-08-03T14:27:47Z
 
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
-
-AssertionError [ERR_ASSERTION]: Identidade manual/premium incompleta.
-    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:46:1 {
-  generatedMessage: false,
-  code: 'ERR_ASSERTION',
-  actual: false,
-  expected: true,
-  operator: '==',
-  diff: 'simple'
-}
-
-Node.js v22.23.1
+Static NEOMES official branding and operational checks passed.
 Measurement plan checks passed.
 node:internal/modules/run_main:123
     triggerUncaughtException(
