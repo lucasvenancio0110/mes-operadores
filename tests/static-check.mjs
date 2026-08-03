@@ -45,7 +45,7 @@ for (const token of ['--premium-bg', '--premium-surface', '--premium-brand', '--
 assert(operatorCss.includes('env(safe-area-inset-bottom)'), 'Safe area inferior ausente na experiência operacional.');
 assert(premiumCss.includes('env(safe-area-inset-bottom)'), 'Safe area inferior ausente na camada premium.');
 assert(premiumCss.includes('@media(prefers-reduced-motion:reduce)'), 'Preferência de movimento reduzido não tratada.');
-assert(premiumCss.includes('@media(display-mode:standalone)'), 'Modo PWA standalone não refinado.');
+assert(/@media\s*\(display-mode\s*:\s*standalone\)/.test(premiumCss), 'Modo PWA standalone não refinado.');
 assert(premiumRuntimeCss.includes('.ops-menu-brand'), 'Branding premium do menu ausente.');
 
 for (const route of ['turn', 'history', 'more']) {
