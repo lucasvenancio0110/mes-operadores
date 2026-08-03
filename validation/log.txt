@@ -1,12 +1,12 @@
-Commit: 0ebf246f7722e2b7d32fc9f16e0beba204579ff8
-Started: 2026-08-03T14:55:17Z
+Commit: 5bf19073ec845cf498f52b9e9020eaa7d3b44c1d
+Started: 2026-08-03T14:56:48Z
 
 node:internal/modules/run_main:123
     triggerUncaughtException(
     ^
 
-AssertionError [ERR_ASSERTION]: Logo horizontal oficial incompleta.
-    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:86:1 {
+AssertionError [ERR_ASSERTION]: Versão compacta do cabeçalho ausente.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:44:1 {
   generatedMessage: false,
   code: 'ERR_ASSERTION',
   actual: false,
