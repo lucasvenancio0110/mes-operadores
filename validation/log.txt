@@ -1,7 +1,24 @@
-Commit: 013ebb1ab80fb3b51963e70987ee33a23736e4f3
-Started: 2026-08-03T22:32:45Z
+Commit: 48184f31bbbf96fcfd29a6361cccf2dc4e70a428
+Started: 2026-08-03T22:33:08Z
 
-NEOMES Cloudflare, D1, 480-minute target and operational checks passed.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Versão 3.7.3 não foi publicada no ponto de entrada.
+
+'3.7.4' !== '3.7.3'
+
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:32:8 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '3.7.4',
+  expected: '3.7.3',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Measurement plan checks passed.
 Compact conference UX checks passed.
 node:internal/modules/run_main:123
