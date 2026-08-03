@@ -46,6 +46,7 @@ jobs:
             node --check app/measurement-engine.js
             node --check app/measurement-plan.js
             node --check app/conference-ux.js
+            node --check app/shift-performance.js
             node --check sw.js
             node --check worker/main.js
             node --check worker/index.js
@@ -57,9 +58,11 @@ jobs:
             node --check tests/static-check.mjs
             node --check tests/measurement-plan.test.mjs
             node --check tests/conference-ux.test.mjs
+            node --check tests/shift-performance.test.mjs
             node tests/static-check.mjs
             node tests/measurement-plan.test.mjs
             node tests/conference-ux.test.mjs
+            node tests/shift-performance.test.mjs
             node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest JSON passed.')"
             test -f offline.html
             test -f assets/brand/neomes-logo-horizontal.svg
@@ -75,6 +78,8 @@ jobs:
             test -f app/planning.css
             test -f app/measurement-plan.css
             test -f app/conference-ux.css
+            test -f app/desktop-nav.css
+            test -f app/shift-performance.css
             test -f app/brand.js
             test -f app/operator-main.js
             test -f app/premium-runtime.js
@@ -82,6 +87,7 @@ jobs:
             test -f app/measurement-engine.js
             test -f app/measurement-plan.js
             test -f app/conference-ux.js
+            test -f app/shift-performance.js
             test -f worker/settings.js
             test -f wrangler.jsonc
             test -f .assetsignore
@@ -121,7 +127,10 @@ jobs:
               'compact-conference',
               'order-continuity',
               'production-reconciliation',
-              'material-stepper'
+              'material-stepper',
+              'shift-performance',
+              'stoppage-time',
+              'target-color-status'
             ]
           };
           fs.writeFileSync('validation/latest.json', JSON.stringify(result, null, 2) + '\n');
