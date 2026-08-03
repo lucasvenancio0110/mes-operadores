@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v3.7.3-shift-time';
+const VERSION = 'neomes-v3.7.4-measurement-frequency';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -33,7 +33,9 @@ const APP_SHELL = [
   './app/premium-runtime.js',
   './app/production-planning.js',
   './app/measurement-engine.js',
+  './app/measurement-frequency-parser.js',
   './app/measurement-plan.js',
+  './app/measurement-frequency-fix.js',
   './app/conference-ux.js',
   './app/shift-performance.js',
   './app/shift-time-engine.js',
