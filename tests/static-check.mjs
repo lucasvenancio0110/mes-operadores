@@ -3,31 +3,35 @@ import assert from 'node:assert/strict';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const [
-  html, baseCss, operatorCss, premiumCss, brandCss, manifestText, worker,
-  operatorMain, premiumRuntime, brandRuntime, planningRuntime, measurementRuntime,
-  measurementEngine, settingsWorker, core, exportsModule, serviceWorker,
-  officialLogo, officialSymbol, appIcon, maskableIcon, offline
+  html, baseCss, operatorCss, premiumCss, brandCss, cloudSyncCss, manifestText,
+  worker, operatorMain, premiumRuntime, brandRuntime, planningRuntime,
+  measurementRuntime, measurementEngine, settingsWorker, core, exportsModule,
+  serviceWorker, officialLogo, officialSymbol, appIcon, maskableIcon, offline,
+  wranglerText, deployWorkflow
 ] = await Promise.all([
   read('index.html'), read('app/app.css'), read('app/operator.css'), read('app/premium.css'),
-  read('app/brand.css'), read('manifest.webmanifest'), read('worker/main.js'),
-  read('app/operator-main.js'), read('app/premium-runtime.js'), read('app/brand.js'),
-  read('app/production-planning.js'), read('app/measurement-plan.js'),
+  read('app/brand.css'), read('app/cloud-sync.css'), read('manifest.webmanifest'),
+  read('worker/main.js'), read('app/operator-main.js'), read('app/premium-runtime.js'),
+  read('app/brand.js'), read('app/production-planning.js'), read('app/measurement-plan.js'),
   read('app/measurement-engine.js'), read('worker/settings.js'), read('app/core.js'),
   read('app/exports.js'), read('sw.js'), read('assets/brand/neomes-logo-horizontal.svg'),
   read('assets/brand/neomes-symbol.svg'), read('icons/neomes-app-icon.svg'),
-  read('icons/neomes-app-icon-maskable.svg'), read('offline.html')
+  read('icons/neomes-app-icon-maskable.svg'), read('offline.html'), read('wrangler.jsonc'),
+  read('.github/workflows/deploy-cloudflare.yml')
 ]);
 const manifest = JSON.parse(manifestText);
+const wrangler = JSON.parse(wranglerText);
 
 // App shell, acessibilidade e publicação em subdiretório.
 assert(!html.includes('maximum-scale=1'), 'O zoom do navegador não pode ser bloqueado.');
 assert(html.includes('viewport-fit=cover'), 'O layout deve respeitar safe areas.');
 assert(!html.includes('src="/app/') && !html.includes('href="/app/'), 'Caminhos absolutos quebram o GitHub Pages.');
 assert(html.includes('<title>NEOMES — Gestão Operacional</title>'), 'Título oficial NEOMES ausente.');
-assert(html.includes('v=3.6.1'), 'Versão 3.6.1 não foi publicada no ponto de entrada.');
+assert(html.includes('v=3.7.0'), 'Versão 3.7.0 não foi publicada no ponto de entrada.');
+assert(html.includes('app/cloud-sync.css'), 'Camada de sincronização discreta não foi carregada.');
 assert(!html.includes('NEODENT MES'), 'Identidade antiga permanece no ponto de entrada.');
 
-// Marca oficial: magenta, transparente e sem os resíduos brancos que apareciam no header.
+// Marca oficial: magenta, transparente e sem resíduos brancos.
 for (const [name, svg] of Object.entries({ officialLogo, officialSymbol, appIcon, maskableIcon })) {
   assert(svg.includes('<svg'), `${name} não é um SVG válido.`);
   assert(svg.includes('#AF249D'), `${name} não usa o magenta oficial.`);
@@ -52,20 +56,40 @@ assert(brandCss.includes('width:min(calc(100% - 24px),620px)'), 'Navegação inf
 assert(brandCss.includes('overflow-x:hidden'), 'Proteção contra rolagem horizontal ausente.');
 assert(operatorCss.includes('env(safe-area-inset-bottom)'), 'Safe area inferior ausente na interface operacional.');
 
+// Sincronização discreta: só aparece quando existe problema real.
+assert(cloudSyncCss.includes('.ops-sync[data-state="synced"]'), 'Indicador sincronizado não foi ocultado.');
+assert(cloudSyncCss.includes('.ops-sync[data-state="local"]'), 'Indicador local não foi ocultado.');
+assert(cloudSyncCss.includes('.ops-connection[data-state="local"]'), 'Banner local permanente não foi ocultado.');
+for (const state of ['offline', 'pending', 'error']) {
+  assert(cloudSyncCss.includes(`.ops-connection[data-state="${state}"]`), `Aviso acionável ausente para ${state}.`);
+}
+assert(cloudSyncCss.includes('.ops-page-head .ops-eyebrow'), 'Rótulo explicativo da home não foi simplificado.');
+
 // PWA e cache.
 assert.equal(manifest.name, 'NEOMES');
 assert.equal(manifest.short_name, 'NEOMES');
 assert.equal(manifest.display, 'standalone');
-assert(manifest.start_url.includes('v=3.6.1'), 'Manifesto não aponta para a versão 3.6.1.');
+assert(manifest.start_url.includes('v=3.7.0'), 'Manifesto não aponta para a versão 3.7.0.');
 assert(manifest.icons.some(icon => icon.purpose === 'any'), 'Ícone principal ausente.');
 assert(manifest.icons.some(icon => icon.purpose === 'maskable'), 'Ícone maskable ausente.');
-assert(serviceWorker.includes("neomes-v3.6.1"), 'Cache PWA não foi renovado.');
+assert(serviceWorker.includes("neomes-v3.7.0"), 'Cache PWA não foi renovado.');
 for (const asset of [
   './assets/brand/neomes-logo-horizontal.svg', './assets/brand/neomes-symbol.svg',
   './icons/neomes-app-icon.svg', './icons/neomes-app-icon-maskable.svg',
-  './app/brand.js', './app/brand.css'
+  './app/brand.js', './app/brand.css', './app/cloud-sync.css'
 ]) assert(serviceWorker.includes(asset), `Service Worker não inclui ${asset}.`);
 assert(!manifestText.includes('NEODENT MES') && !offline.includes('NEODENT MES') && !offline.includes('>NM<'), 'Identidade antiga permanece no PWA ou modo offline.');
+
+// Cloudflare Workers + D1 + assets no mesmo domínio.
+assert.equal(wrangler.name, 'mes-operadores');
+assert.equal(wrangler.main, 'worker/main.js');
+assert.equal(wrangler.workers_dev, true);
+assert.equal(wrangler.assets?.directory, '.');
+assert(wrangler.assets?.run_worker_first?.includes('/api/*'), 'API não está configurada para executar no Worker primeiro.');
+assert(wrangler.d1_databases?.some(binding => binding.binding === 'DB' && binding.database_id === '31666c87-0970-44e1-9969-51458e7888b5'), 'Binding DB/D1 incorreto.');
+assert(deployWorkflow.includes('cloudflare/wrangler-action@v3'), 'Workflow oficial de deploy ausente.');
+assert(deployWorkflow.includes('CLOUDFLARE_API_TOKEN') && deployWorkflow.includes('CLOUDFLARE_ACCOUNT_ID'), 'Segredos do Cloudflare não estão configurados no workflow.');
+assert(deployWorkflow.includes('/health') && deployWorkflow.includes('health.database'), 'Deploy não valida Worker e D1.');
 
 // Fluxos operacionais preservados.
 for (const route of ['turn', 'history', 'more']) assert(operatorMain.includes(`'${route}'`), `Rota ausente: ${route}`);
@@ -87,4 +111,4 @@ for (const route of ['/api/v1/machine-states', '/api/v1/events', '/api/v1/record
 for (const feature of ['exportPdf', 'exportImage', 'shareSummary']) assert(exportsModule.includes(feature), `Exportação ausente: ${feature}`);
 assert(core.includes('mes-operadores:v2') && core.includes('syncQueue'), 'Migração ou fila offline ausente.');
 
-console.log('NEOMES clean branding, responsive layout and operational checks passed.');
+console.log('NEOMES Cloudflare, D1, sync UX and operational checks passed.');
