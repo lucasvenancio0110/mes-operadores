@@ -2,7 +2,7 @@ import { store } from './core.js';
 import { calculateMeasurementPlans } from './measurement-engine.js';
 import { parseFrequencyPair } from './measurement-frequency-parser.js';
 
-const FIXED_PLAN_VERSION = 4;
+const FIXED_PLAN_VERSION = 5;
 let frame = 0;
 let normalizing = false;
 
@@ -32,8 +32,8 @@ function planIsBalanced(plan) {
 function correctedSession(session) {
   if (!session?.opTarget) return null;
 
-  // Compatibilidade apenas para registros antigos que foram salvos com "/".
-  // A interface atual nunca divide automaticamente o que o operador digita.
+  // Compatibilidade apenas com registros antigos que foram salvos usando "/".
+  // A interface atual exige uma frequência por campo.
   const legacyPair = typeof session.frequency1 === 'string' && session.frequency1.includes('/')
     ? parseFrequencyPair(session.frequency1)
     : null;
@@ -104,16 +104,38 @@ function normalizeStoredPlans() {
   normalizing = false;
 }
 
+function ensureAddButton(field1) {
+  let button = document.getElementById('addFrequency2');
+  if (!button) {
+    button = document.createElement('button');
+    button.id = 'addFrequency2';
+    button.type = 'button';
+    button.className = 'planning-add-frequency';
+  }
+  button.textContent = '＋ Adicionar segunda frequência';
+  button.setAttribute('aria-controls', 'confFrequency2');
+  if (field1 && button.previousElementSibling !== field1) {
+    field1.insertAdjacentElement('afterend', button);
+  }
+  return button;
+}
+
 function revealSecondFrequency(form, field, button) {
   if (form) form.dataset.secondFrequencyRequested = 'true';
   if (field) field.hidden = false;
-  if (button) button.hidden = true;
+  if (button) {
+    button.hidden = true;
+    button.setAttribute('aria-expanded', 'true');
+  }
 }
 
 function hideSecondFrequency(form, field, button) {
   if (form) delete form.dataset.secondFrequencyRequested;
   if (field) field.hidden = true;
-  if (button) button.hidden = false;
+  if (button) {
+    button.hidden = false;
+    button.setAttribute('aria-expanded', 'false');
+  }
 }
 
 function validateSeparatedFrequency(form, frequency1) {
@@ -137,27 +159,28 @@ function enhanceFrequencyFields() {
 
   const field1 = frequency1.closest('.field');
   const field2 = frequency2.closest('.field');
-  const button = document.getElementById('addFrequency2');
-  const label1 = field1?.querySelector('label');
-  const label2 = field2?.querySelector('label');
+  if (!field1 || !field2) return;
 
-  if (field2 && !field2.hidden) form.dataset.secondFrequencyRequested = 'true';
-
+  const button = ensureAddButton(field1);
+  const label1 = field1.querySelector('label');
+  const label2 = field2.querySelector('label');
   const hasSavedSecondFrequency = positive(String(frequency2.value).replace(',', '.')) > 0;
   const secondFrequencyRequested = form.dataset.secondFrequencyRequested === 'true';
-  if (hasSavedSecondFrequency || secondFrequencyRequested) revealSecondFrequency(form, field2, button);
-  else hideSecondFrequency(form, field2, button);
 
-  const secondFrequencyVisible = Boolean(field2 && !field2.hidden);
+  if (hasSavedSecondFrequency || secondFrequencyRequested) {
+    revealSecondFrequency(form, field2, button);
+  } else {
+    hideSecondFrequency(form, field2, button);
+  }
+
+  const secondFrequencyVisible = !field2.hidden;
   if (label1) label1.textContent = secondFrequencyVisible ? 'Frequência I' : 'Frequência de medição';
   if (label2) label2.innerHTML = 'Frequência II <span>(opcional)</span>';
-  if (button) button.textContent = '＋ Adicionar segunda frequência';
 
   frequency1.placeholder = 'Ex.: 84,308';
   frequency2.placeholder = 'Ex.: 54,8';
 
-  const previousHints = field1?.querySelectorAll('[data-frequency-separate-hint]') || [];
-  if (!previousHints.length && field1) {
+  if (!field1.querySelector('[data-frequency-separate-hint]')) {
     const hint = document.createElement('small');
     hint.className = 'field-hint';
     hint.dataset.frequencySeparateHint = 'true';
