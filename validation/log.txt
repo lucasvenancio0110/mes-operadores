@@ -1,23 +1,9 @@
-Commit: e0c519d67c78f390976d680065cc12094a3d3769
-Started: 2026-08-04T03:23:23Z
+Commit: e9a22646477118eb411c63fc2ff6daa6de63b1d4
+Started: 2026-08-04T14:18:56Z
 
 NEOMES 3.7.4: frequências separadas, soma reconciliada e controles operacionais validados.
 Measurement plan checks passed.
 Compact conference UX checks passed.
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
-
-AssertionError [ERR_ASSERTION]: CSS do desempenho do turno não está carregado.
-    at file:///home/runner/work/mes-operadores/mes-operadores/tests/shift-performance.test.mjs:12:1 {
-  generatedMessage: false,
-  code: 'ERR_ASSERTION',
-  actual: false,
-  expected: true,
-  operator: '==',
-  diff: 'simple'
-}
-
-Node.js v22.23.1
+Shift performance and stoppage checks passed.
 Shift duration and cycle fraction checks passed.
 Manifest JSON passed.
