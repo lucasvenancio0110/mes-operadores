@@ -1,6 +1,4 @@
-const auth=window.NEOMES_AUTH;
-const allowed=auth&&!auth.offline&&(auth.user.roleCode==='admin'||(auth.user.permissions||[]).includes('users.reset_password'));
-
+function allowed(){const auth=window.NEOMES_AUTH;return Boolean(auth&&!auth.offline&&(auth.user.roleCode==='admin'||(auth.user.permissions||[]).includes('users.reset_password')));}
 function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,character=>({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' })[character]);}
 
 async function resetPassword(id){
@@ -19,17 +17,16 @@ function showPassword(password){
   root.appendChild(layer);
 }
 
-if(allowed){
-  document.addEventListener('click',async event=>{
-    const button=event.target.closest('[data-admin-reset-password]');
-    if(!button)return;
-    event.preventDefault();event.stopImmediatePropagation();
-    button.disabled=true;
-    try{const password=await resetPassword(button.dataset.adminResetPassword);if(password)showPassword(password);}catch(error){window.alert(error.message);}finally{button.disabled=false;}
-  },true);
-  document.addEventListener('click',event=>{
-    if(event.target.closest('[data-password-fix-close]'))event.target.closest('.admin-modal-layer')?.remove();
-    const copy=event.target.closest('[data-password-fix-copy]')?.dataset.passwordFixCopy;
-    if(copy)navigator.clipboard?.writeText(copy);
-  });
-}
+document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-admin-reset-password]');
+  if(!button||!allowed())return;
+  event.preventDefault();event.stopImmediatePropagation();
+  button.disabled=true;
+  try{const password=await resetPassword(button.dataset.adminResetPassword);if(password)showPassword(password);}catch(error){window.alert(error.message);}finally{button.disabled=false;}
+},true);
+
+document.addEventListener('click',event=>{
+  if(event.target.closest('[data-password-fix-close]'))event.target.closest('.admin-modal-layer')?.remove();
+  const copy=event.target.closest('[data-password-fix-copy]')?.dataset.passwordFixCopy;
+  if(copy)navigator.clipboard?.writeText(copy);
+});
