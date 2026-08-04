@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v4.0.0-secure-auth-admin';
+const VERSION = 'neomes-v4.0.0-secure-auth-admin-bootstrap';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -25,8 +25,10 @@ const APP_SHELL = [
   './app/shift-performance.css',
   './app/auth.css',
   './app/admin.css',
+  './app/bootstrap-admin.css',
   './app/auth-shell.js',
   './app/admin-ui.js',
+  './app/bootstrap-admin-ui.js',
   './app/catalog.js',
   './app/core.js',
   './app/components.js',
