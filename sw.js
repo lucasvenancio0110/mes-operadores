@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v3.7.4-frequency-fields-v2-3.7.8';
+const VERSION = 'neomes-v4.0.0-secure-auth-admin';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -23,6 +23,10 @@ const APP_SHELL = [
   './app/cloud-sync.css',
   './app/desktop-nav.css',
   './app/shift-performance.css',
+  './app/auth.css',
+  './app/admin.css',
+  './app/auth-shell.js',
+  './app/admin-ui.js',
   './app/catalog.js',
   './app/core.js',
   './app/components.js',
@@ -56,8 +60,8 @@ self.addEventListener('activate', event => {
     caches.keys()
       .then(keys => Promise.all(keys.filter(key => ![STATIC_CACHE, RUNTIME_CACHE].includes(key)).map(key => caches.delete(key))))
       .then(() => self.clients.claim())
-      .then(() => self.clients.matchAll({ type: 'window' }))
-      .then(clients => clients.forEach(client => client.postMessage({ type: 'APP_UPDATED', version: VERSION })))
+      .then(() => self.clients.matchAll({ type:'window' }))
+      .then(clients => clients.forEach(client => client.postMessage({ type:'APP_UPDATED', version:VERSION })))
   );
 });
 
@@ -71,14 +75,10 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(request)
         .then(response => {
-          if (response.ok) caches.open(RUNTIME_CACHE).then(cache => cache.put(request, response.clone()));
+          if (response.ok) caches.open(RUNTIME_CACHE).then(cache => cache.put(request,response.clone()));
           return response;
         })
-        .catch(async () =>
-          (await caches.match(request)) ||
-          (await caches.match(asset('./index.html'))) ||
-          caches.match(asset('./offline.html'))
-        )
+        .catch(async () => (await caches.match(request)) || (await caches.match(asset('./index.html'))) || caches.match(asset('./offline.html')))
     );
     return;
   }
@@ -88,7 +88,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(request)
         .then(response => {
-          if (response.ok) caches.open(RUNTIME_CACHE).then(cache => cache.put(request, response.clone()));
+          if (response.ok) caches.open(RUNTIME_CACHE).then(cache => cache.put(request,response.clone()));
           return response;
         })
         .catch(() => caches.match(request))
@@ -100,7 +100,7 @@ self.addEventListener('fetch', event => {
     caches.match(request).then(cached => {
       const network = fetch(request)
         .then(response => {
-          if (response.ok) caches.open(RUNTIME_CACHE).then(cache => cache.put(request, response.clone()));
+          if (response.ok) caches.open(RUNTIME_CACHE).then(cache => cache.put(request,response.clone()));
           return response;
         })
         .catch(() => cached);
