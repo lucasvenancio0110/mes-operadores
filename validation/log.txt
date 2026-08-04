@@ -1,5 +1,5 @@
-Commit: b6088996f5fa81e2b7aaa2b62d54fbdd7c4063a8
-Started: 2026-08-04T03:22:32Z
+Commit: 534c6549a2a44d3b7b7fc083ddba5c9ac7b3cdb4
+Started: 2026-08-04T03:22:55Z
 
 NEOMES 3.7.4: frequências separadas, soma reconciliada e controles operacionais validados.
 Measurement plan checks passed.
