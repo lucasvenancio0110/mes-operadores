@@ -1,4 +1,5 @@
 import application from './main.js';
+import { handleBootstrap } from './bootstrap.js';
 import {
   ensureAuthTables,
   handleSecurityRoute,
@@ -126,6 +127,10 @@ export default {
 
     if (url.pathname === '/health' || !url.pathname.startsWith('/api/')) {
       return application.fetch(request,env,context);
+    }
+
+    if (url.pathname === '/api/v1/auth/bootstrap' && request.method === 'POST') {
+      return handleBootstrap(request,env);
     }
 
     const securityResponse = await handleSecurityRoute(request,env);
