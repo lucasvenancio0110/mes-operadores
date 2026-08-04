@@ -28,6 +28,7 @@ const APP_SHELL = [
   './app/bootstrap-admin.css',
   './app/auth-shell.js',
   './app/admin-ui.js',
+  './app/admin-password-fix.js',
   './app/bootstrap-admin-ui.js',
   './app/catalog.js',
   './app/core.js',
