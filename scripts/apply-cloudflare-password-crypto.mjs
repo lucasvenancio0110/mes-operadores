@@ -36,7 +36,7 @@ writePatched('worker/auth.js', source => {
   const pepper = normalize(env?.${PEPPER_BINDING});
   if (!pepper) throw new Error('${PEPPER_BINDING} não configurado.');
   const salt = randomHex(16);
-  const protectedPassword = \`${'${String(password || \'\')}'}\\u0000${'${pepper}'}\`;
+  const protectedPassword = String(password || '') + '\\u0000' + pepper;
   return {
     salt,
     hash:await derivePassword(protectedPassword, salt),
@@ -53,7 +53,7 @@ writePatched('worker/auth.js', source => {
   if (!user?.passwordHash || !user?.passwordSalt) return false;
   const pepper = normalize(env?.${PEPPER_BINDING});
   if (!pepper) throw new Error('${PEPPER_BINDING} não configurado.');
-  const protectedPassword = \`${'${String(password || \'\')}'}\\u0000${'${pepper}'}\`;
+  const protectedPassword = String(password || '') + '\\u0000' + pepper;
   const derived = await derivePassword(
     protectedPassword,
     user.passwordSalt,
@@ -87,7 +87,7 @@ writePatched('worker/bootstrap.js', source => {
     `async function passwordHash(env, password, salt) {
   const pepper = normalize(env?.${PEPPER_BINDING});
   if (!pepper) throw new Error('${PEPPER_BINDING} não configurado.');
-  const protectedPassword = \`${'${String(password || \'\')}'}\\u0000${'${pepper}'}\`;
+  const protectedPassword = String(password || '') + '\\u0000' + pepper;
   const key = await crypto.subtle.importKey(
     'raw',
     encoder.encode(protectedPassword),
