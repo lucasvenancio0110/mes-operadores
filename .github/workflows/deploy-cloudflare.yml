@@ -38,8 +38,10 @@ jobs:
       - name: Aplicar compatibilidade criptográfica do Cloudflare
         run: |
           node scripts/apply-cloudflare-password-crypto.mjs
-          grep -q "nodePbkdf2" worker/auth.js
-          grep -q "nodePbkdf2" worker/bootstrap.js
+          grep -q "crypto.subtle.deriveBits" worker/auth.js
+          grep -q "crypto.subtle.deriveBits" worker/bootstrap.js
+          grep -q "const PASSWORD_ITERATIONS = 100000;" worker/auth.js
+          grep -q "const ITERATIONS = 100000;" worker/bootstrap.js
 
       - name: Validar aplicação antes do deploy
         run: |
@@ -165,7 +167,7 @@ jobs:
           echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
           echo "Aplicação publicada em $DEPLOYMENT_URL"
 
-      - name: Verificar Worker, banco e autenticação protegida
+      - name: Verificar Worker, banco, criptografia e autenticação
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
         run: |
@@ -179,6 +181,15 @@ jobs:
             if (!health.ok) throw new Error("Worker não respondeu como saudável.");
             if (!health.database) throw new Error("O binding DB não está conectado ao D1.");
           ' "$HEALTH"
+
+          CRYPTO="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 3 "$DEPLOYMENT_URL/api/v1/auth/crypto-health")"
+          echo "$CRYPTO"
+          node -e '
+            const result = JSON.parse(process.argv[1]);
+            if (!result.ok) throw new Error("PBKDF2 não funcionou no runtime publicado.");
+            if (result.algorithm !== "PBKDF2-SHA256-WebCrypto") throw new Error("Algoritmo inesperado: " + result.algorithm);
+            if (Number(result.iterations) !== 100000) throw new Error("Número de iterações inesperado: " + result.iterations);
+          ' "$CRYPTO"
 
           INDEX="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 3 "$DEPLOYMENT_URL/")"
           printf '%s' "$INDEX" | grep -q 'NEOMES — Gestão Operacional'
@@ -202,7 +213,7 @@ jobs:
             echo "- Aplicação: $DEPLOYMENT_URL"
             echo "- Saúde do banco: $DEPLOYMENT_URL/health"
             echo "- Autenticação: protegida e respondendo corretamente"
-            echo "- Senhas: PBKDF2 SHA-256 via node:crypto"
+            echo "- Senhas: PBKDF2 SHA-256 via Web Crypto, 100.000 iterações"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Registrar resultado do deploy
@@ -225,7 +236,7 @@ jobs:
             applicationUrl: process.env.DEPLOYMENT_URL,
             database: 'mes-operadores-db',
             authentication: 'protected',
-            passwordCrypto: 'pbkdf2-sha256-node-crypto'
+            passwordCrypto: 'pbkdf2-sha256-webcrypto-100000'
           };
           fs.writeFileSync('deployment/latest.json', JSON.stringify(result, null, 2) + '\n');
           NODE
