@@ -54,8 +54,8 @@ async function secureTokenEqual(left, right) {
 async function passwordHash(password, salt) {
   const key = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(password),
-    'PBKDF2',
+    encoder.encode(String(password || '')),
+    { name: 'PBKDF2' },
     false,
     ['deriveBits']
   );
@@ -70,6 +70,16 @@ async function passwordHash(password, salt) {
     256
   );
   return bytesToHex(bits);
+}
+
+export async function passwordCryptoHealth() {
+  const salt = '00112233445566778899aabbccddeeff';
+  const hash = await passwordHash('NEOMES-Cloudflare-Self-Test-2026', salt);
+  return {
+    ok: /^[a-f0-9]{64}$/.test(hash),
+    algorithm: 'PBKDF2-SHA256-WebCrypto',
+    iterations: ITERATIONS
+  };
 }
 
 function passwordProblem(password, registration) {
@@ -104,8 +114,6 @@ async function mirrorLegacyOperator(env, { id, name, registration, shift }) {
       .bind(`operator-${registration}`, name, registration, shift)
       .run();
   } catch (error) {
-    // A conta segura é a fonte principal. O espelhamento legado não pode
-    // impedir a criação do administrador em bancos antigos ou incompletos.
     console.warn('NEOMES bootstrap: não foi possível espelhar operators.', {
       userId: id,
       message: error instanceof Error ? error.message : String(error)
@@ -133,8 +141,6 @@ async function writeBootstrapAudit(env, request, { id, name }) {
       )
       .run();
   } catch (error) {
-    // Auditoria é obrigatória nas ações normais. Durante o bootstrap ela é
-    // melhor esforço para permitir recuperação de bancos criados por versões antigas.
     console.warn('NEOMES bootstrap: auditoria inicial não pôde ser gravada.', {
       userId: id,
       message: error instanceof Error ? error.message : String(error)
@@ -277,14 +283,13 @@ export async function handleBootstrap(request, env) {
 
     return json({ ok: true, user }, 201);
   } catch (error) {
-    console.error('NEOMES bootstrap falhou.', {
-      stage,
-      message: error instanceof Error ? error.message : String(error)
-    });
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error('NEOMES bootstrap falhou.', { stage, message: detail });
 
     return json({
       error: `Não foi possível concluir a ${stage}.`,
-      code: 'BOOTSTRAP_FAILED'
+      code: 'BOOTSTRAP_FAILED',
+      technicalDetail: stage === 'geração segura da senha' ? detail : undefined
     }, 500);
   }
 }
