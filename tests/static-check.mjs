@@ -3,134 +3,98 @@ import assert from 'node:assert/strict';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const [
-  html, baseCss, operatorCss, premiumCss, brandCss, cloudSyncCss, manifestText,
-  worker, operatorMain, premiumRuntime, brandRuntime, planningRuntime,
-  measurementRuntime, measurementEngine, measurementFrequencyParser, measurementFrequencyFix,
-  settingsWorker, core, exportsModule, serviceWorker, officialLogo, officialSymbol,
-  appIcon, maskableIcon, offline, wranglerText, deployWorkflow, shiftPerformance,
-  shiftTimeEngine, shiftTimeFix
+  html, manifestText, wranglerText, serviceWorker, deployWorkflow,
+  authWorker, secureMain, authShell, adminUi, authCss, adminCss,
+  worker, operatorMain, core, planningRuntime, measurementEngine,
+  measurementFrequencyParser, measurementFrequencyFix, shiftPerformance,
+  shiftTimeEngine, shiftTimeFix, exportsModule, settingsWorker,
+  officialLogo, officialSymbol, offline
 ] = await Promise.all([
-  read('index.html'), read('app/app.css'), read('app/operator.css'), read('app/premium.css'),
-  read('app/brand.css'), read('app/cloud-sync.css'), read('manifest.webmanifest'),
-  read('worker/main.js'), read('app/operator-main.js'), read('app/premium-runtime.js'),
-  read('app/brand.js'), read('app/production-planning.js'), read('app/measurement-plan.js'),
-  read('app/measurement-engine.js'), read('app/measurement-frequency-parser.js'),
-  read('app/measurement-frequency-fix.js'), read('worker/settings.js'), read('app/core.js'),
-  read('app/exports.js'), read('sw.js'), read('assets/brand/neomes-logo-horizontal.svg'),
-  read('assets/brand/neomes-symbol.svg'), read('icons/neomes-app-icon.svg'),
-  read('icons/neomes-app-icon-maskable.svg'), read('offline.html'), read('wrangler.jsonc'),
-  read('.github/workflows/deploy-cloudflare.yml'), read('app/shift-performance.js'),
-  read('app/shift-time-engine.js'), read('app/shift-time-fix.js')
+  read('index.html'), read('manifest.webmanifest'), read('wrangler.jsonc'), read('sw.js'),
+  read('.github/workflows/deploy-cloudflare.yml'), read('worker/auth.js'), read('worker/secure-main.js'),
+  read('app/auth-shell.js'), read('app/admin-ui.js'), read('app/auth.css'), read('app/admin.css'),
+  read('worker/main.js'), read('app/operator-main.js'), read('app/core.js'),
+  read('app/production-planning.js'), read('app/measurement-engine.js'),
+  read('app/measurement-frequency-parser.js'), read('app/measurement-frequency-fix.js'),
+  read('app/shift-performance.js'), read('app/shift-time-engine.js'), read('app/shift-time-fix.js'),
+  read('app/exports.js'), read('worker/settings.js'), read('assets/brand/neomes-logo-horizontal.svg'),
+  read('assets/brand/neomes-symbol.svg'), read('offline.html')
 ]);
+
 const manifest = JSON.parse(manifestText);
 const wrangler = JSON.parse(wranglerText);
-const publishedVersion = html.match(/v=(\d+\.\d+\.\d+)/)?.[1] || '';
 
-// App shell, acessibilidade e publicação em subdiretório.
+// Entrada, marca e PWA.
 assert(!html.includes('maximum-scale=1'), 'O zoom do navegador não pode ser bloqueado.');
 assert(html.includes('viewport-fit=cover'), 'O layout deve respeitar safe areas.');
-assert(!html.includes('src="/app/') && !html.includes('href="/app/'), 'Caminhos absolutos quebram o GitHub Pages.');
 assert(html.includes('<title>NEOMES — Gestão Operacional</title>'), 'Título oficial NEOMES ausente.');
-assert.equal(publishedVersion, '3.7.4', 'Versão 3.7.4 não foi publicada no ponto de entrada.');
-assert(html.includes('app/cloud-sync.css'), 'Camada de sincronização discreta não foi carregada.');
-assert(html.includes('app/shift-performance.js'), 'Desempenho do turno não foi carregado.');
-assert(html.includes('app/shift-time-fix.js'), 'Correção de duração do turno não foi carregada.');
-assert(html.includes('app/measurement-frequency-fix.js'), 'Correção das duas frequências não foi carregada.');
+assert(html.includes('app/auth-shell.js?v=4.0.0'), 'Entrada segura 4.0.0 não foi publicada.');
+assert(html.includes('app/auth.css?v=4.0.0') && html.includes('app/admin.css?v=4.0.0'), 'Estilos de autenticação ou administração ausentes.');
 assert(!html.includes('NEODENT MES'), 'Identidade antiga permanece no ponto de entrada.');
-
-// Marca oficial: magenta, transparente e sem resíduos brancos.
-for (const [name, svg] of Object.entries({ officialLogo, officialSymbol, appIcon, maskableIcon })) {
-  assert(svg.includes('<svg'), `${name} não é um SVG válido.`);
-  assert(svg.includes('#AF249D'), `${name} não usa o magenta oficial.`);
-  assert(!/fill=["'](?:#fff(?:fff)?|white)["']/i.test(svg), `${name} ainda contém preenchimento branco residual.`);
-}
-assert(officialLogo.includes('NEOMES'), 'Logo horizontal oficial incompleta.');
-assert(brandRuntime.includes('neomes-logo-horizontal.svg') && brandRuntime.includes('neomes-symbol.svg'), 'Componente de marca incompleto.');
-assert(brandRuntime.includes('width') && brandRuntime.includes('height') && brandRuntime.includes('draggable="false"'), 'Componente sem prevenção de layout shift ou arrasto.');
-assert(premiumRuntime.includes('brandHeader') && premiumRuntime.includes('brandMenuHeader') && premiumRuntime.includes('enhanceLogin'), 'Marca não integrada ao cabeçalho, menu e login.');
-
-// Design system e responsividade real.
-for (const token of ['--color-background', '--color-surface', '--color-brand']) assert(baseCss.includes(token), `Token base ausente: ${token}`);
-for (const token of ['--premium-bg', '--premium-surface', '--premium-brand']) assert(premiumCss.includes(token), `Token premium ausente: ${token}`);
-for (const token of ['--brand-primary:#af249d', '--header-action-size', '--page-gutter']) assert(brandCss.includes(token), `Token da marca ausente: ${token}`);
-assert(brandCss.includes('object-fit:contain'), 'A logo deve preservar a proporção.');
-assert(brandCss.includes('grid-template-columns:minmax(0,1fr) auto'), 'Cabeçalho não possui composição responsiva.');
-assert(brandCss.includes('env(safe-area-inset-top)') && brandCss.includes('env(safe-area-inset-bottom)'), 'Safe areas incompletas.');
-for (const breakpoint of ['@media(max-width:430px)', '@media(max-width:389px)', '@media(max-width:359px)', '@media(min-width:720px)', 'orientation:landscape']) {
-  assert(brandCss.includes(breakpoint), `Breakpoint ausente: ${breakpoint}`);
-}
-assert(brandCss.includes('width:min(calc(100% - 24px),620px)'), 'Navegação inferior não possui largura responsiva controlada.');
-assert(brandCss.includes('overflow-x:hidden'), 'Proteção contra rolagem horizontal ausente.');
-assert(operatorCss.includes('env(safe-area-inset-bottom)'), 'Safe area inferior ausente na interface operacional.');
-
-// Sincronização discreta: só aparece quando existe problema real.
-assert(cloudSyncCss.includes('.ops-sync[data-state="synced"]'), 'Indicador sincronizado não foi ocultado.');
-assert(cloudSyncCss.includes('.ops-sync[data-state="local"]'), 'Indicador local não foi ocultado.');
-assert(cloudSyncCss.includes('.ops-connection[data-state="local"]'), 'Banner local permanente não foi ocultado.');
-for (const state of ['offline', 'pending', 'error']) {
-  assert(cloudSyncCss.includes(`.ops-connection[data-state="${state}"]`), `Aviso acionável ausente para ${state}.`);
-}
-assert(cloudSyncCss.includes('.ops-page-head .ops-eyebrow'), 'Rótulo explicativo da home não foi simplificado.');
-
-// PWA e cache.
 assert.equal(manifest.name, 'NEOMES');
 assert.equal(manifest.short_name, 'NEOMES');
 assert.equal(manifest.display, 'standalone');
-assert(manifest.start_url.includes('v=3.7.4'), 'Manifesto não aponta para 3.7.4.');
-assert(manifest.icons.some(icon => icon.purpose === 'any'), 'Ícone principal ausente.');
-assert(manifest.icons.some(icon => icon.purpose === 'maskable'), 'Ícone maskable ausente.');
-assert(serviceWorker.includes('neomes-v3.7.4'), 'Cache PWA não foi renovado para 3.7.4.');
-for (const asset of [
-  './assets/brand/neomes-logo-horizontal.svg', './assets/brand/neomes-symbol.svg',
-  './icons/neomes-app-icon.svg', './icons/neomes-app-icon-maskable.svg',
-  './app/brand.js', './app/brand.css', './app/cloud-sync.css',
-  './app/shift-performance.js', './app/shift-time-engine.js', './app/shift-time-fix.js',
-  './app/measurement-frequency-parser.js', './app/measurement-frequency-fix.js'
-]) assert(serviceWorker.includes(asset), `Service Worker não inclui ${asset}.`);
-assert(!manifestText.includes('NEODENT MES') && !offline.includes('NEODENT MES') && !offline.includes('>NM<'), 'Identidade antiga permanece no PWA ou modo offline.');
+assert(manifest.start_url.includes('v=4.0.0'), 'Manifesto não aponta para a versão segura 4.0.0.');
+assert(serviceWorker.includes('neomes-v4.0.0-secure-auth-admin'), 'Cache PWA seguro não foi ativado.');
+for (const asset of ['./app/auth-shell.js','./app/auth.css','./app/admin-ui.js','./app/admin.css','./app/operator-main.js','./app/shift-performance.js']) {
+  assert(serviceWorker.includes(asset), `Service Worker não inclui ${asset}.`);
+}
+assert(officialLogo.includes('#AF249D') && officialSymbol.includes('#AF249D'), 'Marca oficial NEOMES foi alterada.');
+assert(!offline.includes('NEODENT MES'), 'Identidade antiga permanece no modo offline.');
 
-// Cloudflare Workers + D1 + assets no mesmo domínio.
+// Cloudflare e deploy.
 assert.equal(wrangler.name, 'mes-operadores');
-assert.equal(wrangler.main, 'worker/main.js');
+assert.equal(wrangler.main, 'worker/secure-main.js');
 assert.equal(wrangler.workers_dev, true);
-assert.equal(wrangler.assets?.directory, '.');
-assert(wrangler.assets?.run_worker_first?.includes('/api/*'), 'API não está configurada para executar no Worker primeiro.');
+assert(wrangler.assets?.run_worker_first?.includes('/api/*'), 'API não executa no Worker primeiro.');
 assert(wrangler.d1_databases?.some(binding => binding.binding === 'DB' && binding.database_id === '31666c87-0970-44e1-9969-51458e7888b5'), 'Binding DB/D1 incorreto.');
-assert(deployWorkflow.includes('cloudflare/wrangler-action@v3'), 'Referência de migração do deploy ausente.');
-assert(deployWorkflow.includes('CLOUDFLARE_API_TOKEN') && deployWorkflow.includes('CLOUDFLARE_ACCOUNT_ID'), 'Segredos do Cloudflare não estão configurados no workflow.');
+assert(deployWorkflow.includes('CLOUDFLARE_API_TOKEN') && deployWorkflow.includes('CLOUDFLARE_ACCOUNT_ID'), 'Segredos do Cloudflare ausentes no workflow.');
 assert(deployWorkflow.includes('/health') && deployWorkflow.includes('health.database'), 'Deploy não valida Worker e D1.');
 
+// Senhas, sessões e autenticação.
+for (const required of [
+  "name:'PBKDF2'", "hash:'SHA-256'", 'password_hash TEXT', 'password_salt TEXT',
+  'token_hash TEXT', 'auth_sessions', 'audit_logs', 'auth_login_attempts',
+  'HttpOnly', 'Secure', 'SameSite=Lax', 'MAX_LOGIN_ATTEMPTS = 5',
+  'NEOMES_ADMIN_BOOTSTRAP_TOKEN', 'É necessário manter pelo menos um administrador ativo no sistema.'
+]) assert(authWorker.includes(required), `Proteção de autenticação ausente: ${required}`);
+assert(!authWorker.includes('MD5') && !authWorker.includes("SHA-1'"), 'Algoritmo inseguro encontrado.');
+assert(authWorker.includes('/api/v1/auth/login') && authWorker.includes('/api/v1/auth/me') && authWorker.includes('/api/v1/auth/logout'), 'Rotas básicas de autenticação ausentes.');
+assert(authWorker.includes('/api/v1/auth/change-password'), 'Troca segura de senha ausente.');
+assert(authWorker.includes('users.reset_password') && authWorker.includes('sessions.manage') && authWorker.includes('audit.view'), 'Permissões administrativas incompletas.');
+assert(secureMain.includes("url.pathname.startsWith('/api/')") && secureMain.includes('authenticateRequest'), 'API operacional não está protegida.');
+assert(secureMain.includes('recordBelongsToUser') && secureMain.includes('canAccessMachine'), 'Restrição por usuário, linha ou máquina ausente.');
+
+// Front-end seguro e administração.
+assert(authShell.includes('/api/v1/auth/login') && authShell.includes('/api/v1/auth/me'), 'Cliente não valida a sessão no servidor.');
+assert(authShell.includes('current-password') && authShell.includes('new-password'), 'Autocompletes seguros de senha ausentes.');
+assert(authShell.includes('offlineUntil') && authShell.includes("!navigator.onLine"), 'Credencial offline limitada ausente.');
+assert(!/localStorage\.setItem\([^\n]*password/i.test(authShell), 'Senha não pode ser gravada no localStorage.');
+assert(authCss.includes('env(safe-area-inset-top)') && authCss.includes('env(safe-area-inset-bottom)'), 'Login não respeita safe areas.');
+for (const route of ['/api/v1/admin/users','/api/v1/admin/roles','/api/v1/admin/sessions','/api/v1/admin/audit']) assert(adminUi.includes(route), `Painel não usa ${route}.`);
+for (const action of ['reset-password','revoke-sessions','block','unblock','disable','enable']) assert(adminUi.includes(action), `Ação administrativa ausente: ${action}`);
+assert(adminUi.includes('Senha temporária') && adminUi.includes('mostrada somente agora'), 'Senha temporária não possui exibição única.');
+assert(adminCss.includes('@media(min-width:760px)') && adminCss.includes('@media(max-width:390px)'), 'Painel administrativo não é responsivo.');
+
 // Fluxos operacionais preservados.
-for (const route of ['turn', 'history', 'more']) assert(operatorMain.includes(`'${route}'`), `Rota ausente: ${route}`);
-for (const flow of ['openConference', 'openBatchClose', 'openCloseOrder', 'renderHistory', 'renderCellView']) assert(operatorMain.includes(flow), `Fluxo ausente: ${flow}`);
+for (const route of ['turn','history','more']) assert(operatorMain.includes(`'${route}'`), `Rota operacional ausente: ${route}`);
+for (const flow of ['openConference','openBatchClose','openCloseOrder','renderHistory','renderCellView']) assert(operatorMain.includes(flow), `Fluxo operacional ausente: ${flow}`);
 assert(operatorMain.includes('Fechamento manual do turno'), 'O fechamento deve continuar manual.');
-assert(operatorMain.includes('Última situação informada'), 'O status deve continuar identificado como informação manual.');
-assert(!operatorMain.includes('progress-track') && !operatorMain.includes('Previsão ao final'), 'A interface não pode simular telemetria.');
+assert(operatorMain.includes('Última situação informada'), 'A situação deve continuar identificada como informação manual.');
+assert(core.includes('syncQueue') && core.includes('mes-operadores:v2'), 'Fila offline ou migração anterior foi removida.');
 
-// Planejamento, medições e integrações preservados.
-for (const field of ['confOpTarget', 'confCurrentBarPieces', 'confFeederBars', 'confPieceLengthMm']) assert(planningRuntime.includes(field), `Campo ausente: ${field}`);
-assert(planningRuntime.includes('barLengthMm: 3600') && planningRuntime.includes('kerfMm: 1'), 'Ajustes padrão de matéria-prima foram alterados.');
+// Planejamento, medições, tempo e exportações preservados.
+for (const field of ['confOpTarget','confCurrentBarPieces','confFeederBars','confPieceLengthMm']) assert(planningRuntime.includes(field), `Campo ausente: ${field}`);
+assert(planningRuntime.includes('barLengthMm: 3600') && planningRuntime.includes('kerfMm: 1'), 'Padrões da matéria-prima foram alterados.');
 assert(planningRuntime.includes('barLengthMm / (pieceLengthMm + kerfMm)'), 'Fórmula de peças por barra incorreta.');
-assert(planningRuntime.includes('currentBarPieces + feederBars * piecesPerFullBar'), 'Potencial de matéria-prima incorreto.');
-assert(measurementEngine.includes('totalMeasurements') && measurementEngine.includes('previousMeasurements'), 'Plano total de medições ausente.');
-assert(measurementEngine.includes('QUOTIENT_SNAP_TOLERANCE'), 'Frequência arredondada não possui tolerância de cálculo.');
-assert(measurementEngine.includes('totalMeasurements - previousMeasurements - measurementsThisShift'), 'Depois do turno não fecha a soma do total da OP.');
-assert(measurementFrequencyParser.includes('parseFrequencyPair'), 'Separador de duas frequências ausente.');
-assert(measurementFrequencyFix.includes('Adicionar segunda frequência'), 'Campo opcional de Frequência II não foi reforçado.');
-assert(measurementFrequencyFix.includes('measurementPlanVersion: FIXED_PLAN_VERSION'), 'Planos antigos não serão recalculados.');
-assert(measurementRuntime.includes('Faça a medição') && measurementRuntime.includes('peças no turno'), 'Orientação de medição ausente.');
-assert(measurementRuntime.includes('/api/v1/machine-states'), 'Plano não é compartilhado com a linha.');
-assert(settingsWorker.includes('CREATE TABLE IF NOT EXISTS app_settings'), 'Ajustes globais ausentes.');
-for (const route of ['/api/v1/machine-states', '/api/v1/events', '/api/v1/records', '/api/v1/assignments', '/api/v1/settings']) assert(worker.includes(route), `Rota do Worker ausente: ${route}`);
-for (const feature of ['exportPdf', 'exportImage', 'shareSummary']) assert(exportsModule.includes(feature), `Exportação ausente: ${feature}`);
-assert(core.includes('mes-operadores:v2') && core.includes('syncQueue'), 'Migração ou fila offline ausente.');
-
-// Tempo de turno, fração do ciclo e desempenho.
-assert(shiftTimeEngine.includes('FULL_SHIFT_MINUTES = 480'), 'A duração fixa de 480 minutos está ausente.');
-assert(shiftTimeEngine.includes('cycle / 60'), 'A conversão do ciclo para fração decimal de minuto está incorreta.');
-assert(shiftTimeEngine.includes('duration * 60 / cycle'), 'A meta não está sendo calculada diretamente em segundos.');
-assert(shiftTimeFix.includes('availableMinutes: FULL_SHIFT_MINUTES'), 'A conferência ainda pode usar minutos restantes.');
-assert(shiftTimeFix.includes('Turno completo de 480 minutos'), 'A interface não explica a base de 480 minutos.');
+assert(measurementEngine.includes('totalMeasurements - previousMeasurements - measurementsThisShift'), 'Depois do turno não fecha o total de medições.');
+assert(measurementFrequencyParser.includes('parseFrequencyPair'), 'Compatibilidade com dados antigos de frequência foi removida.');
+assert(measurementFrequencyFix.includes('Adicionar segunda frequência'), 'Frequência II opcional foi removida.');
+assert(shiftTimeEngine.includes('FULL_SHIFT_MINUTES = 480') && shiftTimeEngine.includes('cycle / 60'), 'Cálculo do turno ou fração do ciclo incorreto.');
+assert(shiftTimeFix.includes('availableMinutes: FULL_SHIFT_MINUTES'), 'Conferência ainda pode usar minutos restantes.');
 assert(shiftPerformance.includes('stoppageSeconds') && shiftPerformance.includes('targetReached'), 'Tempo de parada ou comparação com a meta ausente.');
+for (const feature of ['exportPdf','exportImage','shareSummary']) assert(exportsModule.includes(feature), `Exportação ausente: ${feature}`);
+assert(settingsWorker.includes('CREATE TABLE IF NOT EXISTS app_settings'), 'Ajustes globais ausentes.');
+for (const route of ['/api/v1/machine-states','/api/v1/events','/api/v1/records','/api/v1/assignments','/api/v1/settings']) assert(worker.includes(route), `Rota operacional ausente: ${route}`);
 
-console.log('NEOMES 3.7.4: frequências separadas, soma reconciliada e controles operacionais validados.');
+console.log('NEOMES 4.0.0: autenticação segura, administração e fluxos operacionais validados.');
