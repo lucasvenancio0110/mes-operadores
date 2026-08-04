@@ -7,11 +7,12 @@ on:
       - main
     paths-ignore:
       - 'validation/**'
+      - 'deployment/**'
       - 'README.md'
       - '*.md'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: neomes-cloudflare-production
@@ -26,6 +27,8 @@ jobs:
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Preparar Node.js
         uses: actions/setup-node@v4
@@ -194,3 +197,29 @@ jobs:
             echo "- Saúde do banco: $DEPLOYMENT_URL/health"
             echo "- Autenticação: protegida e respondendo corretamente"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Registrar resultado do deploy
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+          mkdir -p deployment
+          node - <<'NODE'
+          const fs = require('fs');
+          const result = {
+            status: 'success',
+            commit: process.env.GITHUB_SHA,
+            workflowRun: process.env.GITHUB_RUN_ID,
+            deployedAt: new Date().toISOString(),
+            applicationUrl: process.env.DEPLOYMENT_URL,
+            database: 'mes-operadores-db',
+            authentication: 'protected'
+          };
+          fs.writeFileSync('deployment/latest.json', JSON.stringify(result, null, 2) + '\n');
+          NODE
+          git add deployment/latest.json
+          git commit -m "chore: registra deploy do Cloudflare [skip ci]"
+          git push origin HEAD:main
