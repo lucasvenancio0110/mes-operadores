@@ -1,4 +1,6 @@
 let bootstrapLayer = null;
+let guidedUserModuleLoaded = false;
+let guidedUserModuleLoading = false;
 
 function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,character=>({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' })[character]);}
 
@@ -8,6 +10,29 @@ function injectBootstrapEntry(){
   const button=document.createElement('button');
   button.type='button';button.className='auth-bootstrap-link';button.dataset.bootstrapAdmin='true';button.textContent='Configurar primeiro administrador';
   form.insertAdjacentElement('afterend',button);
+}
+
+function ensureGuidedUserStyles(){
+  if(document.querySelector('link[data-guided-user-styles]'))return;
+  const link=document.createElement('link');
+  link.rel='stylesheet';link.href='app/admin-user-create.css?v=4.1.0';link.dataset.guidedUserStyles='true';
+  document.head.appendChild(link);
+}
+
+async function ensureGuidedUserModule(){
+  if(guidedUserModuleLoaded||guidedUserModuleLoading)return;
+  const auth=window.NEOMES_AUTH;
+  if(!auth||auth.offline||auth.user?.roleCode!=='admin')return;
+  guidedUserModuleLoading=true;
+  ensureGuidedUserStyles();
+  try{
+    await import('./admin-user-create.js?v=4.1.0');
+    guidedUserModuleLoaded=true;
+  }catch(error){
+    console.error('Não foi possível carregar o cadastro guiado de usuários.',error);
+  }finally{
+    guidedUserModuleLoading=false;
+  }
 }
 
 function closeBootstrap(){bootstrapLayer?.remove();bootstrapLayer=null;}
@@ -50,8 +75,14 @@ async function submitBootstrap(form){
   }catch(failure){error.textContent=failure.message;button.disabled=false;button.textContent='Criar administrador';}
 }
 
-new MutationObserver(injectBootstrapEntry).observe(document.body,{childList:true,subtree:true});
+const observer=new MutationObserver(()=>{
+  injectBootstrapEntry();
+  ensureGuidedUserModule();
+});
+observer.observe(document.body,{childList:true,subtree:true});
 injectBootstrapEntry();
+ensureGuidedUserModule();
+window.setInterval(ensureGuidedUserModule,1200);
 
 document.addEventListener('click',event=>{
   if(event.target.closest('[data-bootstrap-admin]'))openBootstrap();
