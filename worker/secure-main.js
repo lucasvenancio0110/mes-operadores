@@ -1,5 +1,6 @@
 import application from './main.js';
 import { handleBootstrap, passwordCryptoHealth } from './bootstrap.js';
+import { handleAdminUserCreate, adminUserCreateHealth } from './admin-user-create.js';
 import {
   ensureAuthTables,
   handleSecurityRoute,
@@ -142,9 +143,26 @@ export default {
       }
     }
 
+    if (url.pathname === '/api/v1/auth/admin-user-create-health' && request.method === 'GET') {
+      try {
+        const result = await adminUserCreateHealth(env);
+        return json(result,result.ok ? 200 : 500);
+      } catch (error) {
+        return json({
+          ok:false,
+          schemaReady:false,
+          passwordHashReady:false,
+          error:error instanceof Error ? error.message : String(error)
+        },500);
+      }
+    }
+
     if (url.pathname === '/api/v1/auth/bootstrap' && request.method === 'POST') {
       return handleBootstrap(request,env);
     }
+
+    const adminUserCreateResponse = await handleAdminUserCreate(request,env);
+    if (adminUserCreateResponse) return adminUserCreateResponse;
 
     const securityResponse = await handleSecurityRoute(request,env);
     if (securityResponse) return securityResponse;
