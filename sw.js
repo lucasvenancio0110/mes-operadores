@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v3.7.4-frequency-null-fix';
+const VERSION = 'neomes-v3.7.4-frequency-fields-v2-3.7.8';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -36,6 +36,7 @@ const APP_SHELL = [
   './app/measurement-frequency-parser.js',
   './app/measurement-plan.js',
   './app/measurement-frequency-fix.js',
+  './app/frequency-fields-v2.js',
   './app/conference-ux.js',
   './app/shift-performance.js',
   './app/shift-time-engine.js',
@@ -78,6 +79,19 @@ self.addEventListener('fetch', event => {
           (await caches.match(asset('./index.html'))) ||
           caches.match(asset('./offline.html'))
         )
+    );
+    return;
+  }
+
+  const mustBeFresh = request.destination === 'script' || request.destination === 'style' || /\.(?:js|css)$/.test(url.pathname);
+  if (mustBeFresh) {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          if (response.ok) caches.open(RUNTIME_CACHE).then(cache => cache.put(request, response.clone()));
+          return response;
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }
