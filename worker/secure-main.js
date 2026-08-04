@@ -131,12 +131,12 @@ export default {
 
     if (url.pathname === '/api/v1/auth/crypto-health' && request.method === 'GET') {
       try {
-        const result = await passwordCryptoHealth();
+        const result = await passwordCryptoHealth(env);
         return json(result, result.ok ? 200 : 500);
       } catch (error) {
         return json({
           ok:false,
-          algorithm:'PBKDF2-SHA256-WebCrypto',
+          algorithm:'PBKDF2-SHA256-WebCrypto-Peppered',
           error:error instanceof Error ? error.message : String(error)
         },500);
       }
