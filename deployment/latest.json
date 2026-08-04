@@ -1,11 +1,12 @@
 {
   "status": "success",
-  "commit": "0a6a1ad5cd2ebf5b5e24f133670ab03bce00b77a",
-  "workflowRun": "30946202983",
-  "deployedAt": "2026-08-04T20:05:44.027Z",
+  "commit": "d2c75f08ceb39ef506ec925c4a99feb83fbbe971",
+  "workflowRun": "30946375624",
+  "deployedAt": "2026-08-04T20:07:45.789Z",
   "applicationUrl": "https://mes-operadores.lucassantanals0110.workers.dev",
   "database": "mes-operadores-db",
   "authentication": "protected",
   "passwordCrypto": "pbkdf2-sha256-webcrypto-10000-peppered",
-  "workspace": "desktop-tablet-4.1.0"
+  "workspace": "desktop-tablet-4.1.0",
+  "adminUserCreate": "transactional-migrated"
 }
