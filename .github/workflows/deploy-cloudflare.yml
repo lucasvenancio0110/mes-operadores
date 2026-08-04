@@ -3,8 +3,7 @@ name: Deploy NEOMES to Cloudflare
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
     paths-ignore:
       - 'validation/**'
       - 'deployment/**'
@@ -35,22 +34,24 @@ jobs:
         with:
           node-version: 22
 
-      - name: Aplicar compatibilidade criptográfica do Cloudflare
+      - name: Preparar criptografia de senha
+        id: patch
         run: |
+          set -euo pipefail
           node scripts/apply-cloudflare-password-crypto.mjs
-          grep -q "crypto.subtle.deriveBits" worker/auth.js
-          grep -q "crypto.subtle.deriveBits" worker/bootstrap.js
           grep -q "const PASSWORD_ITERATIONS = 10000;" worker/auth.js
           grep -q "const ITERATIONS = 10000;" worker/bootstrap.js
           grep -q "NEOMES_PASSWORD_PEPPER" worker/auth.js
           grep -q "NEOMES_PASSWORD_PEPPER" worker/bootstrap.js
-
-      - name: Validar aplicação antes do deploy
-        run: |
-          node --check worker/main.js
-          node --check worker/secure-main.js
           node --check worker/auth.js
           node --check worker/bootstrap.js
+          node --check worker/secure-main.js
+
+      - name: Validar aplicação
+        id: validate
+        run: |
+          set -euo pipefail
+          node --check worker/main.js
           node --check worker/index.js
           node --check app/core.js
           node --check app/operator-main.js
@@ -70,79 +71,32 @@ jobs:
           node tests/shift-performance.test.mjs
           node tests/shift-time.test.mjs
 
-      - name: Verificar token, conta e banco D1
+      - name: Verificar Cloudflare e D1
         id: preflight
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-
           TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
           ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
           DATABASE_ID="31666c87-0970-44e1-9969-51458e7888b5"
 
-          if [ -z "$TOKEN" ]; then
-            echo "Secret CLOUDFLARE_API_TOKEN não foi encontrado."
-            exit 1
-          fi
-          if [ -z "$ACCOUNT_ID" ]; then
-            echo "Secret CLOUDFLARE_ACCOUNT_ID não foi encontrado."
-            exit 1
-          fi
+          test -n "$TOKEN" || { echo "CLOUDFLARE_API_TOKEN ausente."; exit 1; }
+          test -n "$ACCOUNT_ID" || { echo "CLOUDFLARE_ACCOUNT_ID ausente."; exit 1; }
 
-          VERIFY="$(curl --silent --show-error \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            https://api.cloudflare.com/client/v4/user/tokens/verify)"
-          node -e '
-            const response = JSON.parse(process.argv[1]);
-            if (!response.success || response.result?.status !== "active") {
-              console.error("Token do Cloudflare inválido ou inativo:", (response.errors || []).map(item => item.message).join("; "));
-              process.exit(1);
-            }
-            console.log("Token do Cloudflare: ativo.");
-          ' "$VERIFY"
+          VERIFY="$(curl --fail --silent --show-error -H "Authorization: Bearer $TOKEN" https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          node -e 'const x=JSON.parse(process.argv[1]); if(!x.success || x.result?.status!=="active") process.exit(1)' "$VERIFY"
 
-          ACCOUNT_RESPONSE="$(curl --silent --show-error \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID")"
-          node -e '
-            const response = JSON.parse(process.argv[1]);
-            if (!response.success) {
-              console.error("Account ID inválido ou sem acesso:", (response.errors || []).map(item => item.message).join("; "));
-              process.exit(1);
-            }
-            console.log("Conta Cloudflare: acessível.");
-          ' "$ACCOUNT_RESPONSE"
+          DATABASE="$(curl --fail --silent --show-error -H "Authorization: Bearer $TOKEN" "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/d1/database/$DATABASE_ID")"
+          node -e 'const x=JSON.parse(process.argv[1]); if(!x.success) process.exit(1)' "$DATABASE"
 
-          DATABASE_RESPONSE="$(curl --silent --show-error \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/d1/database/$DATABASE_ID")"
-          node -e '
-            const response = JSON.parse(process.argv[1]);
-            if (!response.success) {
-              console.error("Banco D1 não encontrado ou sem acesso:", (response.errors || []).map(item => item.message).join("; "));
-              process.exit(1);
-            }
-            console.log("Banco D1: acessível.");
-          ' "$DATABASE_RESPONSE"
-
-          SUBDOMAIN_RESPONSE="$(curl --silent --show-error \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json" \
-            "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/subdomain")"
-          SUBDOMAIN="$(node -e '
-            const response = JSON.parse(process.argv[1]);
-            if (!response.success) process.exit(0);
-            process.stdout.write(response.result?.subdomain || "");
-          ' "$SUBDOMAIN_RESPONSE")"
-
+          SUBDOMAIN_RESPONSE="$(curl --fail --silent --show-error -H "Authorization: Bearer $TOKEN" "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/subdomain")"
+          SUBDOMAIN="$(node -e 'const x=JSON.parse(process.argv[1]); process.stdout.write(x.result?.subdomain || "")' "$SUBDOMAIN_RESPONSE")"
           echo "subdomain=$SUBDOMAIN" >> "$GITHUB_OUTPUT"
 
-      - name: Garantir pepper secreto das senhas
+      - name: Garantir pepper secreto
+        id: pepper
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -151,101 +105,68 @@ jobs:
           export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
           export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
 
-          SECRETS="$(npx --yes wrangler@4.68.0 secret list --format json)"
-          HAS_PEPPER="$(node -e '
-            const items = JSON.parse(process.argv[1]);
-            process.stdout.write(items.some(item => item.name === "NEOMES_PASSWORD_PEPPER") ? "yes" : "no");
-          ' "$SECRETS")"
+          SECRET_LIST="$(npx --yes wrangler@4.68.0 secret list --format json)"
+          HAS_PEPPER="$(node -e 'const x=JSON.parse(process.argv[1]); process.stdout.write(x.some(i=>i.name==="NEOMES_PASSWORD_PEPPER")?"yes":"no")' "$SECRET_LIST")"
 
           if [ "$HAS_PEPPER" = "no" ]; then
             PEPPER="$(openssl rand -hex 32)"
-            printf '%s' "$PEPPER" | npx --yes wrangler@4.68.0 secret put NEOMES_PASSWORD_PEPPER >/tmp/neomes-pepper.log
+            printf '%s\n' "$PEPPER" | npx --yes wrangler@4.68.0 secret put NEOMES_PASSWORD_PEPPER >/dev/null
             unset PEPPER
-            echo "Pepper secreto criado no Cloudflare."
+            echo "Pepper criado e armazenado como Secret no Cloudflare."
           else
-            echo "Pepper secreto já configurado; valor preservado."
+            echo "Pepper existente preservado."
           fi
 
       - name: Publicar no Cloudflare Workers
-        id: deploy
+        id: publish
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WORKERS_SUBDOMAIN: ${{ steps.preflight.outputs.subdomain }}
         run: |
           set -euo pipefail
-
           export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
           export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
 
           npx --yes wrangler@4.68.0 deploy 2>&1 | tee wrangler-deploy.log
-
-          DEPLOYMENT_URL="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' wrangler-deploy.log | tail -n 1 || true)"
-          if [ -z "$DEPLOYMENT_URL" ] && [ -n "$WORKERS_SUBDOMAIN" ]; then
-            DEPLOYMENT_URL="https://mes-operadores.$WORKERS_SUBDOMAIN.workers.dev"
+          URL="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' wrangler-deploy.log | tail -n 1 || true)"
+          if [ -z "$URL" ] && [ -n "$WORKERS_SUBDOMAIN" ]; then
+            URL="https://mes-operadores.$WORKERS_SUBDOMAIN.workers.dev"
           fi
+          test -n "$URL" || { echo "Endereço do Worker não encontrado."; exit 1; }
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
 
-          if [ -z "$DEPLOYMENT_URL" ]; then
-            echo "O deploy terminou, mas não foi possível identificar o endereço workers.dev."
-            exit 1
-          fi
-
-          echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
-          echo "Aplicação publicada em $DEPLOYMENT_URL"
-
-      - name: Verificar Worker, banco, criptografia e autenticação
+      - name: Testar Worker publicado
+        id: smoke
         env:
-          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+          DEPLOYMENT_URL: ${{ steps.publish.outputs.url }}
         run: |
           set -euo pipefail
+          HEALTH="$(curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 4 "$DEPLOYMENT_URL/health")"
+          node -e 'const health=JSON.parse(process.argv[1]); if(!health.ok || !health.database) process.exit(1)' "$HEALTH"
 
-          HEALTH="$(curl --fail --silent --show-error --retry 12 --retry-all-errors --retry-delay 5 "$DEPLOYMENT_URL/health")"
-          echo "$HEALTH"
-
-          node -e '
-            const health = JSON.parse(process.argv[1]);
-            if (!health.ok) throw new Error("Worker não respondeu como saudável.");
-            if (!health.database) throw new Error("O binding DB não está conectado ao D1.");
-          ' "$HEALTH"
-
-          CRYPTO="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 3 "$DEPLOYMENT_URL/api/v1/auth/crypto-health")"
+          CRYPTO="$(curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 3 "$DEPLOYMENT_URL/api/v1/auth/crypto-health")"
           echo "$CRYPTO"
           node -e '
-            const result = JSON.parse(process.argv[1]);
-            if (!result.ok) throw new Error("PBKDF2 não funcionou no runtime publicado.");
-            if (result.algorithm !== "PBKDF2-SHA256-WebCrypto-Peppered") throw new Error("Algoritmo inesperado: " + result.algorithm);
-            if (Number(result.iterations) !== 10000) throw new Error("Número de iterações inesperado: " + result.iterations);
-            if (!result.pepperConfigured) throw new Error("Pepper secreto não foi carregado pelo Worker.");
+            const x=JSON.parse(process.argv[1]);
+            if(!x.ok) throw new Error(x.error || "PBKDF2 falhou");
+            if(x.algorithm!=="PBKDF2-SHA256-WebCrypto-Peppered") throw new Error("Algoritmo incorreto");
+            if(Number(x.iterations)!==10000) throw new Error("Iterações incorretas");
+            if(!x.pepperConfigured) throw new Error("Pepper ausente");
           ' "$CRYPTO"
 
-          INDEX="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 3 "$DEPLOYMENT_URL/")"
+          INDEX="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/")"
           printf '%s' "$INDEX" | grep -q 'NEOMES — Gestão Operacional'
 
           AUTH_FILE="$(mktemp)"
           AUTH_STATUS="$(curl --silent --show-error --output "$AUTH_FILE" --write-out '%{http_code}' "$DEPLOYMENT_URL/api/v1/auth/me")"
-          if [ "$AUTH_STATUS" != "401" ]; then
-            echo "A rota protegida deveria responder 401 sem sessão, mas respondeu $AUTH_STATUS."
-            cat "$AUTH_FILE"
-            exit 1
-          fi
-          node -e '
-            const fs = require("fs");
-            const response = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-            if (response.code !== "UNAUTHENTICATED") throw new Error("A autenticação protegida não respondeu corretamente.");
-          ' "$AUTH_FILE"
+          test "$AUTH_STATUS" = "401"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.code!=="UNAUTHENTICATED") process.exit(1)' "$AUTH_FILE"
 
-          {
-            echo "### NEOMES publicado com sucesso"
-            echo ""
-            echo "- Aplicação: $DEPLOYMENT_URL"
-            echo "- Saúde do banco: $DEPLOYMENT_URL/health"
-            echo "- Autenticação: protegida e respondendo corretamente"
-            echo "- Senhas: PBKDF2 SHA-256, salt individual, pepper secreto e bloqueio progressivo"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Registrar resultado do deploy
+      - name: Registrar deploy concluído
+        if: success()
         env:
-          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+          DEPLOYMENT_URL: ${{ steps.publish.outputs.url }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -253,20 +174,57 @@ jobs:
           git checkout -- worker/auth.js worker/bootstrap.js
           git pull --rebase origin main
           mkdir -p deployment
+          rm -f deployment/latest-failure.json
           node - <<'NODE'
-          const fs = require('fs');
-          const result = {
-            status: 'success',
-            commit: process.env.GITHUB_SHA,
-            workflowRun: process.env.GITHUB_RUN_ID,
-            deployedAt: new Date().toISOString(),
-            applicationUrl: process.env.DEPLOYMENT_URL,
-            database: 'mes-operadores-db',
-            authentication: 'protected',
-            passwordCrypto: 'pbkdf2-sha256-webcrypto-10000-peppered'
-          };
-          fs.writeFileSync('deployment/latest.json', JSON.stringify(result, null, 2) + '\n');
+          const fs=require('fs');
+          fs.writeFileSync('deployment/latest.json', JSON.stringify({
+            status:'success',
+            commit:process.env.GITHUB_SHA,
+            workflowRun:process.env.GITHUB_RUN_ID,
+            deployedAt:new Date().toISOString(),
+            applicationUrl:process.env.DEPLOYMENT_URL,
+            database:'mes-operadores-db',
+            authentication:'protected',
+            passwordCrypto:'pbkdf2-sha256-webcrypto-10000-peppered'
+          },null,2)+'\n');
           NODE
-          git add deployment/latest.json
-          git commit -m "chore: registra deploy do Cloudflare [skip ci]"
+          git add deployment/latest.json deployment/latest-failure.json 2>/dev/null || git add deployment/latest.json
+          git diff --cached --quiet || git commit -m "chore: registra deploy do Cloudflare [skip ci]"
+          git push origin HEAD:main
+
+      - name: Registrar diagnóstico da falha
+        if: failure()
+        env:
+          PATCH: ${{ steps.patch.outcome }}
+          VALIDATE: ${{ steps.validate.outcome }}
+          PREFLIGHT: ${{ steps.preflight.outcome }}
+          PEPPER: ${{ steps.pepper.outcome }}
+          PUBLISH: ${{ steps.publish.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -- worker/auth.js worker/bootstrap.js 2>/dev/null || true
+          git pull --rebase origin main
+          mkdir -p deployment
+          node - <<'NODE'
+          const fs=require('fs');
+          fs.writeFileSync('deployment/latest-failure.json', JSON.stringify({
+            status:'failure',
+            commit:process.env.GITHUB_SHA,
+            workflowRun:process.env.GITHUB_RUN_ID,
+            failedAt:new Date().toISOString(),
+            steps:{
+              patch:process.env.PATCH,
+              validate:process.env.VALIDATE,
+              preflight:process.env.PREFLIGHT,
+              pepper:process.env.PEPPER,
+              publish:process.env.PUBLISH,
+              smoke:process.env.SMOKE
+            }
+          },null,2)+'\n');
+          NODE
+          git add deployment/latest-failure.json
+          git diff --cached --quiet || git commit -m "chore: registra falha do deploy [skip ci]"
           git push origin HEAD:main
