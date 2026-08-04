@@ -1,24 +1,7 @@
-Commit: eb46e32378db2080cc7aae9706a664b1a93163af
-Started: 2026-08-04T15:17:21Z
+Commit: 73a195d08ecf28798df5d92d7cc6ca40a174e074
+Started: 2026-08-04T15:18:15Z
 
-node:internal/modules/run_main:123
-    triggerUncaughtException(
-    ^
-
-AssertionError [ERR_ASSERTION]: Versão 3.7.4 não foi publicada no ponto de entrada.
-
-'4.0.0' !== '3.7.4'
-
-    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:34:8 {
-  generatedMessage: false,
-  code: 'ERR_ASSERTION',
-  actual: '4.0.0',
-  expected: '3.7.4',
-  operator: 'strictEqual',
-  diff: 'simple'
-}
-
-Node.js v22.23.1
+NEOMES 4.0.0: autenticação segura, administração e fluxos operacionais validados.
 Measurement plan checks passed.
 Compact conference UX checks passed.
 Shift performance and stoppage checks passed.
