@@ -1,5 +1,5 @@
 import application from './main.js';
-import { handleBootstrap } from './bootstrap.js';
+import { handleBootstrap, passwordCryptoHealth } from './bootstrap.js';
 import {
   ensureAuthTables,
   handleSecurityRoute,
@@ -127,6 +127,19 @@ export default {
 
     if (url.pathname === '/health' || !url.pathname.startsWith('/api/')) {
       return application.fetch(request,env,context);
+    }
+
+    if (url.pathname === '/api/v1/auth/crypto-health' && request.method === 'GET') {
+      try {
+        const result = await passwordCryptoHealth();
+        return json(result, result.ok ? 200 : 500);
+      } catch (error) {
+        return json({
+          ok:false,
+          algorithm:'PBKDF2-SHA256-WebCrypto',
+          error:error instanceof Error ? error.message : String(error)
+        },500);
+      }
     }
 
     if (url.pathname === '/api/v1/auth/bootstrap' && request.method === 'POST') {
