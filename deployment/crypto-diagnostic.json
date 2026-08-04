@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-08-04T17:24:20.124Z",
+  "httpStatus": 200,
+  "response": {
+    "ok": true,
+    "algorithm": "PBKDF2-SHA256-WebCrypto-Peppered",
+    "iterations": 10000,
+    "pepperConfigured": true
+  }
+}
