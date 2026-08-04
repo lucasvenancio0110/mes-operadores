@@ -1,8 +1,10 @@
-const auth = window.NEOMES_AUTH;
-const enabled = Boolean(auth && !auth.offline && (
-  auth.user?.roleCode === 'admin'
-  || (auth.user?.permissions || []).includes('users.reset_password')
-));
+function canResetPassword() {
+  const auth = window.NEOMES_AUTH;
+  return Boolean(auth && !auth.offline && (
+    auth.user?.roleCode === 'admin'
+    || (auth.user?.permissions || []).includes('users.reset_password')
+  ));
+}
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>'"]/g, character => ({
@@ -112,46 +114,44 @@ function refreshUsers() {
   document.querySelector('[data-admin-tab="users"]')?.click();
 }
 
-if (enabled) {
-  document.addEventListener('click', event => {
-    const trigger = event.target.closest('[data-admin-reset-password]');
-    if (trigger) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      openConfirmation(trigger.dataset.adminResetPassword,actionUserName(trigger));
-      return;
-    }
+document.addEventListener('click', event => {
+  const trigger = event.target.closest('[data-admin-reset-password]');
+  if (trigger && canResetPassword()) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openConfirmation(trigger.dataset.adminResetPassword,actionUserName(trigger));
+    return;
+  }
 
-    const confirm = event.target.closest('[data-reset-confirm]');
-    if (confirm) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      executeReset(confirm);
-      return;
-    }
+  const confirm = event.target.closest('[data-reset-confirm]');
+  if (confirm) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    executeReset(confirm);
+    return;
+  }
 
-    const copy = event.target.closest('[data-reset-copy]');
-    if (copy) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      navigator.clipboard?.writeText(copy.dataset.resetCopy);
-      copy.textContent = 'Senha copiada';
-      window.setTimeout(() => { copy.textContent = 'Copiar senha'; },1800);
-      return;
-    }
+  const copy = event.target.closest('[data-reset-copy]');
+  if (copy) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    navigator.clipboard?.writeText(copy.dataset.resetCopy);
+    copy.textContent = 'Senha copiada';
+    window.setTimeout(() => { copy.textContent = 'Copiar senha'; },1800);
+    return;
+  }
 
-    if (event.target.closest('[data-reset-finish]')) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      removeModal();
-      refreshUsers();
-      return;
-    }
+  if (event.target.closest('[data-reset-finish]')) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    removeModal();
+    refreshUsers();
+    return;
+  }
 
-    if (event.target.closest('[data-reset-close]')) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      removeModal();
-    }
-  },true);
-}
+  if (event.target.closest('[data-reset-close]')) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    removeModal();
+  }
+},true);
