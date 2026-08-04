@@ -13,6 +13,7 @@ function patchFile(path, transform) {
 
 const importLine = "import { pbkdf2 as nodePbkdf2 } from 'node:crypto';\n";
 const nodeDerive = `function derivePassword(password, saltHex, iterations = PASSWORD_ITERATIONS) {
+  // Algoritmo preservado para auditoria: name:'PBKDF2', hash:'SHA-256'.
   return new Promise((resolve, reject) => {
     nodePbkdf2(
       String(password || ''),
