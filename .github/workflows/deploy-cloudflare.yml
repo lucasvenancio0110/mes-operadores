@@ -35,6 +35,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Aplicar compatibilidade criptográfica do Cloudflare
+        run: |
+          node scripts/apply-cloudflare-password-crypto.mjs
+          grep -q "nodePbkdf2" worker/auth.js
+          grep -q "nodePbkdf2" worker/bootstrap.js
+
       - name: Validar aplicação antes do deploy
         run: |
           node --check worker/main.js
@@ -196,6 +202,7 @@ jobs:
             echo "- Aplicação: $DEPLOYMENT_URL"
             echo "- Saúde do banco: $DEPLOYMENT_URL/health"
             echo "- Autenticação: protegida e respondendo corretamente"
+            echo "- Senhas: PBKDF2 SHA-256 via node:crypto"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Registrar resultado do deploy
@@ -216,7 +223,8 @@ jobs:
             deployedAt: new Date().toISOString(),
             applicationUrl: process.env.DEPLOYMENT_URL,
             database: 'mes-operadores-db',
-            authentication: 'protected'
+            authentication: 'protected',
+            passwordCrypto: 'pbkdf2-sha256-node-crypto'
           };
           fs.writeFileSync('deployment/latest.json', JSON.stringify(result, null, 2) + '\n');
           NODE
