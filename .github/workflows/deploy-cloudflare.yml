@@ -2,6 +2,13 @@ name: Deploy NEOMES to Cloudflare
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'validation/**'
+      - 'README.md'
+      - '*.md'
 
 permissions:
   contents: read
@@ -28,9 +35,16 @@ jobs:
       - name: Validar aplicação antes do deploy
         run: |
           node --check worker/main.js
+          node --check worker/secure-main.js
+          node --check worker/auth.js
+          node --check worker/bootstrap.js
           node --check worker/index.js
           node --check app/core.js
           node --check app/operator-main.js
+          node --check app/auth-shell.js
+          node --check app/bootstrap-admin-ui.js
+          node --check app/admin-ui.js
+          node --check app/admin-password-fix.js
           node --check app/measurement-engine.js
           node --check app/measurement-frequency-parser.js
           node --check app/measurement-frequency-fix.js
@@ -115,7 +129,6 @@ jobs:
 
           echo "subdomain=$SUBDOMAIN" >> "$GITHUB_OUTPUT"
 
-      # Migração da antiga cloudflare/wrangler-action@v3 para o Wrangler CLI direto.
       - name: Publicar no Cloudflare Workers
         id: deploy
         env:
@@ -143,7 +156,7 @@ jobs:
           echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
           echo "Aplicação publicada em $DEPLOYMENT_URL"
 
-      - name: Verificar Worker, API e banco D1
+      - name: Verificar Worker, banco e autenticação protegida
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
         run: |
@@ -158,16 +171,26 @@ jobs:
             if (!health.database) throw new Error("O binding DB não está conectado ao D1.");
           ' "$HEALTH"
 
-          CATALOG="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 3 "$DEPLOYMENT_URL/api/v1/catalog")"
+          INDEX="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 3 "$DEPLOYMENT_URL/")"
+          printf '%s' "$INDEX" | grep -q 'NEOMES — Gestão Operacional'
+
+          AUTH_FILE="$(mktemp)"
+          AUTH_STATUS="$(curl --silent --show-error --output "$AUTH_FILE" --write-out '%{http_code}' "$DEPLOYMENT_URL/api/v1/auth/me")"
+          if [ "$AUTH_STATUS" != "401" ]; then
+            echo "A rota protegida deveria responder 401 sem sessão, mas respondeu $AUTH_STATUS."
+            cat "$AUTH_FILE"
+            exit 1
+          fi
           node -e '
-            const response = JSON.parse(process.argv[1]);
-            if (!Array.isArray(response.lines)) throw new Error("A API do catálogo não respondeu corretamente.");
-          ' "$CATALOG"
+            const fs = require("fs");
+            const response = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            if (response.code !== "UNAUTHENTICATED") throw new Error("A autenticação protegida não respondeu corretamente.");
+          ' "$AUTH_FILE"
 
           {
             echo "### NEOMES publicado com sucesso"
             echo ""
             echo "- Aplicação: $DEPLOYMENT_URL"
-            echo "- API: $DEPLOYMENT_URL/api/v1/catalog"
             echo "- Saúde do banco: $DEPLOYMENT_URL/health"
+            echo "- Autenticação: protegida e respondendo corretamente"
           } >> "$GITHUB_STEP_SUMMARY"
