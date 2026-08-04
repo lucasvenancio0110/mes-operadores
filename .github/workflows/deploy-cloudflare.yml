@@ -40,8 +40,10 @@ jobs:
           node scripts/apply-cloudflare-password-crypto.mjs
           grep -q "crypto.subtle.deriveBits" worker/auth.js
           grep -q "crypto.subtle.deriveBits" worker/bootstrap.js
-          grep -q "const PASSWORD_ITERATIONS = 100000;" worker/auth.js
-          grep -q "const ITERATIONS = 100000;" worker/bootstrap.js
+          grep -q "const PASSWORD_ITERATIONS = 10000;" worker/auth.js
+          grep -q "const ITERATIONS = 10000;" worker/bootstrap.js
+          grep -q "NEOMES_PASSWORD_PEPPER" worker/auth.js
+          grep -q "NEOMES_PASSWORD_PEPPER" worker/bootstrap.js
 
       - name: Validar aplicação antes do deploy
         run: |
@@ -140,6 +142,30 @@ jobs:
 
           echo "subdomain=$SUBDOMAIN" >> "$GITHUB_OUTPUT"
 
+      - name: Garantir pepper secreto das senhas
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
+
+          SECRETS="$(npx --yes wrangler@4.68.0 secret list --format json)"
+          HAS_PEPPER="$(node -e '
+            const items = JSON.parse(process.argv[1]);
+            process.stdout.write(items.some(item => item.name === "NEOMES_PASSWORD_PEPPER") ? "yes" : "no");
+          ' "$SECRETS")"
+
+          if [ "$HAS_PEPPER" = "no" ]; then
+            PEPPER="$(openssl rand -hex 32)"
+            printf '%s' "$PEPPER" | npx --yes wrangler@4.68.0 secret put NEOMES_PASSWORD_PEPPER >/tmp/neomes-pepper.log
+            unset PEPPER
+            echo "Pepper secreto criado no Cloudflare."
+          else
+            echo "Pepper secreto já configurado; valor preservado."
+          fi
+
       - name: Publicar no Cloudflare Workers
         id: deploy
         env:
@@ -187,8 +213,9 @@ jobs:
           node -e '
             const result = JSON.parse(process.argv[1]);
             if (!result.ok) throw new Error("PBKDF2 não funcionou no runtime publicado.");
-            if (result.algorithm !== "PBKDF2-SHA256-WebCrypto") throw new Error("Algoritmo inesperado: " + result.algorithm);
-            if (Number(result.iterations) !== 100000) throw new Error("Número de iterações inesperado: " + result.iterations);
+            if (result.algorithm !== "PBKDF2-SHA256-WebCrypto-Peppered") throw new Error("Algoritmo inesperado: " + result.algorithm);
+            if (Number(result.iterations) !== 10000) throw new Error("Número de iterações inesperado: " + result.iterations);
+            if (!result.pepperConfigured) throw new Error("Pepper secreto não foi carregado pelo Worker.");
           ' "$CRYPTO"
 
           INDEX="$(curl --fail --silent --show-error --retry 6 --retry-all-errors --retry-delay 3 "$DEPLOYMENT_URL/")"
@@ -213,7 +240,7 @@ jobs:
             echo "- Aplicação: $DEPLOYMENT_URL"
             echo "- Saúde do banco: $DEPLOYMENT_URL/health"
             echo "- Autenticação: protegida e respondendo corretamente"
-            echo "- Senhas: PBKDF2 SHA-256 via Web Crypto, 100.000 iterações"
+            echo "- Senhas: PBKDF2 SHA-256, salt individual, pepper secreto e bloqueio progressivo"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Registrar resultado do deploy
@@ -236,7 +263,7 @@ jobs:
             applicationUrl: process.env.DEPLOYMENT_URL,
             database: 'mes-operadores-db',
             authentication: 'protected',
-            passwordCrypto: 'pbkdf2-sha256-webcrypto-100000'
+            passwordCrypto: 'pbkdf2-sha256-webcrypto-10000-peppered'
           };
           fs.writeFileSync('deployment/latest.json', JSON.stringify(result, null, 2) + '\n');
           NODE
