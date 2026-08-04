@@ -1,7 +1,27 @@
-Commit: 33ac29e02e5bf2c9efafa7c7438211c4a984d88a
-Started: 2026-08-04T15:14:13Z
+Commit: 3dc1ab8dee6b6b9be44cdca01fd658fa2cbfdb6e
+Started: 2026-08-04T15:14:50Z
 
-NEOMES 3.7.4: frequências separadas, soma reconciliada e controles operacionais validados.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'worker/secure-main.js'
+- 'worker/main.js'
+          ^
+
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:94:8 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'worker/secure-main.js',
+  expected: 'worker/main.js',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Measurement plan checks passed.
 Compact conference UX checks passed.
 Shift performance and stoppage checks passed.
