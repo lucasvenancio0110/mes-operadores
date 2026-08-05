@@ -1,13 +1,25 @@
-.git/**
-.github/**
-node_modules/**
+# Código e configuração do Worker
 worker/**
 migrations/**
+wrangler.jsonc
+.wrangler/**
+
+# Automação, testes e metadados internos
+.git/**
+.github/**
+scripts/**
 tests/**
-docs/**
 validation/**
+deployment/**
+docs/**
+node_modules/**
+
+# Arquivos de desenvolvimento
+.assetsignore
+.gitignore
+*.md
 package.json
 package-lock.json
-wrangler.jsonc
-README.md
-.assetsignore
+wrangler-deploy.log
+*.log
+*.map
