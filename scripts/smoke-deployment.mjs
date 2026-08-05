@@ -83,6 +83,7 @@ await waitForJson('/api/v1/auth/turn-assistant-health', 'Assistente de turno', p
   assert(payload.ok && payload.schemaReady, payload.error || 'Assistente indisponível.');
   assert(payload.periodCalculationReady, 'Cálculo dos períodos indisponível.');
   assert.equal(Number(payload.rolloverMinutes), 1375, 'Virada 14:30–13:25 incorreta.');
+  assert.equal(payload.pointingValidation, 'advisory-only', 'A estimativa ainda pode bloquear apontamentos.');
   assert.equal(Number(payload.shiftMinutes), 480);
   assert.equal(payload.transaction, 'd1-batch');
   assert(Array.isArray(payload.tables) && payload.tables.length === 4, 'Tabelas do turno incompletas.');
@@ -104,7 +105,7 @@ const uniqueAssets = [...new Set(expectedAssets)];
 for (const asset of uniqueAssets) {
   const content = await fetchText(`/${asset}`, asset);
   if (asset.includes('turn-assistant.js')) {
-    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)', 'A matéria-prima consegue produzir até'], asset);
+    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)', 'A matéria-prima consegue produzir até', 'O apontamento será salvo normalmente.', 'data-ta-reconfirm', 'clearLocalMachineSession'], asset);
   } else if (asset.includes('turn-assistant.css')) {
     requireIncludes(content, ['ta-material-block', 'ta-forecast-time', 'ta-submit-feedback'], asset);
   }
