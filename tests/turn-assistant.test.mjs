@@ -3,9 +3,11 @@ import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
-  calculateMaterial,calculateOrderForecast,calculatePeriodPerformance,
+  calculateFullShiftTarget,calculateMaterial,calculateOrderForecast,calculatePeriodPerformance,
+  listMeasurementReleases,
   calculateTurnClock,predictionMessage,shiftWindow,minutesBetween,continuousMinutesBetween
 } from '../app/turn-assistant-engine.js';
+import { calculateMeasurementPlans } from '../app/measurement-engine.js';
 import { bindAssistantSubmit,formControlValue,isAssistantForm } from '../app/turn-assistant-submit.js';
 
 const root=new URL('../',import.meta.url);
@@ -35,11 +37,11 @@ assert(!assistant.includes('Faltarão cerca de'),'A quantidade faltante ainda es
 for(const formId of ['taHandoffForm','taFirstOrderForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
 }
-assert(index.includes('turn-assistant.js?v=5.0.6'),'Assistente 5.0.6 não está carregado no HTML.');
+assert(index.includes('turn-assistant.js?v=5.0.7'),'Assistente 5.0.7 não está carregado no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
 assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
 assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
-assert(serviceWorker.includes('v5.0.6-advisory-pointing'),'Versão do cache móvel não foi renovada.');
+assert(serviceWorker.includes('v5.0.7-turn-target-releases'),'Versão do cache móvel não foi renovada.');
 assert(workerAssistant.includes("rolloverMinutes===1375"),'O Worker não valida períodos que atravessam a madrugada.');
 assert(workerAssistant.includes("started_at=?,ended_at=?"),'O Worker não repara o início incorreto do período.');
 assert(workerAssistant.includes("T${clock}:00-03:00"),'Os turnos do Worker não usam o horário de Curitiba.');
@@ -50,6 +52,9 @@ assert(workerAssistant.includes("pointingValidation:'advisory-only'"),'O contrat
 assert(assistant.includes('data-ta-reconfirm'),'A nova conferência após o apontamento está ausente.');
 assert(assistant.includes('clearLocalMachineSession'),'A reconciliação de OP fantasma está ausente.');
 assert(assistant.includes('!context.error&&!context.activeOrder'),'O estado local não respeita a ausência de OP no Cloudflare.');
+assert(assistant.includes('Meta do turno'),'A meta calculada para os 480 minutos não está visível.');
+assert(assistant.includes('LIBERAÇÕES DO TURNO'),'A lista completa de liberações não está visível.');
+assert(assistant.includes('listMeasurementReleases(plans)'),'O cartão não usa a lista completa de liberações.');
 
 const safariItemInput={ value:'317396' };
 const safariForm={
@@ -91,6 +96,28 @@ assert.equal(listeners.has('click'),false);
 const material=calculateMaterial({ pieceLengthMm:11,currentBarPieces:276,feederBars:1,barLengthMm:3600,kerfMm:1 });
 assert.equal(material.piecesPerFullBar,300);
 assert.equal(material.availablePieces,576);
+
+assert.equal(calculateFullShiftTarget(287),100,'287 s por peça deve resultar em 100 peças por turno.');
+assert.equal(calculateFullShiftTarget(324),88,'324 s por peça deve resultar em 88 peças por turno.');
+assert.equal(calculateFullShiftTarget(60),480,'60 s por peça deve resultar em 480 peças por turno.');
+assert.equal(calculateFullShiftTarget(0),0,'Tempo de ciclo inválido não deve gerar meta.');
+
+const releases=listMeasurementReleases({
+  frequency1:{ points:[
+    { shiftPiece:100,measurementNumber:8,totalMeasurements:13 },
+    { shiftPiece:14,measurementNumber:7,totalMeasurements:13 }
+  ] },
+  frequency2:{ points:[
+    { shiftPiece:60,measurementNumber:3,totalMeasurements:5 }
+  ] }
+});
+assert.deepEqual(releases.map(release=>release.shiftPiece),[14,60,100],'Todas as liberações devem ser preservadas e ordenadas.');
+assert.deepEqual(releases.map(release=>release.frequencyLabel),['Frequência I','Frequência II','Frequência I']);
+
+const tnl119Releases=listMeasurementReleases(calculateMeasurementPlans({
+  opTarget:1112,producedSoFar:585,shiftTarget:calculateFullShiftTarget(287),frequency1:85.538
+}));
+assert.deepEqual(tnl119Releases.map(release=>release.shiftPiece),[14,100],'A TNL 119 deve mostrar as liberações de 14 e 100 peças no turno.');
 
 const finishesByOp=calculateOrderForecast({
   now:'2026-08-05T14:42:00-03:00',cycleSeconds:287,opTarget:1000,producedSoFar:472,
@@ -154,4 +181,4 @@ assert.equal(tnl092.inconsistent,true,'A estimativa da TNL 092 deve continuar al
 assert.equal(Math.round(tnl092.runningMinutes),478);
 assert.equal(Math.round(tnl092.overrunMinutes),320);
 
-console.log('NEOMES 5.0.6: cálculo consultivo, reconferência e estado fantasma validados.');
+console.log('NEOMES 5.0.7: meta de 480 minutos e todas as liberações do turno validadas.');

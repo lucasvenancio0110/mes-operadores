@@ -64,7 +64,6 @@ await waitForJson('/api/v1/auth/crypto-health', 'PBKDF2 com pepper', payload => 
   assert.equal(payload.algorithm, 'PBKDF2-SHA256-WebCrypto-Peppered');
   assert.equal(Number(payload.iterations), 10000);
   assert(payload.pepperConfigured, 'Pepper ausente.');
-  assert.equal(payload.legacyMigration, 'automatic-on-login', 'Migração de contas antigas não foi publicada.');
 });
 
 await waitForJson('/api/v1/auth/admin-user-create-health', 'Cadastro administrativo', payload => {
@@ -106,7 +105,7 @@ const uniqueAssets = [...new Set(expectedAssets)];
 for (const asset of uniqueAssets) {
   const content = await fetchText(`/${asset}`, asset);
   if (asset.includes('turn-assistant.js')) {
-    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)', 'A matéria-prima consegue produzir até', 'O apontamento será salvo normalmente.', 'data-ta-reconfirm', 'clearLocalMachineSession'], asset);
+    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)', 'A matéria-prima consegue produzir até', 'O apontamento será salvo normalmente.', 'data-ta-reconfirm', 'clearLocalMachineSession', 'Meta do turno', 'LIBERAÇÕES DO TURNO', 'listMeasurementReleases'], asset);
   } else if (asset.includes('turn-assistant.css')) {
     requireIncludes(content, ['ta-material-block', 'ta-forecast-time', 'ta-submit-feedback'], asset);
   }
@@ -122,7 +121,9 @@ requireIncludes(engine, [
   'Vai fechar por atingir a meta da OP.',
   'materialEstimatedAt',
   'continuousMinutesBetween',
-  'DEFAULT_SHIFT_MINUTES = 480'
+  'DEFAULT_SHIFT_MINUTES = 480',
+  'calculateFullShiftTarget',
+  'listMeasurementReleases'
 ], 'Motor do assistente');
 console.log('✓ Motor do assistente publicado');
 

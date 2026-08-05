@@ -48,6 +48,39 @@ export function remainingShiftMinutes({ shift, productionDate = '', now = new Da
   return Math.max(0, Math.min(DEFAULT_SHIFT_MINUTES, minutesBetween(now,end)));
 }
 
+export function calculateFullShiftTarget(cycleSeconds, shiftMinutes = DEFAULT_SHIFT_MINUTES) {
+  const cycle = positive(cycleSeconds);
+  const duration = positive(shiftMinutes);
+  if (!Number.isFinite(cycle) || !Number.isFinite(duration)) return 0;
+  return Math.max(0,Math.floor(duration * 60 / cycle));
+}
+
+export function listMeasurementReleases(plans = {}) {
+  const sources = [
+    { key:'frequency1',label:'Frequência I',order:1,points:plans.frequency1?.points },
+    { key:'frequency2',label:'Frequência II',order:2,points:plans.frequency2?.points }
+  ];
+  const releases = [];
+  for (const source of sources) {
+    for (const point of Array.isArray(source.points) ? source.points : []) {
+      const shiftPiece = integer(point?.shiftPiece);
+      if (!(shiftPiece > 0)) continue;
+      releases.push({
+        ...point,
+        shiftPiece,
+        frequencyKey:source.key,
+        frequencyLabel:source.label,
+        frequencyOrder:source.order
+      });
+    }
+  }
+  return releases.sort((left,right) =>
+    left.shiftPiece - right.shiftPiece
+    || left.frequencyOrder - right.frequencyOrder
+    || Number(left.measurementNumber || 0) - Number(right.measurementNumber || 0)
+  );
+}
+
 export function calculateMaterial(input = {}) {
   const barLengthMm = positive(input.barLengthMm) || DEFAULT_BAR_LENGTH_MM;
   const kerfMm = nonNegative(input.kerfMm);

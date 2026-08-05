@@ -5,13 +5,14 @@ import {
 import { escapeHtml, statusMeta } from './components.js';
 import { calculateMeasurementPlans } from './measurement-engine.js';
 import {
+  DEFAULT_SHIFT_MINUTES, calculateFullShiftTarget, listMeasurementReleases,
   shiftWindow, minutesBetween, continuousMinutesBetween, remainingShiftMinutes, calculateOrderForecast,
   calculatePeriodPerformance, formatDuration, predictionMessage
-} from './turn-assistant-engine.js?v=5.0.6';
-import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=5.0.6';
+} from './turn-assistant-engine.js?v=5.0.7';
+import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=5.0.7';
 
 const layers = document.getElementById('layers');
-const VERSION = '5.0.6';
+const VERSION = '5.0.7';
 const BAR_LENGTH_MM = 3600;
 const KERF_MM = 1;
 let contextCache = new Map();
@@ -417,18 +418,18 @@ function sessionForecast(session) {
   });
 }
 function measurementSummary(session, forecast) {
-  const available=remainingShiftMinutes({ shift:store.state.session.shift,productionDate:store.state.session.productionDate,now:new Date() });
-  const theoretical=session.cycleSeconds>0?Math.floor(available*60/session.cycleSeconds):0;
-  const shiftTarget=Math.max(0,Math.min(theoretical,Number(forecast.opRemaining || 0),Number(forecast.availablePieces || 0)));
+  const turnTarget=calculateFullShiftTarget(session.cycleSeconds,DEFAULT_SHIFT_MINUTES);
+  const shiftTarget=Math.max(0,Math.min(turnTarget,Number(forecast.opRemaining || 0),Number(forecast.availablePieces || 0)));
   const plans=calculateMeasurementPlans({ opTarget:session.opTarget,producedSoFar:session.producedSoFar,shiftTarget,frequency1:session.frequency1,frequency2:session.frequency2 });
-  const next1=plans.frequency1.points?.[0];const next2=plans.frequency2.points?.[0];
-  return { plans,next1,next2,shiftTarget,available };
+  const releases=listMeasurementReleases(plans);
+  return { plans,releases,turnTarget,shiftTarget,shiftMinutes:DEFAULT_SHIFT_MINUTES };
 }
-function nextReleaseHtml(session, forecast) {
-  const { next1,next2 }=measurementSummary(session,forecast);
-  const next=next1 || next2;
-  if(!next)return `<section class="ta-release" data-state="none"><div class="ta-section-label">LIBERAÇÕES</div><strong>Nenhuma liberação prevista neste turno</strong><span>A próxima frequência não será atingida dentro da produção planejada.</span></section>`;
-  return `<section class="ta-release"><div class="ta-section-label">PRÓXIMA LIBERAÇÃO</div><div class="ta-release-main"><strong>${formatNumber(next.shiftPiece)} peças neste turno</strong><span>Faça a medição ${formatNumber(next.measurementNumber)} de ${formatNumber(next.totalMeasurements)}</span></div>${next2&&next!==next2?`<small>Frequência II: próxima em ${formatNumber(next2.shiftPiece)} peças do turno.</small>`:''}</section>`;
+function nextReleaseHtml(session, forecast, summary = measurementSummary(session,forecast)) {
+  const { releases,shiftTarget }=summary;
+  if(!releases.length)return `<section class="ta-release" data-state="none"><div class="ta-section-label">LIBERAÇÕES DO TURNO</div><strong>Nenhuma liberação prevista neste turno</strong><span>A próxima frequência não será atingida dentro da produção planejada.</span></section>`;
+  const label=releases.length===1?'LIBERAÇÃO DO TURNO':'LIBERAÇÕES DO TURNO';
+  const list=releases.map((release,index)=>`<div class="ta-release-item${index===0?' is-next':''}"><b>${index===0?'PRÓXIMA':`${index+1}ª`}</b><div><strong>${formatNumber(release.shiftPiece)} peças produzidas no turno</strong><span>${escapeHtml(release.frequencyLabel)} · Faça a medição ${formatNumber(release.measurementNumber)} de ${formatNumber(release.totalMeasurements)}</span></div></div>`).join('');
+  return `<section class="ta-release"><div class="ta-section-label">${label}</div><div class="ta-release-list">${list}</div><small>${formatNumber(releases.length)} liberaç${releases.length===1?'ão':'ões'} prevista${releases.length===1?'':'s'} até ${formatNumber(shiftTarget)} peças possíveis nesta OP durante o turno.</small></section>`;
 }
 function forecastHtml(forecast, session) {
   if(forecast.status==='missing')return `<section class="ta-forecast" data-tone="neutral"><div class="ta-section-label">PREVISÃO DA ORDEM</div><strong class="ta-forecast-time">—</strong><h3>Previsão indisponível</h3><p>${escapeHtml(predictionMessage(forecast))}</p></section>`;
@@ -449,9 +450,10 @@ function intuitiveCard(machineId) {
   if(session.status==='pointed')return `<header class="ta-card-head"><div><h2>${escapeHtml(machine.name)}</h2><p>${escapeHtml(machine.lineName)} · OP ${escapeHtml(session.op)}</p></div><span class="ta-status-pill" data-status="pointed">APONTADO</span></header><section class="ta-pointed-card"><span aria-hidden="true">✓</span><div><strong>Produção apontada</strong><p>${formatNumber(session.assistantLastGoodPieces || session.producedThisShift || 0)} peças boas · ${formatNumber(session.assistantLastRejects || 0)} refugos</p><small>Os cálculos são apenas informativos.</small></div></section><section class="ta-conference-callout"><strong>Conferência necessária</strong><p>Antes de continuar com esta máquina, confirme se a quantidade acumulada e o material ainda estão corretos.</p></section><footer class="ta-card-actions ta-card-actions--single"><button class="ops-btn ops-btn--primary" type="button" data-ta-reconfirm="${escapeHtml(machineId)}">Conferir novamente</button></footer>`;
   const forecast=sessionForecast(session);
   const status=statusMeta(session.status || 'producing');
-  const facts=`<section class="ta-compact-facts"><div><span>Produção atual</span><strong>${formatNumber(session.producedSoFar)}</strong></div><div><span>Meta da OP</span><strong>${formatNumber(session.opTarget)}</strong></div><div><span>Falta produzir</span><strong>${formatNumber(forecast.opRemaining)}</strong></div><div><span>Material disponível</span><strong>${formatNumber(forecast.availablePieces)}</strong></div></section>`;
+  const summary=measurementSummary(session,forecast);
+  const facts=`<section class="ta-compact-facts"><div><span>Produção atual</span><strong>${formatNumber(session.producedSoFar)}</strong></div><div data-tone="target"><span>Meta do turno</span><strong>${formatNumber(summary.turnTarget)}</strong><small>480 min ÷ ciclo</small></div><div><span>Tempo de ciclo</span><strong>${escapeHtml(formatCycle(session.cycleSeconds))}</strong></div><div><span>Meta da OP</span><strong>${formatNumber(session.opTarget)}</strong></div><div><span>Falta produzir</span><strong>${formatNumber(forecast.opRemaining)}</strong></div><div><span>Material disponível</span><strong>${formatNumber(forecast.availablePieces)}</strong></div></section>`;
   return `<header class="ta-card-head"><div><h2>${escapeHtml(machine.name)}</h2><p>${escapeHtml(machine.lineName)} · OP ${escapeHtml(session.op)} · Item ${escapeHtml(session.item)}</p></div><span class="ta-status-pill" data-status="${escapeHtml(session.status || 'producing')}">${escapeHtml(status.label)}</span></header>
-    ${nextReleaseHtml(session,forecast)}${forecastHtml(forecast,session)}${facts}
+    ${nextReleaseHtml(session,forecast,summary)}${forecastHtml(forecast,session)}${facts}
     <section class="ta-material-line"><div><span>Barra atual</span><strong>${formatNumber(session.currentBarPieces)} peças</strong></div><div><span>No alimentador</span><strong>${formatNumber(session.feederBars)} barra${Number(session.feederBars)===1?'':'s'}</strong></div><div><span>Peças por barra</span><strong>${formatNumber(forecast.piecesPerFullBar)}</strong></div></section>
     <footer class="ta-card-actions"><button class="ops-btn ops-btn--soft" type="button" data-ta-update="${escapeHtml(machineId)}">Atualizar dados</button><button class="ops-btn ops-btn--danger-text" type="button" data-ta-close-order="${escapeHtml(machineId)}">Encerrar OP</button></footer>
     <div class="planning-card-summary assistant-compat" hidden></div><div class="measurement-card-plan assistant-compat" hidden></div>`;
