@@ -35,6 +35,16 @@ function legacyHash(iterations) {
   ).toString('hex');
 }
 
+function currentHash(passwordValue, saltHex) {
+  return pbkdf2Sync(
+    passwordValue + String.fromCharCode(0) + pepper,
+    Buffer.from(saltHex, 'hex'),
+    10000,
+    32,
+    'sha256'
+  ).toString('hex');
+}
+
 for (const iterations of [100000, 160000]) {
   const before = updates.length;
   const user = {
@@ -52,6 +62,11 @@ for (const iterations of [100000, 160000]) {
   assert.equal(updates.length, before + 1, 'O hash legado deve ser atualizado uma única vez.');
   assert.equal(user.passwordIterations, 10000, 'A conta deve migrar para 10.000 iterações com pepper.');
   assert.notEqual(user.passwordHash, legacyHash(iterations), 'O hash migrado deve ser diferente do legado.');
+  assert.equal(
+    user.passwordHash,
+    currentHash(password, user.passwordSalt),
+    'O hash migrado deve usar o mesmo separador nulo dos cadastros atuais.'
+  );
   assert(updates.at(-1).sql.includes('WHERE id=? AND password_hash=?'), 'A migração deve usar atualização otimista.');
 
   assert.equal(
