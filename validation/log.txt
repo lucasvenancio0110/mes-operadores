@@ -1,7 +1,21 @@
-Commit: 97b0a5d3a67bf2a5ccf87ad56f230f9fd0390aa7
-Started: 2026-08-05T05:42:12Z
+Commit: f0bef356c397a6814fec40839be6e0b1a3b6ac2b
+Started: 2026-08-05T05:42:47Z
 
-NEOMES 4.0.0: autenticação segura, administração e fluxos operacionais validados.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Cache PWA seguro não foi ativado.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/static-check.mjs:38:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Measurement plan checks passed.
 node:internal/modules/run_main:123
     triggerUncaughtException(
