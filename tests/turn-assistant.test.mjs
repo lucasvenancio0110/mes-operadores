@@ -6,7 +6,7 @@ import {
   calculateMaterial,calculateOrderForecast,calculatePeriodPerformance,
   calculateTurnClock,predictionMessage,shiftWindow,minutesBetween
 } from '../app/turn-assistant-engine.js';
-import { bindAssistantSubmit,isAssistantForm } from '../app/turn-assistant-submit.js';
+import { bindAssistantSubmit,formControlValue,isAssistantForm } from '../app/turn-assistant-submit.js';
 
 const root=new URL('../',import.meta.url);
 const read=path=>readFile(new URL(path,root),'utf8');
@@ -26,14 +26,25 @@ assert(!submitBridge.includes('SubmitEvent'),'A ponte não deve sintetizar event
 assert(!submitBridge.includes('form.dispatchEvent'),'A ponte não deve reenviar eventos artificialmente.');
 assert(assistant.includes("bindAssistantSubmit(document,submitAssistantForm)"),'A ponte móvel não está conectada ao assistente.');
 assert(assistant.includes("post('/api/v1/turn-assistant/handoff',body)"),'Persistência da passagem de turno não está conectada.');
+assert(assistant.includes("formControlValue(form,'item')"),'O campo Item não usa leitura segura para Safari.');
+assert(!assistant.includes('form.elements.item.value'),'A colisão com HTMLFormControlsCollection.item ainda existe.');
 for(const formId of ['taHandoffForm','taFirstOrderForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
 }
-assert(index.includes('turn-assistant.js?v=5.0.2'),'Assistente 5.0.2 não está carregado no HTML.');
+assert(index.includes('turn-assistant.js?v=5.0.3'),'Assistente 5.0.3 não está carregado no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
 assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
 assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
-assert(serviceWorker.includes('v5.0.2-turn-assistant-submit'),'Versão do cache móvel não foi renovada.');
+assert(serviceWorker.includes('v5.0.3-turn-assistant-submit'),'Versão do cache móvel não foi renovada.');
+
+const safariItemInput={ value:'317396' };
+const safariForm={
+  elements:{
+    item(){ return null; },
+    namedItem(name){ return name==='item' ? safariItemInput : null; }
+  }
+};
+assert.equal(formControlValue(safariForm,'item'),'317396','Safari deve ler o campo Item sem colidir com elements.item().');
 
 const listeners=new Map();
 const firstOrderForm={ id:'taFirstOrderForm' };
@@ -112,4 +123,4 @@ assert.equal(inconsistent.overrunMinutes,10);
 const bounds=shiftWindow('2','2026-08-05');
 assert.equal(minutesBetween(bounds.start,bounds.end),480);
 
-console.log('NEOMES 5.0.2: toque direto, salvamento único, matéria-prima, refugos e relógio validados.');
+console.log('NEOMES 5.0.3: campo Item no Safari, toque direto e salvamento único validados.');
