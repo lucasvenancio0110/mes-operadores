@@ -1,0 +1,14 @@
+{
+  "status": "failure",
+  "commit": "97b0a5d3a67bf2a5ccf87ad56f230f9fd0390aa7",
+  "workflowRun": "30978915806",
+  "failedAt": "2026-08-05T05:42:16.912Z",
+  "steps": {
+    "patch": "success",
+    "validate": "failure",
+    "preflight": "skipped",
+    "pepper": "skipped",
+    "publish": "skipped",
+    "smoke": "skipped"
+  }
+}
