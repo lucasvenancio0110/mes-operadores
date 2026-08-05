@@ -51,6 +51,7 @@ assert(wrangler.assets?.run_worker_first?.includes('/api/*'), 'API não executa 
 assert(wrangler.d1_databases?.some(binding => binding.binding === 'DB' && binding.database_id === '31666c87-0970-44e1-9969-51458e7888b5'), 'Binding DB/D1 incorreto.');
 assert(deployWorkflow.includes('CLOUDFLARE_API_TOKEN') && deployWorkflow.includes('CLOUDFLARE_ACCOUNT_ID'), 'Segredos do Cloudflare ausentes no workflow.');
 assert(deployWorkflow.includes('scripts/smoke-deployment.mjs'), 'Workflow não executa o smoke test publicado.');
+assert(deployWorkflow.includes('tests/password-migration.test.mjs'), 'Workflow não testa a migração de hashes legados.');
 assert(smokeDeployment.includes("waitForJson('/health'") && smokeDeployment.includes('payload.database'), 'Deploy não valida Worker e D1.');
 assert(smokeDeployment.includes('/api/v1/auth/turn-assistant-health') && smokeDeployment.includes('shiftMinutes'), 'Deploy não valida o assistente de turno.');
 
@@ -59,7 +60,10 @@ for (const required of [
   "name:'PBKDF2'", "hash:'SHA-256'", 'password_hash TEXT', 'password_salt TEXT',
   'token_hash TEXT', 'auth_sessions', 'audit_logs', 'auth_login_attempts',
   'HttpOnly', 'Secure', 'SameSite=Lax', 'MAX_LOGIN_ATTEMPTS = 5',
-  'NEOMES_ADMIN_BOOTSTRAP_TOKEN', 'É necessário manter pelo menos um administrador ativo no sistema.'
+  'NEOMES_ADMIN_BOOTSTRAP_TOKEN', 'NEOMES_PASSWORD_PEPPER',
+  'LEGACY_PASSWORD_ITERATIONS', 'PASSWORD_HASH_SCHEME', 'migrateLegacyPasswordHash',
+  'export async function verifyPassword(env, password, user)',
+  'É necessário manter pelo menos um administrador ativo no sistema.'
 ]) assert(authWorker.includes(required), `Proteção de autenticação ausente: ${required}`);
 assert(!authWorker.includes('MD5') && !authWorker.includes("SHA-1'"), 'Algoritmo inseguro encontrado.');
 assert(authWorker.includes('/api/v1/auth/login') && authWorker.includes('/api/v1/auth/me') && authWorker.includes('/api/v1/auth/logout'), 'Rotas básicas de autenticação ausentes.');

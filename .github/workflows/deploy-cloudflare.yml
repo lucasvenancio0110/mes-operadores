@@ -43,6 +43,8 @@ jobs:
           grep -q "const ITERATIONS = 10000;" worker/bootstrap.js
           grep -q "NEOMES_PASSWORD_PEPPER" worker/auth.js
           grep -q "NEOMES_PASSWORD_PEPPER" worker/bootstrap.js
+          grep -q "LEGACY_PASSWORD_ITERATIONS" worker/auth.js
+          grep -q "automatic-on-login" worker/bootstrap.js
           node --check worker/auth.js
           node --check worker/bootstrap.js
           node --check worker/admin-user-create.js
@@ -83,6 +85,7 @@ jobs:
           node --check app/shift-time-engine.js
           node --check app/shift-time-fix.js
           node tests/static-check.mjs
+          node tests/password-migration.test.mjs
           node tests/measurement-plan.test.mjs
           node tests/conference-ux.test.mjs
           node tests/shift-performance.test.mjs

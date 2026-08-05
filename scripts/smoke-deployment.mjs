@@ -64,6 +64,7 @@ await waitForJson('/api/v1/auth/crypto-health', 'PBKDF2 com pepper', payload => 
   assert.equal(payload.algorithm, 'PBKDF2-SHA256-WebCrypto-Peppered');
   assert.equal(Number(payload.iterations), 10000);
   assert(payload.pepperConfigured, 'Pepper ausente.');
+  assert.equal(payload.legacyMigration, 'automatic-on-login', 'Migração de contas antigas não foi publicada.');
 });
 
 await waitForJson('/api/v1/auth/admin-user-create-health', 'Cadastro administrativo', payload => {

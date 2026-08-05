@@ -1,6 +1,8 @@
 const COOKIE_NAME = 'neomes_session';
 const SESSION_TTL_SECONDS = 12 * 60 * 60;
-const PASSWORD_ITERATIONS = 160000;
+const PASSWORD_ITERATIONS = 10000;
+const LEGACY_PASSWORD_ITERATIONS = new Set([100000, 160000]);
+const PASSWORD_HASH_SCHEME = 'pbkdf2-sha256-peppered-v1';
 const MAX_LOGIN_ATTEMPTS = 5;
 const encoder = new TextEncoder();
 let readyPromise = null;
@@ -77,14 +79,71 @@ async function derivePassword(password, saltHex, iterations = PASSWORD_ITERATION
   return bytesToHex(bits);
 }
 
-async function createPasswordHash(password) {
+export async function createPasswordHash(env, password) {
+  const pepper = normalize(env?.NEOMES_PASSWORD_PEPPER);
+  if (!pepper) throw new Error('NEOMES_PASSWORD_PEPPER não configurado.');
   const salt = randomHex(16);
-  return { salt, hash:await derivePassword(password, salt), iterations:PASSWORD_ITERATIONS };
+  const protectedPassword = String(password || '') + '\u0000' + pepper;
+  return {
+    salt,
+    hash:await derivePassword(protectedPassword, salt),
+    iterations:PASSWORD_ITERATIONS,
+    scheme:PASSWORD_HASH_SCHEME
+  };
 }
 
-async function verifyPassword(password, user) {
+async function migrateLegacyPasswordHash(env, password, user) {
+  const originalHash = user.passwordHash;
+  const originalIterations = Number(user.passwordIterations || 0);
+  const upgraded = await createPasswordHash(env, password);
+  await env.DB.prepare(
+    'UPDATE users SET password_hash=?,password_salt=?,password_iterations=?,updated_at=? WHERE id=? AND password_hash=?'
+  ).bind(
+    upgraded.hash,
+    upgraded.salt,
+    upgraded.iterations,
+    nowIso(),
+    user.id,
+    originalHash
+  ).run();
+  user.passwordHash = upgraded.hash;
+  user.passwordSalt = upgraded.salt;
+  user.passwordIterations = upgraded.iterations;
+  console.info('NEOMES auth: hash legado migrado.', {
+    userId:user.id,
+    fromIterations:originalIterations,
+    toIterations:upgraded.iterations,
+    scheme:upgraded.scheme
+  });
+}
+
+export async function verifyPassword(env, password, user) {
   if (!user?.passwordHash || !user?.passwordSalt) return false;
-  const derived = await derivePassword(password, user.passwordSalt, Number(user.passwordIterations || PASSWORD_ITERATIONS));
+  const iterations = Number(user.passwordIterations || PASSWORD_ITERATIONS);
+
+  if (LEGACY_PASSWORD_ITERATIONS.has(iterations)) {
+    const legacyDerived = await derivePassword(
+      String(password || ''),
+      user.passwordSalt,
+      iterations
+    );
+    const legacyValid = constantTimeEqual(
+      hexToBytes(legacyDerived),
+      hexToBytes(user.passwordHash)
+    );
+    if (!legacyValid) return false;
+    await migrateLegacyPasswordHash(env, password, user);
+    return true;
+  }
+
+  const pepper = normalize(env?.NEOMES_PASSWORD_PEPPER);
+  if (!pepper) throw new Error('NEOMES_PASSWORD_PEPPER não configurado.');
+  const protectedPassword = String(password || '') + '\u0000' + pepper;
+  const derived = await derivePassword(
+    protectedPassword,
+    user.passwordSalt,
+    iterations
+  );
   return constantTimeEqual(hexToBytes(derived), hexToBytes(user.passwordHash));
 }
 
@@ -367,7 +426,7 @@ async function routeAuth(request, env, url) {
     const shift = normalize(body?.shift) || '1';
     const problem = passwordProblem(password, registration);
     if (!registration || !name || problem) return json({ error:problem || 'Nome e matrícula são obrigatórios.' }, 400);
-    const credentials = await createPasswordHash(password);
+    const credentials = await createPasswordHash(env, password);
     const id = `user-${crypto.randomUUID()}`;
     await env.DB.prepare(`INSERT INTO users (
       id,name,registration,password_hash,password_salt,password_iterations,role_code,default_shift,status,must_change_password,password_changed_at,created_at,updated_at
@@ -386,7 +445,7 @@ async function routeAuth(request, env, url) {
     const attempts = await attemptState(env, registration, requestIp(request));
     if (attempts.lockedUntil && new Date(attempts.lockedUntil) > new Date()) return json({ error:'Muitas tentativas. Aguarde alguns minutos.', code:'LOGIN_LOCKED' }, 429);
     const user = registration ? await getUserByRegistration(env,registration) : null;
-    const valid = user ? await verifyPassword(password,user) : false;
+    const valid = user ? await verifyPassword(env, password,user) : false;
     if (!user || !valid) {
       await recordFailedAttempt(env,attempts,user);
       await writeAudit(env,request,user,'auth.login_failed','user',user?.id || '','Tentativa de login rejeitada.');
@@ -424,11 +483,11 @@ async function routeAuth(request, env, url) {
     const body = await request.json().catch(() => null);
     const currentPassword = String(body?.currentPassword || '');
     const newPassword = String(body?.newPassword || '');
-    if (!(await verifyPassword(currentPassword,auth.user))) return json({ error:'Senha atual incorreta.' }, 400);
+    if (!(await verifyPassword(env, currentPassword,auth.user))) return json({ error:'Senha atual incorreta.' }, 400);
     const problem = passwordProblem(newPassword,auth.user.registration);
     if (problem) return json({ error:problem }, 400);
-    if (await verifyPassword(newPassword,auth.user)) return json({ error:'A nova senha deve ser diferente da atual.' }, 400);
-    const credentials = await createPasswordHash(newPassword);
+    if (await verifyPassword(env, newPassword,auth.user)) return json({ error:'A nova senha deve ser diferente da atual.' }, 400);
+    const credentials = await createPasswordHash(env, newPassword);
     await env.DB.prepare(`UPDATE users SET password_hash=?,password_salt=?,password_iterations=?,must_change_password=0,password_changed_at=?,updated_at=? WHERE id=?`)
       .bind(credentials.hash,credentials.salt,credentials.iterations,nowIso(),nowIso(),auth.user.id).run();
     await env.DB.prepare('UPDATE auth_sessions SET revoked_at=? WHERE user_id=?').bind(nowIso(),auth.user.id).run();
@@ -476,7 +535,7 @@ async function routeAdmin(request, env, url) {
     const problem = passwordProblem(password,registration);
     if (!registration || !name || problem) return json({ error:problem || 'Nome e matrícula são obrigatórios.' },400);
     if (!(await env.DB.prepare('SELECT code FROM roles WHERE code=?').bind(roleCode).first())) return json({ error:'Perfil inválido.' },400);
-    const credentials = await createPasswordHash(password); const id=`user-${crypto.randomUUID()}`; const now=nowIso();
+    const credentials = await createPasswordHash(env, password); const id=`user-${crypto.randomUUID()}`; const now=nowIso();
     try {
       await env.DB.prepare(`INSERT INTO users (
         id,name,registration,password_hash,password_salt,password_iterations,role_code,default_shift,email,status,must_change_password,password_changed_at,created_at,updated_at,created_by
@@ -519,7 +578,7 @@ async function routeAdmin(request, env, url) {
     if(['block','disable'].includes(action) && user.roleCode==='admin' && await countOtherActiveAdmins(env,id)===0) return json({ error:'É necessário manter pelo menos um administrador ativo no sistema.' },409);
     if(action==='reset-password'){
       const body=await request.json().catch(()=>({})); const password=String(body?.password||generateTemporaryPassword()); const problem=passwordProblem(password,user.registration); if(problem)return json({ error:problem },400);
-      const credentials=await createPasswordHash(password);
+      const credentials=await createPasswordHash(env, password);
       await env.DB.prepare(`UPDATE users SET password_hash=?,password_salt=?,password_iterations=?,must_change_password=1,password_changed_at=?,updated_at=?,updated_by=? WHERE id=?`)
         .bind(credentials.hash,credentials.salt,credentials.iterations,nowIso(),nowIso(),access.auth.user.id,id).run();
       await env.DB.prepare('UPDATE auth_sessions SET revoked_at=? WHERE user_id=? AND revoked_at IS NULL').bind(nowIso(),id).run();
