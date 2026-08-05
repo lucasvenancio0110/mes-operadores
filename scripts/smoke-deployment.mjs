@@ -82,6 +82,7 @@ await waitForJson('/api/v1/auth/admin-password-reset-health', 'Redefinição de 
 await waitForJson('/api/v1/auth/turn-assistant-health', 'Assistente de turno', payload => {
   assert(payload.ok && payload.schemaReady, payload.error || 'Assistente indisponível.');
   assert(payload.periodCalculationReady, 'Cálculo dos períodos indisponível.');
+  assert.equal(Number(payload.rolloverMinutes), 1375, 'Virada 14:30–13:25 incorreta.');
   assert.equal(Number(payload.shiftMinutes), 480);
   assert.equal(payload.transaction, 'd1-batch');
   assert(Array.isArray(payload.tables) && payload.tables.length === 4, 'Tabelas do turno incompletas.');
@@ -118,6 +119,7 @@ requireIncludes(engine, [
   'Vai fechar neste horário por falta de matéria-prima.',
   'Vai fechar por atingir a meta da OP.',
   'materialEstimatedAt',
+  'continuousMinutesBetween',
   'DEFAULT_SHIFT_MINUTES = 480'
 ], 'Motor do assistente');
 console.log('✓ Motor do assistente publicado');
