@@ -215,6 +215,10 @@ jobs:
             if(!Array.isArray(x.tables) || x.tables.length!==4) throw new Error("Tabelas do turno incompletas");
           ' "$TURN_ASSISTANT"
 
+          # grep -q pode encerrar a leitura antes do printf em arquivos grandes;
+          # a partir daqui, o status relevante é o do grep, não o pipe quebrado.
+          set +o pipefail
+
           INDEX="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/")"
           printf '%s' "$INDEX" | grep -q 'NEOMES — Gestão Operacional'
           printf '%s' "$INDEX" | grep -q 'desktop-workspace.css?v=4.1.0'
