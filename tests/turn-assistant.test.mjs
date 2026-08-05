@@ -35,14 +35,21 @@ assert(!assistant.includes('Faltarão cerca de'),'A quantidade faltante ainda es
 for(const formId of ['taHandoffForm','taFirstOrderForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
 }
-assert(index.includes('turn-assistant.js?v=5.0.5'),'Assistente 5.0.5 não está carregado no HTML.');
+assert(index.includes('turn-assistant.js?v=5.0.6'),'Assistente 5.0.6 não está carregado no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
 assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
 assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
-assert(serviceWorker.includes('v5.0.5-turn-assistant-period'),'Versão do cache móvel não foi renovada.');
+assert(serviceWorker.includes('v5.0.6-advisory-pointing'),'Versão do cache móvel não foi renovada.');
 assert(workerAssistant.includes("rolloverMinutes===1375"),'O Worker não valida períodos que atravessam a madrugada.');
 assert(workerAssistant.includes("started_at=?,ended_at=?"),'O Worker não repara o início incorreto do período.');
 assert(workerAssistant.includes("T${clock}:00-03:00"),'Os turnos do Worker não usam o horário de Curitiba.');
+assert(assistant.includes('O apontamento será salvo normalmente.'),'A divergência calculada não é apresentada como aviso consultivo.');
+assert(!assistant.includes('if(result.inconsistent)return showError'),'O frontend ainda bloqueia quantidades pela estimativa de tempo.');
+assert(!workerAssistant.includes('PERIOD_TIME_INCONSISTENT'),'O Worker ainda rejeita apontamentos pela estimativa de tempo.');
+assert(workerAssistant.includes("pointingValidation:'advisory-only'"),'O contrato consultivo do Worker está ausente.');
+assert(assistant.includes('data-ta-reconfirm'),'A nova conferência após o apontamento está ausente.');
+assert(assistant.includes('clearLocalMachineSession'),'A reconciliação de OP fantasma está ausente.');
+assert(assistant.includes('!context.error&&!context.activeOrder'),'O estado local não respeita a ausência de OP no Cloudflare.');
 
 const safariItemInput={ value:'317396' };
 const safariForm={
@@ -142,4 +149,9 @@ assert.equal(tnl091.inconsistent,false,'O apontamento real da TNL 091 não pode 
 assert.equal(Math.round(tnl091.runningMinutes),551);
 assert.equal(Math.round(tnl091.downtimeMinutes),824);
 
-console.log('NEOMES 5.0.5: período contínuo e apontamento da TNL 091 validados.');
+const tnl092=calculatePeriodPerformance({ availableMinutes:158,goodPieces:100,rejects:0,cycleSeconds:287 });
+assert.equal(tnl092.inconsistent,true,'A estimativa da TNL 092 deve continuar alertando sobre a divergência.');
+assert.equal(Math.round(tnl092.runningMinutes),478);
+assert.equal(Math.round(tnl092.overrunMinutes),320);
+
+console.log('NEOMES 5.0.6: cálculo consultivo, reconferência e estado fantasma validados.');
