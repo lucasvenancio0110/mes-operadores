@@ -37,11 +37,11 @@ assert(!assistant.includes('Faltarão cerca de'),'A quantidade faltante ainda es
 for(const formId of ['taHandoffForm','taFirstOrderForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
 }
-assert(index.includes('turn-assistant.js?v=5.0.7'),'Assistente 5.0.7 não está carregado no HTML.');
+assert(index.includes('turn-assistant.js?v=5.0.8'),'Assistente 5.0.8 não está carregado no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
 assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
 assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
-assert(serviceWorker.includes('v5.0.7-turn-target-releases'),'Versão do cache móvel não foi renovada.');
+assert(serviceWorker.includes('v5.0.8-clear-release-copy'),'Versão do cache móvel não foi renovada.');
 assert(workerAssistant.includes("rolloverMinutes===1375"),'O Worker não valida períodos que atravessam a madrugada.');
 assert(workerAssistant.includes("started_at=?,ended_at=?"),'O Worker não repara o início incorreto do período.');
 assert(workerAssistant.includes("T${clock}:00-03:00"),'Os turnos do Worker não usam o horário de Curitiba.');
@@ -53,8 +53,14 @@ assert(assistant.includes('data-ta-reconfirm'),'A nova conferência após o apon
 assert(assistant.includes('clearLocalMachineSession'),'A reconciliação de OP fantasma está ausente.');
 assert(assistant.includes('!context.error&&!context.activeOrder'),'O estado local não respeita a ausência de OP no Cloudflare.');
 assert(assistant.includes('Meta do turno'),'A meta calculada para os 480 minutos não está visível.');
+assert(!assistant.includes('480 min ÷ ciclo'),'A fórmula técnica da meta ainda está exposta ao operador.');
 assert(assistant.includes('LIBERAÇÕES DO TURNO'),'A lista completa de liberações não está visível.');
 assert(assistant.includes('listMeasurementReleases(plans)'),'O cartão não usa a lista completa de liberações.');
+assert(assistant.includes('A próxima liberação'),'A primeira liberação não está escrita como instrução operacional.');
+assert(assistant.includes('peças produzidas neste turno.'),'A quantidade da liberação não está vinculada ao turno.');
+assert(assistant.includes("if(index===0)return 'Primeira'"),'A primeira liberação não está identificada.');
+assert(assistant.includes("if(index===1)return 'Segunda'"),'A segunda liberação não está identificada.');
+assert(!assistant.includes('peças possíveis nesta OP durante o turno.'),'O resumo técnico antigo das liberações ainda está visível.');
 
 const safariItemInput={ value:'317396' };
 const safariForm={
@@ -181,4 +187,4 @@ assert.equal(tnl092.inconsistent,true,'A estimativa da TNL 092 deve continuar al
 assert.equal(Math.round(tnl092.runningMinutes),478);
 assert.equal(Math.round(tnl092.overrunMinutes),320);
 
-console.log('NEOMES 5.0.7: meta de 480 minutos e todas as liberações do turno validadas.');
+console.log('NEOMES 5.0.8: meta limpa e instruções de liberação operacionais validadas.');
