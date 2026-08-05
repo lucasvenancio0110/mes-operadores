@@ -2,6 +2,7 @@ import application from './main.js';
 import { handleBootstrap, passwordCryptoHealth } from './bootstrap.js';
 import { handleAdminUserCreate, adminUserCreateHealth } from './admin-user-create.js';
 import { handleAdminPasswordReset, adminPasswordResetHealth } from './admin-password-reset.js';
+import { handleTurnAssistant, turnAssistantHealth } from './turn-assistant.js';
 import {
   ensureAuthTables,
   handleSecurityRoute,
@@ -173,6 +174,21 @@ export default {
       }
     }
 
+    if (url.pathname === '/api/v1/auth/turn-assistant-health' && request.method === 'GET') {
+      try {
+        const result = await turnAssistantHealth(env);
+        return json(result,result.ok ? 200 : 500);
+      } catch (error) {
+        return json({
+          ok:false,
+          schemaReady:false,
+          periodCalculationReady:false,
+          shiftMinutes:480,
+          error:error instanceof Error ? error.message : String(error)
+        },500);
+      }
+    }
+
     if (url.pathname === '/api/v1/auth/bootstrap' && request.method === 'POST') {
       return handleBootstrap(request,env);
     }
@@ -182,6 +198,9 @@ export default {
 
     const adminPasswordResetResponse = await handleAdminPasswordReset(request,env);
     if (adminPasswordResetResponse) return adminPasswordResetResponse;
+
+    const turnAssistantResponse = await handleTurnAssistant(request,env);
+    if (turnAssistantResponse) return turnAssistantResponse;
 
     const securityResponse = await handleSecurityRoute(request,env);
     if (securityResponse) return securityResponse;
