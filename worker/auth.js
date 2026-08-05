@@ -83,7 +83,7 @@ export async function createPasswordHash(env, password) {
   const pepper = normalize(env?.NEOMES_PASSWORD_PEPPER);
   if (!pepper) throw new Error('NEOMES_PASSWORD_PEPPER não configurado.');
   const salt = randomHex(16);
-  const protectedPassword = String(password || '') + '\\u0000' + pepper;
+  const protectedPassword = String(password || '') + '\u0000' + pepper;
   return {
     salt,
     hash:await derivePassword(protectedPassword, salt),
@@ -138,7 +138,7 @@ export async function verifyPassword(env, password, user) {
 
   const pepper = normalize(env?.NEOMES_PASSWORD_PEPPER);
   if (!pepper) throw new Error('NEOMES_PASSWORD_PEPPER não configurado.');
-  const protectedPassword = String(password || '') + '\\u0000' + pepper;
+  const protectedPassword = String(password || '') + '\u0000' + pepper;
   const derived = await derivePassword(
     protectedPassword,
     user.passwordSalt,
