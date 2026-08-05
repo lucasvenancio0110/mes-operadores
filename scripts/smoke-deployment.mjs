@@ -105,7 +105,9 @@ const uniqueAssets = [...new Set(expectedAssets)];
 for (const asset of uniqueAssets) {
   const content = await fetchText(`/${asset}`, asset);
   if (asset.includes('turn-assistant.js')) {
-    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)', 'A matéria-prima consegue produzir até', 'O apontamento será salvo normalmente.', 'data-ta-reconfirm', 'clearLocalMachineSession', 'Meta do turno', 'LIBERAÇÕES DO TURNO', 'listMeasurementReleases'], asset);
+    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)', 'A matéria-prima consegue produzir até', 'O apontamento será salvo normalmente.', 'data-ta-reconfirm', 'clearLocalMachineSession', 'Meta do turno', 'LIBERAÇÕES DO TURNO', 'listMeasurementReleases', 'releaseSequenceLabel', 'A próxima liberação', 'peças produzidas neste turno.'], asset);
+    assert(!content.includes('480 min ÷ ciclo'), `${asset}: a fórmula técnica da meta ainda está exposta.`);
+    assert(!content.includes('peças possíveis nesta OP durante o turno.'), `${asset}: o resumo técnico antigo ainda está exposto.`);
   } else if (asset.includes('turn-assistant.css')) {
     requireIncludes(content, ['ta-material-block', 'ta-forecast-time', 'ta-submit-feedback'], asset);
   }
