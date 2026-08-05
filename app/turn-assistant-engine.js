@@ -88,16 +88,17 @@ export function calculateOrderForecast(input = {}) {
     return {
       status:'missing', reason:'missing', missing,
       cycleSeconds, opTarget, producedSoFar, opRemaining,
-      ...material, estimatedAt:null, stopPieces:NaN,
+      ...material, estimatedAt:null, opEstimatedAt:null, materialEstimatedAt:null, stopPieces:NaN,
       missingPieces:NaN, additionalBars:NaN, leftoverMaterialPieces:NaN
     };
   }
 
   if (opRemaining <= 0) {
+    const materialEstimatedAt = new Date(now.getTime() + material.availablePieces * cycleSeconds * 1000).toISOString();
     return {
       status:'complete', reason:'op', missing:[],
       cycleSeconds, opTarget, producedSoFar, opRemaining:0,
-      ...material, stopPieces:0, estimatedAt:now.toISOString(),
+      ...material, stopPieces:0, estimatedAt:now.toISOString(), opEstimatedAt:now.toISOString(), materialEstimatedAt,
       missingPieces:0, additionalBars:0,
       leftoverMaterialPieces:material.availablePieces
     };
@@ -105,7 +106,9 @@ export function calculateOrderForecast(input = {}) {
 
   const stopPieces = Math.min(opRemaining,material.availablePieces);
   const reason = material.availablePieces < opRemaining ? 'material' : 'op';
-  const estimatedAt = new Date(now.getTime() + stopPieces * cycleSeconds * 1000).toISOString();
+  const opEstimatedAt = new Date(now.getTime() + opRemaining * cycleSeconds * 1000).toISOString();
+  const materialEstimatedAt = new Date(now.getTime() + material.availablePieces * cycleSeconds * 1000).toISOString();
+  const estimatedAt = reason === 'material' ? materialEstimatedAt : opEstimatedAt;
   const missingPieces = reason === 'material' ? Math.max(0,opRemaining - material.availablePieces) : 0;
   const additionalBars = reason === 'material' && material.piecesPerFullBar > 0
     ? Math.ceil(missingPieces / material.piecesPerFullBar)
@@ -117,7 +120,7 @@ export function calculateOrderForecast(input = {}) {
   return {
     status:'ready', reason, missing:[],
     cycleSeconds, opTarget, producedSoFar, opRemaining,
-    ...material, stopPieces, estimatedAt,
+    ...material, stopPieces, estimatedAt, opEstimatedAt, materialEstimatedAt,
     missingPieces, additionalBars, leftoverMaterialPieces
   };
 }
@@ -182,7 +185,7 @@ export function predictionMessage(forecast) {
   }
   if (forecast.status === 'complete') return 'A meta da OP já foi atingida.';
   if (forecast.reason === 'material') {
-    return 'A matéria-prima informada deverá acabar antes de atingir a meta da OP.';
+    return 'Vai fechar neste horário por falta de matéria-prima.';
   }
-  return 'A meta da OP deverá ser atingida antes de acabar a matéria-prima.';
+  return 'Vai fechar por atingir a meta da OP.';
 }
