@@ -37,18 +37,42 @@ function durationMinutes(start, end) {
   return Math.max(0,(to.getTime() - from.getTime()) / 60000);
 }
 
+function continuousPeriodStart(start, end) {
+  const from = new Date(start);
+  const to = new Date(end);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return null;
+  if (to.getTime() < from.getTime()) from.setUTCDate(from.getUTCDate() - 1);
+  return from.toISOString();
+}
+
+function continuousDurationMinutes(start, end) {
+  const effectiveStart = continuousPeriodStart(start,end);
+  return effectiveStart ? durationMinutes(effectiveStart,end) : 0;
+}
+
+function dateKeyWithOffset(dateKey, days = 0) {
+  const [year,month,day] = String(dateKey).split('-').map(Number);
+  const date = new Date(Date.UTC(year,month - 1,day + days));
+  return date.toISOString().slice(0,10);
+}
+
+function localShiftInstant(dateKey, clock) {
+  return new Date(`${dateKey}T${clock}:00-03:00`).toISOString();
+}
+
 function shiftBounds(productionDate, shift) {
-  const base = new Date(`${productionDate}T12:00:00`);
-  const start = new Date(base);
-  const end = new Date(base);
-  if (String(shift) === '1') {
-    start.setHours(6,30,0,0); end.setHours(14,30,0,0);
-  } else if (String(shift) === '2') {
-    start.setHours(14,30,0,0); end.setHours(22,30,0,0);
-  } else {
-    start.setHours(22,30,0,0); end.setDate(end.getDate() + 1); end.setHours(6,30,0,0);
+  const date = dateKeyWithOffset(productionDate);
+  const value = String(shift);
+  if (value === '1') {
+    return { start:localShiftInstant(date,'06:30'),end:localShiftInstant(date,'14:30') };
   }
-  return { start:start.toISOString(), end:end.toISOString() };
+  if (value === '2') {
+    return { start:localShiftInstant(date,'14:30'),end:localShiftInstant(date,'22:30') };
+  }
+  return {
+    start:localShiftInstant(date,'22:30'),
+    end:localShiftInstant(dateKeyWithOffset(date,1),'06:30')
+  };
 }
 
 async function initialize(env) {
@@ -276,7 +300,8 @@ async function handoffRoute(request, env) {
 
   const now = nowIso();
   const handoffId = uid('handoff');
-  const { start } = shiftBounds(text(body.productionDate),text(body.shift));
+  const { start:scheduledStart } = shiftBounds(text(body.productionDate),text(body.shift));
+  const start = continuousPeriodStart(scheduledStart,now) || scheduledStart;
   const existingOpen = await env.DB.prepare(`SELECT id,op_number AS op FROM machine_turn_segments
     WHERE machine_id=? AND production_date=? AND shift=? AND status='open' AND segment_type='order'
     ORDER BY started_at DESC LIMIT 1`).bind(machineId,text(body.productionDate),text(body.shift)).first();
@@ -351,7 +376,8 @@ async function closePeriodRoute(request, env) {
   const bounds=shiftBounds(text(body.productionDate),text(body.shift));
   const now=nowIso();
   const endedAt=mode==='shift'?bounds.end:now;
-  const availableMinutes=durationMinutes(segment.startedAt,endedAt);
+  const effectiveStartedAt=continuousPeriodStart(segment.startedAt,endedAt) || segment.startedAt;
+  const availableMinutes=continuousDurationMinutes(segment.startedAt,endedAt);
   const result=performance({ availableMinutes,goodPieces,rejects,cycleSeconds:Number(segment.cycleSeconds || order.cycleSeconds) });
   if(result.inconsistent)return json({
     error:'A produção e os refugos ultrapassam o tempo disponível deste período. Confira os valores.',
@@ -363,9 +389,9 @@ async function closePeriodRoute(request, env) {
   const payload={ mode,goodPieces,rejects,availableMinutes,...result,downtimeReason:text(body.downtimeReason),downtimeNote:text(body.downtimeNote) };
   await env.DB.batch([
     env.DB.prepare(`UPDATE machine_turn_segments SET
-      ended_at=?,good_pieces=?,rejects=?,total_cycles=?,available_minutes=?,running_minutes=?,downtime_minutes=?,
+      started_at=?,ended_at=?,good_pieces=?,rejects=?,total_cycles=?,available_minutes=?,running_minutes=?,downtime_minutes=?,
       reject_minutes=?,downtime_reason=?,downtime_note=?,status='closed',updated_at=? WHERE id=?`).bind(
-        endedAt,goodPieces,rejects,result.totalCycles,availableMinutes,result.runningMinutes,result.downtimeMinutes,
+        effectiveStartedAt,endedAt,goodPieces,rejects,result.totalCycles,availableMinutes,result.runningMinutes,result.downtimeMinutes,
         result.rejectMinutes,text(body.downtimeReason),text(body.downtimeNote),now,segment.id
       ),
     env.DB.prepare(`UPDATE machine_active_orders SET produced_total=?,status=?,closed_at=?,updated_at=?,updated_by_registration=?,updated_by_name=? WHERE machine_id=?`).bind(
@@ -509,12 +535,15 @@ export async function turnAssistantHealth(env) {
     if(row?.name)found.push(row.name);
   }
   const sample=performance({ availableMinutes:480,goodPieces:80,rejects:4,cycleSeconds:300 });
+  const rolloverMinutes=continuousDurationMinutes('2026-08-05T17:30:00.000Z','2026-08-05T16:25:00.000Z');
   return {
-    ok:found.length===tables.length&&Math.round(sample.downtimeMinutes)===60,
+    ok:found.length===tables.length&&Math.round(sample.downtimeMinutes)===60&&rolloverMinutes===1375,
     schemaReady:found.length===tables.length,
     tables:found,
-    periodCalculationReady:Math.round(sample.runningMinutes)===420&&Math.round(sample.downtimeMinutes)===60,
+    periodCalculationReady:Math.round(sample.runningMinutes)===420&&Math.round(sample.downtimeMinutes)===60&&rolloverMinutes===1375,
+    rolloverMinutes,
     shiftMinutes:DEFAULT_SHIFT_MINUTES,
     transaction:'d1-batch'
   };
 }
+
