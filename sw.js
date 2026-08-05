@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v4.0.0-secure-auth-admin-v5.0.5-turn-assistant-period';
+const VERSION = 'neomes-v4.0.0-secure-auth-admin-v5.0.6-advisory-pointing';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
