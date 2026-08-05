@@ -7,14 +7,15 @@ import { calculateMeasurementPlans } from './measurement-engine.js';
 import {
   shiftWindow, minutesBetween, continuousMinutesBetween, remainingShiftMinutes, calculateOrderForecast,
   calculatePeriodPerformance, formatDuration, predictionMessage
-} from './turn-assistant-engine.js?v=5.0.5';
-import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=5.0.5';
+} from './turn-assistant-engine.js?v=5.0.6';
+import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=5.0.6';
 
 const layers = document.getElementById('layers');
-const VERSION = '5.0.5';
+const VERSION = '5.0.6';
 const BAR_LENGTH_MM = 3600;
 const KERF_MM = 1;
 let contextCache = new Map();
+let reconciliationKeys = new Set();
 let activeFlow = null;
 let frame = 0;
 let observerBusy = false;
@@ -132,7 +133,12 @@ async function post(path, body) {
     throw new Error('Sem conexão. Tente novamente quando a internet voltar.');
   }
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Erro ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(payload.error || `Erro ${response.status}`);
+    error.code = payload.code || '';
+    error.status = response.status;
+    throw error;
+  }
   return payload;
 }
 
@@ -202,6 +208,23 @@ function mergeOrderIntoSession(machineId, order, extra = {}) {
   },extra.reason || 'turn-assistant-order');
 }
 
+function clearLocalMachineSession(machineId, reason = 'turn-assistant-cloud-reconcile') {
+  contextCache.delete(`${machineId}|${shiftKey()}`);
+  store.update(state => {
+    delete state.machineSessions[machineId];
+    if (state.conferenceDrafts) delete state.conferenceDrafts[machineId];
+  },reason);
+}
+
+async function reconcileLocalSession(machineId) {
+  const key=`${machineId}|${shiftKey()}`;
+  const session=currentMachineSession(machineId);
+  if(!API_BASE||!authReady()||!session||session.turnAssistantConfirmedAt||reconciliationKeys.has(key))return;
+  reconciliationKeys.add(key);
+  const context=await getContext(machineId,true);
+  if(!context.error&&!context.activeOrder)clearLocalMachineSession(machineId);
+}
+
 function productionConfirmation(order) {
   return `<section class="ta-confirm-block">
     <div class="ta-block-heading"><span>1</span><div><strong>Confirme a produção</strong><small>O valor veio do último registro desta OP.</small></div></div>
@@ -259,9 +282,10 @@ function handoffForm(machineId, order, mode = 'handoff') {
   activeFlow={ type:'handoff',machineId,order,mode };
 }
 
-function firstOrderForm(machineId) {
+function firstOrderForm(machineId, notice = '') {
   const machine=machineInfo(machineId);
   const body=`<form id="taFirstOrderForm" data-machine-id="${escapeHtml(machineId)}" novalidate>
+    ${notice?`<section class="ta-first-order-intro"><span aria-hidden="true">✓</span><div><strong>Estado da máquina atualizado</strong><p>${escapeHtml(notice)}</p></div></section>`:''}
     <section class="ta-first-order-intro"><span aria-hidden="true">!</span><div><strong>Primeiro cadastro desta máquina</strong><p>Depois deste cadastro, os próximos operadores apenas confirmarão a produção e informarão o material.</p></div></section>
     <div class="ta-form-grid">
       <label><span>OP</span><input name="op" inputmode="numeric" required></label>
@@ -291,7 +315,12 @@ async function openHandoff(machineId, mode = 'handoff') {
   const machine=machineInfo(machineId);
   openAssistantLayer(sheet({ title:`Carregando ${machine.name}`,body:'<div class="ta-loading"><span></span><strong>Buscando a OP deixada pelo turno anterior…</strong></div>',actions:'' }),'assistantLoadingLayer');
   const context=await getContext(machineId,true);
-  const order=context.activeOrder || localOrder(machineId);
+  const local=localOrder(machineId);
+  if(API_BASE&&!context.error&&!context.activeOrder){
+    if(local)clearLocalMachineSession(machineId);
+    return firstOrderForm(machineId,local?'A OP antiga existia apenas neste aparelho e foi removida. O Cloudflare confirmou que não há OP ativa.':'Nenhuma OP ativa foi encontrada no Cloudflare.');
+  }
+  const order=context.activeOrder || local;
   if(order){
     mergeOrderIntoSession(machineId,order,{ reason:'ta-context',assistantSegments:context.segments || [],assistantTurnClock:context.turnClock || null });
     return handoffForm(machineId,order,mode);
@@ -373,7 +402,7 @@ async function submitFirstOrder(form) {
 function showHandoffSuccess(machineId) {
   const machine=machineInfo(machineId);const next=store.state.assignments.find(item=>{
     const session=currentMachineSession(item.machineId);
-    return !session || session.turnAssistantShiftKey!==shiftKey();
+    return !session || session.status==='pointed' || session.turnAssistantShiftKey!==shiftKey();
   });
   const body=`<div class="ta-success"><span aria-hidden="true">✓</span><h3>${escapeHtml(machine.name)} pronta para o turno</h3><p>O planejamento, as liberações e a previsão já foram calculados.</p>${next?`<button class="ops-btn ops-btn--primary" type="button" data-ta-next-machine="${escapeHtml(next.machineId)}">Conferir ${escapeHtml(machineInfo(next.machineId).name)}</button>`:''}<button class="ops-btn ops-btn--ghost" type="button" data-ta-close>Voltar ao painel</button></div>`;
   openAssistantLayer(sheet({ title:'Tudo certo',eyebrow:'CONFIRMAÇÃO CONCLUÍDA',body,actions:'',wide:false }),'assistantSuccessLayer');
@@ -416,7 +445,8 @@ function intuitiveCard(machineId) {
   const machine=machineInfo(machineId);const session=currentMachineSession(machineId);
   if(!session)return '';
   if(session.assistantMachineStopped)return `<header class="ta-card-head"><div><h2>${escapeHtml(machine.name)}</h2><p>${escapeHtml(machine.lineName)}</p></div><span class="ta-status-pill" data-status="stopped">PARADA</span></header><section class="ta-stopped-card"><strong>Máquina sem nova OP</strong><p>${escapeHtml(session.statusNote || 'Sem programação informada.')}</p></section>`;
-  if(session.status==='pointed')return `<header class="ta-card-head"><div><h2>${escapeHtml(machine.name)}</h2><p>${escapeHtml(machine.lineName)} · OP ${escapeHtml(session.op)}</p></div><span class="ta-status-pill" data-status="pointed">APONTADO</span></header><section class="ta-pointed-card"><span aria-hidden="true">✓</span><div><strong>Produção do turno apontada</strong><p>${formatNumber(session.assistantLastGoodPieces || session.producedThisShift || 0)} peças boas · ${formatNumber(session.assistantLastRejects || 0)} refugos</p><small>Parada estimada: ${formatDuration(session.assistantLastDowntimeMinutes || 0)}</small></div></section>`;
+  if(session.status==='closed')return `<header class="ta-card-head"><div><h2>${escapeHtml(machine.name)}</h2><p>${escapeHtml(machine.lineName)} · OP ${escapeHtml(session.op)}</p></div><span class="ta-status-pill">OP ENCERRADA</span></header><section class="ta-conference-callout"><strong>Nenhuma OP ativa nesta máquina</strong><p>Cadastre ou busque a próxima OP para continuar o acompanhamento.</p></section><footer class="ta-card-actions ta-card-actions--single"><button class="ops-btn ops-btn--primary" type="button" data-ta-reconfirm="${escapeHtml(machineId)}">Cadastrar próxima OP</button></footer>`;
+  if(session.status==='pointed')return `<header class="ta-card-head"><div><h2>${escapeHtml(machine.name)}</h2><p>${escapeHtml(machine.lineName)} · OP ${escapeHtml(session.op)}</p></div><span class="ta-status-pill" data-status="pointed">APONTADO</span></header><section class="ta-pointed-card"><span aria-hidden="true">✓</span><div><strong>Produção apontada</strong><p>${formatNumber(session.assistantLastGoodPieces || session.producedThisShift || 0)} peças boas · ${formatNumber(session.assistantLastRejects || 0)} refugos</p><small>Os cálculos são apenas informativos.</small></div></section><section class="ta-conference-callout"><strong>Conferência necessária</strong><p>Antes de continuar com esta máquina, confirme se a quantidade acumulada e o material ainda estão corretos.</p></section><footer class="ta-card-actions ta-card-actions--single"><button class="ops-btn ops-btn--primary" type="button" data-ta-reconfirm="${escapeHtml(machineId)}">Conferir novamente</button></footer>`;
   const forecast=sessionForecast(session);
   const status=statusMeta(session.status || 'producing');
   const facts=`<section class="ta-compact-facts"><div><span>Produção atual</span><strong>${formatNumber(session.producedSoFar)}</strong></div><div><span>Meta da OP</span><strong>${formatNumber(session.opTarget)}</strong></div><div><span>Falta produzir</span><strong>${formatNumber(forecast.opRemaining)}</strong></div><div><span>Material disponível</span><strong>${formatNumber(forecast.availablePieces)}</strong></div></section>`;
@@ -437,7 +467,13 @@ function enhanceCards() {
       const button=card.querySelector('[data-action="open-conference"]');if(button)button.textContent='Assumir máquina';
       return;
     }
-    if(!session.turnAssistantConfirmedAt&&!session.assistantMachineStopped)return;
+    if(!session.turnAssistantConfirmedAt&&!session.assistantMachineStopped){
+      const machine=machineInfo(assignment.machineId);
+      card.dataset.turnAssistant='true';
+      card.innerHTML=`<header class="ta-card-head"><div><h2>${escapeHtml(machine.name)}</h2><p>${escapeHtml(machine.lineName)}</p></div><span class="ta-status-pill" data-status="pointed">CONFERÊNCIA PENDENTE</span></header><section class="ta-conference-callout"><strong>Confirme esta máquina antes de usar</strong><p>O NEOMES vai buscar a OP ativa e eliminar automaticamente qualquer informação antiga deste aparelho.</p></section><footer class="ta-card-actions ta-card-actions--single"><button class="ops-btn ops-btn--primary" type="button" data-ta-reconfirm="${escapeHtml(assignment.machineId)}">Fazer conferência</button></footer>`;
+      reconcileLocalSession(assignment.machineId);
+      return;
+    }
     const signature=[session.op,session.producedSoFar,session.currentBarPieces,session.feederBars,session.status,session.updatedAt,session.assistantLastGoodPieces,session.assistantLastRejects].join('|');
     if(card.dataset.taSignature===signature&&card.querySelector('.ta-card-head'))return;
     card.dataset.taSignature=signature;card.dataset.turnAssistant='true';card.innerHTML=intuitiveCard(assignment.machineId);
@@ -473,8 +509,8 @@ function updateTimePreview(machineId) {
   const preview=card.querySelector(`[data-ta-time-preview="${CSS.escape(machineId)}"]`);
   if(!Number.isFinite(good)||!Number.isFinite(rejects)){preview.innerHTML='<div><span>Tempo estimado rodando</span><strong>—</strong></div><div><span>Parada estimada</span><strong>—</strong></div><p>Informe as peças boas para calcular.</p>';return;}
   const result=calculatePeriodPerformance({ availableMinutes:Number(card.dataset.availableMinutes),goodPieces:good,rejects,cycleSeconds:Number(card.dataset.cycleSeconds) });
-  preview.dataset.state=result.status;
-  preview.innerHTML=`<div><span>Tempo estimado rodando</span><strong>${formatDuration(result.runningMinutes)}</strong></div><div><span>Parada estimada</span><strong>${formatDuration(result.downtimeMinutes)}</strong></div><p>${result.inconsistent?`Os valores ultrapassam o período em ${formatDuration(result.overrunMinutes)}. Confira produção, refugos ou ciclo.`:rejects?`Os ${formatNumber(rejects)} refugos consumiram aproximadamente ${formatDuration(result.rejectMinutes)} de máquina.`:'Cálculo baseado no tempo de ciclo informado.'}</p>`;
+  preview.dataset.state=result.inconsistent?'advisory':result.status;
+  preview.innerHTML=`<div><span>Tempo estimado rodando</span><strong>${formatDuration(result.runningMinutes)}</strong></div><div><span>Parada estimada</span><strong>${formatDuration(result.downtimeMinutes)}</strong></div><p>${result.inconsistent?`Estimativa acima do período em ${formatDuration(result.overrunMinutes)}. Confira se quiser. O apontamento será salvo normalmente.`:rejects?`Os ${formatNumber(rejects)} refugos consumiram aproximadamente ${formatDuration(result.rejectMinutes)} de máquina.`:'Cálculo baseado no tempo de ciclo informado. A quantidade digitada será salva normalmente.'}</p>`;
 }
 function closePayload(machineId,mode) {
   const card=layers.querySelector(`[data-close-machine="${CSS.escape(machineId)}"]`);const session=currentMachineSession(machineId);const machine=machineInfo(machineId);const operator=store.state.session;
@@ -504,10 +540,6 @@ async function submitShiftClose(form) {
   const payloads=activeFlow.machineIds.map(machineId=>closePayload(machineId,'shift'));
   const invalid=payloads.find(payload=>!Number.isFinite(payload.goodPieces)||!Number.isFinite(payload.rejects));
   if(invalid)return showError(form,'Informe as peças boas e os refugos de todas as máquinas.');
-  for(const payload of payloads){
-    const card=layers.querySelector(`[data-close-machine="${CSS.escape(payload.machineId)}"]`);const result=calculatePeriodPerformance({ availableMinutes:Number(card.dataset.availableMinutes),goodPieces:payload.goodPieces,rejects:payload.rejects,cycleSeconds:Number(card.dataset.cycleSeconds) });
-    if(result.inconsistent)return showError(form,`${machineInfo(payload.machineId).name}: os valores ultrapassam o tempo disponível. Confira os dados.`);
-  }
   setBusy(button,true,'Salvando apontamentos…');
   try{
     for(const payload of payloads){const response=await post('/api/v1/turn-assistant/close-period',payload);appendRecord(payload.machineId,payload,response);}
@@ -515,8 +547,20 @@ async function submitShiftClose(form) {
   }catch(error){showError(form,error.message);setBusy(button,false);}
 }
 
-function openOrderClose(machineId) {
-  const machine=machineInfo(machineId);const session=currentMachineSession(machineId);if(!session)return;
+async function openOrderClose(machineId) {
+  const machine=machineInfo(machineId);let session=currentMachineSession(machineId);if(!session)return openHandoff(machineId);
+  if(API_BASE){
+    openAssistantLayer(sheet({ title:`Verificando ${machine.name}`,body:'<div class="ta-loading"><span></span><strong>Confirmando a OP ativa no Cloudflare…</strong></div>',actions:'' }),'assistantLoadingLayer');
+    const context=await getContext(machineId,true);
+    if(!context.error&&!context.activeOrder){
+      clearLocalMachineSession(machineId);
+      return firstOrderForm(machineId,'A informação antiga desta máquina foi removida porque o Cloudflare confirmou que não existe OP ativa.');
+    }
+    if(context.activeOrder){
+      mergeOrderIntoSession(machineId,context.activeOrder,{ reason:'ta-close-context',assistantSegments:context.segments || [],assistantTurnClock:context.turnClock || null });
+      session=currentMachineSession(machineId);
+    }
+  }
   const body=`<form id="taOrderCloseForm" data-machine-id="${escapeHtml(machineId)}" novalidate><div class="ta-close-intro"><strong>Encerrar OP ${escapeHtml(session.op)}</strong><span>O tempo desta OP será fechado agora. O restante do turno ficará disponível para a próxima ordem.</span></div>${periodInputCard(machineId,'order')}<div class="field-error ta-error" data-ta-error role="alert"></div></form>`;
   openAssistantLayer(sheet({ title:`Encerrar OP · ${machine.name}`,eyebrow:'FECHAMENTO DE PERÍODO',body,actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-close>Cancelar</button><button class="ops-btn ops-btn--danger" type="submit" form="taOrderCloseForm" data-ta-submit-form="taOrderCloseForm">Confirmar encerramento</button>` }),'assistantOrderCloseLayer');
   activeFlow={ type:'order-close',machineId,previous:{ ...session } };
@@ -524,10 +568,14 @@ function openOrderClose(machineId) {
 async function submitOrderClose(form) {
   const machineId=form.dataset.machineId;const payload=closePayload(machineId,'order');
   if(!Number.isFinite(payload.goodPieces)||!Number.isFinite(payload.rejects))return showError(form,'Informe as peças boas e os refugos desta OP.');
-  const card=layers.querySelector(`[data-close-machine="${CSS.escape(machineId)}"]`);const result=calculatePeriodPerformance({ availableMinutes:Number(card.dataset.availableMinutes),goodPieces:payload.goodPieces,rejects:payload.rejects,cycleSeconds:Number(card.dataset.cycleSeconds) });
-  if(result.inconsistent)return showError(form,'Os valores ultrapassam o tempo disponível desta OP. Confira produção, refugos ou ciclo.');
   const button=assistantSubmitButton(form);setBusy(button,true,'Encerrando…');
-  try{const response=await post('/api/v1/turn-assistant/close-period',payload);appendRecord(machineId,payload,response);openNextOrderChoice(machineId,activeFlow.previous,response);}catch(error){showError(form,error.message);setBusy(button,false);}
+  try{const response=await post('/api/v1/turn-assistant/close-period',payload);appendRecord(machineId,payload,response);openNextOrderChoice(machineId,activeFlow.previous,response);}catch(error){
+    if(error.code==='ACTIVE_ORDER_NOT_FOUND'){
+      clearLocalMachineSession(machineId);
+      return firstOrderForm(machineId,'A OP que aparecia neste aparelho não estava ativa no Cloudflare e foi removida.');
+    }
+    showError(form,error.message);setBusy(button,false);
+  }
 }
 function openNextOrderChoice(machineId,previous,response) {
   const operator=store.state.session;const remaining=remainingShiftMinutes({ shift:operator.shift,productionDate:operator.productionDate,now:new Date() });
@@ -591,6 +639,7 @@ function intercept(event) {
     event.preventDefault();event.stopImmediatePropagation();openOrderClose(event.target.closest('[data-action]').dataset.machineId);return;
   }
   const update=event.target.closest('[data-ta-update]');if(update){event.preventDefault();event.stopImmediatePropagation();openHandoff(update.dataset.taUpdate,'update');return;}
+  const reconfirm=event.target.closest('[data-ta-reconfirm]');if(reconfirm){event.preventDefault();event.stopImmediatePropagation();openHandoff(reconfirm.dataset.taReconfirm,'handoff');return;}
   const closeOrder=event.target.closest('[data-ta-close-order]');if(closeOrder){event.preventDefault();event.stopImmediatePropagation();openOrderClose(closeOrder.dataset.taCloseOrder);return;}
   if(event.target.closest('[data-ta-close]')){event.preventDefault();event.stopImmediatePropagation();closeAssistantLayer();return;}
   const nextMachine=event.target.closest('[data-ta-next-machine]');if(nextMachine){event.preventDefault();event.stopImmediatePropagation();openHandoff(nextMachine.dataset.taNextMachine);return;}
