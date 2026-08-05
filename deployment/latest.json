@@ -1,8 +1,8 @@
 {
   "status": "success",
-  "commit": "34347ee1bcfe684b59ffa20b92cc7395c34a3615",
-  "workflowRun": "30979800415",
-  "deployedAt": "2026-08-05T05:59:45.397Z",
+  "commit": "a5ff51eada8ce5f609ca9c1848ffe2464007483c",
+  "workflowRun": "31004578861",
+  "deployedAt": "2026-08-05T12:12:59.366Z",
   "applicationUrl": "https://mes-operadores.lucassantanals0110.workers.dev",
   "database": "mes-operadores-db",
   "authentication": "protected",
@@ -10,5 +10,5 @@
   "workspace": "desktop-tablet-4.1.0",
   "adminUserCreate": "transactional-migrated",
   "adminPasswordReset": "transactional-migrated",
-  "turnAssistant": "5.0.0-confirm-by-exception"
+  "turnAssistant": "5.0.1-mobile-submit-fixed"
 }
