@@ -91,7 +91,7 @@ const localIndex = await readFile(new URL('../index.html', import.meta.url), 'ut
 const remoteIndex = await fetchText('/', 'Página inicial');
 requireIncludes(remoteIndex, ['NEOMES — Gestão Operacional'], 'Página inicial');
 
-const assetPattern = /(?:href|src)=["']((?:app\/)(?:desktop-workspace|turn-assistant)[^"']+\.(?:css|js)(?:\?v=[^"']+)?)['"]/g;
+const assetPattern = /(?:href|src)=["']((?:app\/)(?:desktop-workspace|turn-assistant)[^"']*\.(?:css|js)(?:\?v=[^"']+)?)['"]/g;
 const expectedAssets = [...localIndex.matchAll(assetPattern)].map(match => match[1]);
 assert(expectedAssets.length >= 6, 'Não foi possível identificar os assets críticos no index local.');
 for (const asset of expectedAssets) {
