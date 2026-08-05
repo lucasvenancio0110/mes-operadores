@@ -1,9 +1,37 @@
-Commit: afb5c6059eee7fa49ada9d8f1014ec0fb0d779b7
-Started: 2026-08-05T05:41:20Z
+Commit: 97b0a5d3a67bf2a5ccf87ad56f230f9fd0390aa7
+Started: 2026-08-05T05:42:12Z
 
 NEOMES 4.0.0: autenticação segura, administração e fluxos operacionais validados.
 Measurement plan checks passed.
-Compact conference UX checks passed.
-Shift performance and stoppage checks passed.
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Módulo da conferência compacta não está carregado.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/conference-ux.test.mjs:13:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Módulo do desempenho do turno não está carregado.
+    at file:///home/runner/work/mes-operadores/mes-operadores/tests/shift-performance.test.mjs:13:1 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.1
 Shift duration and cycle fraction checks passed.
 Manifest JSON passed.
