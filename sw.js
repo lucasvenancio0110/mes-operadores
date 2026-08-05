@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v4.0.0-secure-auth-admin-bootstrap';
+const VERSION = 'neomes-v5.0.0-turn-assistant';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -22,13 +22,17 @@ const APP_SHELL = [
   './app/brand.css',
   './app/cloud-sync.css',
   './app/desktop-nav.css',
+  './app/desktop-workspace.css',
+  './app/desktop-workspace-fix.css',
   './app/shift-performance.css',
+  './app/turn-assistant.css',
   './app/auth.css',
   './app/admin.css',
   './app/bootstrap-admin.css',
   './app/auth-shell.js',
   './app/admin-ui.js',
   './app/admin-password-fix.js',
+  './app/admin-password-reset-fix.js',
   './app/bootstrap-admin-ui.js',
   './app/catalog.js',
   './app/core.js',
@@ -47,7 +51,9 @@ const APP_SHELL = [
   './app/conference-ux.js',
   './app/shift-performance.js',
   './app/shift-time-engine.js',
-  './app/shift-time-fix.js'
+  './app/shift-time-fix.js',
+  './app/turn-assistant-engine.js',
+  './app/turn-assistant.js'
 ].map(asset);
 
 self.addEventListener('install', event => {
