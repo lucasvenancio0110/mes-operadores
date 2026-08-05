@@ -1,8 +1,38 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import {
   calculateMaterial,calculateOrderForecast,calculatePeriodPerformance,
   calculateTurnClock,predictionMessage,shiftWindow,minutesBetween
 } from '../app/turn-assistant-engine.js';
+
+const root=new URL('../',import.meta.url);
+const read=path=>readFile(new URL(path,root),'utf8');
+const submitFixPath=fileURLToPath(new URL('app/turn-assistant-submit-fix.js',root));
+execFileSync(process.execPath,['--check',submitFixPath],{ stdio:'pipe' });
+const [submitFix,submitCss,index,serviceWorker]=await Promise.all([
+  read('app/turn-assistant-submit-fix.js'),
+  read('app/turn-assistant-submit-fix.css'),
+  read('index.html'),
+  read('sw.js')
+]);
+
+for(const token of [
+  'button[type="submit"][form]',
+  "new SubmitEvent('submit'",
+  'form.dispatchEvent(submitEvent)',
+  'event.stopImmediatePropagation()',
+  "window.addEventListener('unhandledrejection'",
+  'taFirstOrderForm',
+  'taHandoffForm'
+]) assert(submitFix.includes(token),`Proteção de envio ausente: ${token}`);
+assert(submitCss.includes('.ta-submit-feedback'),'Retorno visual do salvamento ausente.');
+assert(index.includes('turn-assistant-submit-fix.js?v=5.0.1'),'Hotfix móvel não está carregado no HTML.');
+assert(index.includes('turn-assistant-submit-fix.css?v=5.0.1'),'CSS do hotfix móvel não está carregado no HTML.');
+assert(serviceWorker.includes("'./app/turn-assistant-submit-fix.js'"),'Hotfix não está no cache do PWA.');
+assert(serviceWorker.includes("'./app/turn-assistant-submit-fix.css'"),'CSS do hotfix não está no cache do PWA.');
+assert(serviceWorker.includes('v5.0.1-turn-assistant-submit'),'Versão do cache móvel não foi renovada.');
 
 const material=calculateMaterial({ pieceLengthMm:11,currentBarPieces:276,feederBars:1,barLengthMm:3600,kerfMm:1 });
 assert.equal(material.piecesPerFullBar,300);
@@ -53,4 +83,4 @@ assert.equal(inconsistent.overrunMinutes,10);
 const bounds=shiftWindow('2','2026-08-05');
 assert.equal(minutesBetween(bounds.start,bounds.end),480);
 
-console.log('NEOMES 5.0: matéria-prima, previsão, refugos e relógio único validados.');
+console.log('NEOMES 5.0.1: envio móvel, matéria-prima, refugos e relógio único validados.');
