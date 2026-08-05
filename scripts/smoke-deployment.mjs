@@ -103,7 +103,7 @@ const uniqueAssets = [...new Set(expectedAssets)];
 for (const asset of uniqueAssets) {
   const content = await fetchText(`/${asset}`, asset);
   if (asset.includes('turn-assistant.js')) {
-    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)', 'Vai fechar neste horário por falta de matéria-prima', 'A matéria-prima consegue produzir até'], asset);
+    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)', 'A matéria-prima consegue produzir até'], asset);
   } else if (asset.includes('turn-assistant.css')) {
     requireIncludes(content, ['ta-material-block', 'ta-forecast-time', 'ta-submit-feedback'], asset);
   }
@@ -115,7 +115,9 @@ console.log('✓ Assets críticos acessíveis e íntegros');
 
 const engine = await fetchText('/app/turn-assistant-engine.js', 'Motor do assistente');
 requireIncludes(engine, [
-  'A matéria-prima informada deverá acabar antes de atingir a meta da OP.',
+  'Vai fechar neste horário por falta de matéria-prima.',
+  'Vai fechar por atingir a meta da OP.',
+  'materialEstimatedAt',
   'DEFAULT_SHIFT_MINUTES = 480'
 ], 'Motor do assistente');
 console.log('✓ Motor do assistente publicado');
