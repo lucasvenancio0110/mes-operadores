@@ -1,0 +1,18 @@
+{
+  "status": "failure",
+  "commit": "994602926518e3bd8c1c8d19284d2f877d972dd4",
+  "workflowRun": "31005870646",
+  "failedAt": "2026-08-05T12:30:05.772Z",
+  "failureStage": "validate",
+  "workerPublished": false,
+  "applicationUrl": null,
+  "cloudflareVersionId": null,
+  "steps": {
+    "patch": "success",
+    "validate": "failure",
+    "preflight": "skipped",
+    "pepper": "skipped",
+    "publish": "skipped",
+    "smoke": "skipped"
+  }
+}
