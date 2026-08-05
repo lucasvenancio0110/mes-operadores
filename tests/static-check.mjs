@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const [
-  html, manifestText, wranglerText, serviceWorker, deployWorkflow,
+  html, manifestText, wranglerText, serviceWorker, deployWorkflow, smokeDeployment,
   authWorker, secureMain, authShell, adminUi, authCss, adminCss,
   worker, operatorMain, core, planningRuntime, measurementEngine,
   measurementFrequencyParser, measurementFrequencyFix, shiftPerformance,
@@ -11,7 +11,8 @@ const [
   officialLogo, officialSymbol, offline
 ] = await Promise.all([
   read('index.html'), read('manifest.webmanifest'), read('wrangler.jsonc'), read('sw.js'),
-  read('.github/workflows/deploy-cloudflare.yml'), read('worker/auth.js'), read('worker/secure-main.js'),
+  read('.github/workflows/deploy-cloudflare.yml'), read('scripts/smoke-deployment.mjs'),
+  read('worker/auth.js'), read('worker/secure-main.js'),
   read('app/auth-shell.js'), read('app/admin-ui.js'), read('app/auth.css'), read('app/admin.css'),
   read('worker/main.js'), read('app/operator-main.js'), read('app/core.js'),
   read('app/production-planning.js'), read('app/measurement-engine.js'),
@@ -49,7 +50,9 @@ assert.equal(wrangler.workers_dev, true);
 assert(wrangler.assets?.run_worker_first?.includes('/api/*'), 'API não executa no Worker primeiro.');
 assert(wrangler.d1_databases?.some(binding => binding.binding === 'DB' && binding.database_id === '31666c87-0970-44e1-9969-51458e7888b5'), 'Binding DB/D1 incorreto.');
 assert(deployWorkflow.includes('CLOUDFLARE_API_TOKEN') && deployWorkflow.includes('CLOUDFLARE_ACCOUNT_ID'), 'Segredos do Cloudflare ausentes no workflow.');
-assert(deployWorkflow.includes('/health') && deployWorkflow.includes('health.database'), 'Deploy não valida Worker e D1.');
+assert(deployWorkflow.includes('scripts/smoke-deployment.mjs'), 'Workflow não executa o smoke test publicado.');
+assert(smokeDeployment.includes("waitForJson('/health'") && smokeDeployment.includes('payload.database'), 'Deploy não valida Worker e D1.');
+assert(smokeDeployment.includes('/api/v1/auth/turn-assistant-health') && smokeDeployment.includes('shiftMinutes'), 'Deploy não valida o assistente de turno.');
 
 // Senhas, sessões e autenticação.
 for (const required of [
