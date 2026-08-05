@@ -301,10 +301,16 @@ async function handoffRoute(request, env) {
   const now = nowIso();
   const handoffId = uid('handoff');
   const { start:scheduledStart } = shiftBounds(text(body.productionDate),text(body.shift));
-  const start = continuousPeriodStart(scheduledStart,now) || scheduledStart;
-  const existingOpen = await env.DB.prepare(`SELECT id,op_number AS op FROM machine_turn_segments
-    WHERE machine_id=? AND production_date=? AND shift=? AND status='open' AND segment_type='order'
-    ORDER BY started_at DESC LIMIT 1`).bind(machineId,text(body.productionDate),text(body.shift)).first();
+  const initialStart = continuousPeriodStart(scheduledStart,now) || scheduledStart;
+  const [existingOpen,latestClosed] = await Promise.all([
+    env.DB.prepare(`SELECT id,op_number AS op FROM machine_turn_segments
+      WHERE machine_id=? AND production_date=? AND shift=? AND status='open' AND segment_type='order'
+      ORDER BY started_at DESC LIMIT 1`).bind(machineId,text(body.productionDate),text(body.shift)).first(),
+    env.DB.prepare(`SELECT ended_at AS endedAt FROM machine_turn_segments
+      WHERE machine_id=? AND production_date=? AND shift=? AND status='closed' AND segment_type='order'
+      ORDER BY ended_at DESC LIMIT 1`).bind(machineId,text(body.productionDate),text(body.shift)).first()
+  ]);
+  const start = latestClosed?.endedAt ? now : initialStart;
   const segmentId = existingOpen?.id || uid('segment');
   const statements = [
     env.DB.prepare(`INSERT INTO machine_active_orders (
@@ -379,10 +385,6 @@ async function closePeriodRoute(request, env) {
   const effectiveStartedAt=continuousPeriodStart(segment.startedAt,endedAt) || segment.startedAt;
   const availableMinutes=continuousDurationMinutes(segment.startedAt,endedAt);
   const result=performance({ availableMinutes,goodPieces,rejects,cycleSeconds:Number(segment.cycleSeconds || order.cycleSeconds) });
-  if(result.inconsistent)return json({
-    error:'A produção e os refugos ultrapassam o tempo disponível deste período. Confira os valores.',
-    code:'PERIOD_TIME_INCONSISTENT',performance:{ ...result,availableMinutes }
-  },409);
   const newTotal=Number(order.producedSoFar || 0)+goodPieces;
   const status=mode==='order'?'closed':'active';
   const eventId=uid('turn-event');
@@ -542,8 +544,8 @@ export async function turnAssistantHealth(env) {
     tables:found,
     periodCalculationReady:Math.round(sample.runningMinutes)===420&&Math.round(sample.downtimeMinutes)===60&&rolloverMinutes===1375,
     rolloverMinutes,
+    pointingValidation:'advisory-only',
     shiftMinutes:DEFAULT_SHIFT_MINUTES,
     transaction:'d1-batch'
   };
 }
-
