@@ -1,8 +1,8 @@
 {
   "status": "success",
-  "commit": "3d4b78f976b37f6950bdb9c6096d909bcd2cf1f0",
-  "workflowRun": "30978731276",
-  "deployedAt": "2026-08-05T05:39:29.309Z",
+  "commit": "afb5c6059eee7fa49ada9d8f1014ec0fb0d779b7",
+  "workflowRun": "30978868066",
+  "deployedAt": "2026-08-05T05:41:59.712Z",
   "applicationUrl": "https://mes-operadores.lucassantanals0110.workers.dev",
   "database": "mes-operadores-db",
   "authentication": "protected",
