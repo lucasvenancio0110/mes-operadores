@@ -1,0 +1,43 @@
+.ta-sheet__actions {
+  flex-wrap: wrap;
+}
+
+.ta-submit-feedback {
+  display: block;
+  order: -1;
+  flex: 1 0 100%;
+  width: 100%;
+  min-height: 0;
+  margin: 0 0 10px;
+  padding: 11px 13px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font-size: .84rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.ta-submit-feedback:empty {
+  display: none;
+}
+
+.ta-submit-feedback[data-state="working"] {
+  color: #d7e5f6;
+  border-color: rgba(118,155,205,.28);
+  background: rgba(54,82,119,.2);
+}
+
+.ta-submit-feedback[data-state="error"] {
+  color: #ffb7c9;
+  border-color: rgba(244,83,126,.45);
+  background: rgba(116,28,52,.25);
+}
+
+@media (max-width: 759px) {
+  .ta-submit-feedback {
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    font-size: .8rem;
+  }
+}
