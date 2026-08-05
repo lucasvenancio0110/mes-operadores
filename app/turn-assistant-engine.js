@@ -35,6 +35,14 @@ export function minutesBetween(start, end) {
   return Math.max(0, (to.getTime() - from.getTime()) / 60000);
 }
 
+export function continuousMinutesBetween(start, end) {
+  const from = new Date(start);
+  const to = new Date(end);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return NaN;
+  if (to.getTime() < from.getTime()) from.setUTCDate(from.getUTCDate() - 1);
+  return Math.max(0, (to.getTime() - from.getTime()) / 60000);
+}
+
 export function remainingShiftMinutes({ shift, productionDate = '', now = new Date() }) {
   const { end } = shiftWindow(shift,productionDate,now);
   return Math.max(0, Math.min(DEFAULT_SHIFT_MINUTES, minutesBetween(now,end)));
