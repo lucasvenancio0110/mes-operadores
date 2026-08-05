@@ -21,7 +21,7 @@ jobs:
   deploy:
     name: Publicar aplicação e API
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 20
 
     steps:
       - name: Baixar repositório
@@ -69,11 +69,13 @@ jobs:
           node --check app/turn-assistant.js
           node --check app/turn-assistant-submit-fix.js
           node --check app/turn-assistant-autostart.js
+          node --check scripts/smoke-deployment.mjs
           node --check sw.js
           test -f app/desktop-workspace.css
           test -f app/desktop-workspace-fix.css
           test -f app/turn-assistant.css
           test -f app/turn-assistant-submit-fix.css
+          test -f .assetsignore
           node --check app/measurement-engine.js
           node --check app/measurement-frequency-parser.js
           node --check app/measurement-frequency-fix.js
@@ -143,14 +145,17 @@ jobs:
           set -euo pipefail
           export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
           export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
+          DEPLOY_LOG="$RUNNER_TEMP/neomes-wrangler-deploy.log"
 
-          npx --yes wrangler@4.68.0 deploy 2>&1 | tee wrangler-deploy.log
-          URL="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' wrangler-deploy.log | tail -n 1 || true)"
+          npx --yes wrangler@4.68.0 deploy 2>&1 | tee "$DEPLOY_LOG"
+          URL="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$DEPLOY_LOG" | tail -n 1 || true)"
+          VERSION_ID="$(grep -Eo 'Current Version ID: [A-Za-z0-9-]+' "$DEPLOY_LOG" | awk '{print $4}' | tail -n 1 || true)"
           if [ -z "$URL" ] && [ -n "$WORKERS_SUBDOMAIN" ]; then
             URL="https://mes-operadores.$WORKERS_SUBDOMAIN.workers.dev"
           fi
           test -n "$URL" || { echo "Endereço do Worker não encontrado."; exit 1; }
           echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "version_id=$VERSION_ID" >> "$GITHUB_OUTPUT"
 
       - name: Testar Worker publicado
         id: smoke
@@ -158,135 +163,46 @@ jobs:
           DEPLOYMENT_URL: ${{ steps.publish.outputs.url }}
         run: |
           set -euo pipefail
-
-          HEALTH="$(curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 4 "$DEPLOYMENT_URL/health")"
-          node -e 'const health=JSON.parse(process.argv[1]); if(!health.ok || !health.database) process.exit(1)' "$HEALTH"
-
-          echo "Aguardando a propagação completa do Worker e dos secrets..."
-          sleep 12
-
-          wait_json() {
-            local path="$1"
-            local label="$2"
-            local file
-            file="$(mktemp)"
-            local status=""
-            for attempt in $(seq 1 20); do
-              status="$(curl --silent --show-error --output "$file" --write-out '%{http_code}' "$DEPLOYMENT_URL$path" || true)"
-              if [ "$status" = "200" ]; then
-                cat "$file"
-                return 0
-              fi
-              echo "$label ainda propagando: tentativa $attempt/20, HTTP ${status:-indisponível}." >&2
-              sleep 5
-            done
-            echo "Falha em $label:" >&2
-            cat "$file" >&2
-            return 1
-          }
-
-          CRYPTO="$(wait_json '/api/v1/auth/crypto-health' 'PBKDF2')"
-          node -e '
-            const x=JSON.parse(process.argv[1]);
-            if(!x.ok) throw new Error(x.error || "PBKDF2 falhou");
-            if(x.algorithm!=="PBKDF2-SHA256-WebCrypto-Peppered") throw new Error("Algoritmo incorreto");
-            if(Number(x.iterations)!==10000) throw new Error("Iterações incorretas");
-            if(!x.pepperConfigured) throw new Error("Pepper ausente");
-          ' "$CRYPTO"
-
-          ADMIN_CREATE="$(wait_json '/api/v1/auth/admin-user-create-health' 'Cadastro administrativo')"
-          node -e '
-            const x=JSON.parse(process.argv[1]);
-            if(!x.ok || !x.schemaReady || x.missingColumns?.length) throw new Error("Migração administrativa incompleta");
-            if(!x.passwordHashReady || x.transaction!=="d1-batch") throw new Error("Cadastro administrativo inseguro");
-          ' "$ADMIN_CREATE"
-
-          ADMIN_RESET="$(wait_json '/api/v1/auth/admin-password-reset-health' 'Redefinição de senha')"
-          node -e '
-            const x=JSON.parse(process.argv[1]);
-            if(!x.ok || !x.schemaReady || !x.passwordHashReady || !x.temporaryPasswordPolicy) throw new Error("Redefinição de senha indisponível");
-            if(x.transaction!=="d1-batch") throw new Error("Reset não transacional");
-          ' "$ADMIN_RESET"
-
-          TURN_ASSISTANT="$(wait_json '/api/v1/auth/turn-assistant-health' 'Assistente de turno')"
-          node -e '
-            const x=JSON.parse(process.argv[1]);
-            if(!x.ok || !x.schemaReady || !x.periodCalculationReady) throw new Error("Assistente de turno indisponível");
-            if(Number(x.shiftMinutes)!==480) throw new Error("Relógio do turno incorreto");
-            if(x.transaction!=="d1-batch") throw new Error("Persistência do turno não transacional");
-            if(!Array.isArray(x.tables) || x.tables.length!==4) throw new Error("Tabelas do turno incompletas");
-          ' "$TURN_ASSISTANT"
-
-          set +o pipefail
-
-          INDEX="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/")"
-          printf '%s' "$INDEX" | grep -q 'NEOMES — Gestão Operacional'
-          printf '%s' "$INDEX" | grep -q 'desktop-workspace.css?v=4.1.0'
-          printf '%s' "$INDEX" | grep -q 'turn-assistant.css?v=5.0.1'
-          printf '%s' "$INDEX" | grep -q 'turn-assistant-submit-fix.css?v=5.0.1'
-          printf '%s' "$INDEX" | grep -q 'turn-assistant.js?v=5.0.1'
-          printf '%s' "$INDEX" | grep -q 'turn-assistant-submit-fix.js?v=5.0.1'
-          printf '%s' "$INDEX" | grep -q 'turn-assistant-autostart.js?v=5.0.1'
-
-          TURN_CSS="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/turn-assistant.css?v=5.0.1")"
-          printf '%s' "$TURN_CSS" | grep -q 'ta-material-block'
-          printf '%s' "$TURN_CSS" | grep -q 'ta-forecast-time'
-
-          TURN_JS="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/turn-assistant.js?v=5.0.1")"
-          printf '%s' "$TURN_JS" | grep -q 'Confirmar e iniciar turno'
-          printf '%s' "$TURN_JS" | grep -q 'Peças boas produzidas'
-
-          SUBMIT_FIX="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/turn-assistant-submit-fix.js?v=5.0.1")"
-          printf '%s' "$SUBMIT_FIX" | grep -q 'form.dispatchEvent(submitEvent)'
-          printf '%s' "$SUBMIT_FIX" | grep -q "window.addEventListener('unhandledrejection'"
-
-          SUBMIT_CSS="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/turn-assistant-submit-fix.css?v=5.0.1")"
-          printf '%s' "$SUBMIT_CSS" | grep -q 'ta-submit-feedback'
-
-          ENGINE="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/turn-assistant-engine.js?v=5.0.1")"
-          printf '%s' "$ENGINE" | grep -q 'A matéria-prima informada deverá acabar antes de atingir a meta da OP.'
-          printf '%s' "$ENGINE" | grep -q 'DEFAULT_SHIFT_MINUTES = 480'
-
-          AUTH_FILE="$(mktemp)"
-          AUTH_STATUS="$(curl --silent --show-error --output "$AUTH_FILE" --write-out '%{http_code}' "$DEPLOYMENT_URL/api/v1/auth/me")"
-          test "$AUTH_STATUS" = "401"
-          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.code!=="UNAUTHENTICATED") process.exit(1)' "$AUTH_FILE"
-
-          CONTEXT_FILE="$(mktemp)"
-          CONTEXT_STATUS="$(curl --silent --show-error --output "$CONTEXT_FILE" --write-out '%{http_code}' "$DEPLOYMENT_URL/api/v1/turn-assistant/context?machineId=tnl-091&lineId=linha-05&productionDate=2026-08-05&shift=2")"
-          test "$CONTEXT_STATUS" = "401"
-          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.code!=="UNAUTHENTICATED") process.exit(1)' "$CONTEXT_FILE"
+          node scripts/smoke-deployment.mjs "$DEPLOYMENT_URL"
 
       - name: Registrar deploy concluído
         if: success()
         env:
           DEPLOYMENT_URL: ${{ steps.publish.outputs.url }}
+          CLOUDFLARE_VERSION_ID: ${{ steps.publish.outputs.version_id }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -- worker/auth.js worker/bootstrap.js
           git pull --rebase origin main
-          mkdir -p deployment
+          mkdir -p deployment/history
           rm -f deployment/latest-failure.json
           node - <<'NODE'
           const fs=require('fs');
-          fs.writeFileSync('deployment/latest.json', JSON.stringify({
+          const index=fs.readFileSync('index.html','utf8');
+          const version=index.match(/turn-assistant\.js\?v=([^"']+)/)?.[1] || 'unknown';
+          const record={
             status:'success',
             commit:process.env.GITHUB_SHA,
             workflowRun:process.env.GITHUB_RUN_ID,
             deployedAt:new Date().toISOString(),
             applicationUrl:process.env.DEPLOYMENT_URL,
+            cloudflareVersionId:process.env.CLOUDFLARE_VERSION_ID || null,
             database:'mes-operadores-db',
             authentication:'protected',
             passwordCrypto:'pbkdf2-sha256-webcrypto-10000-peppered',
             workspace:'desktop-tablet-4.1.0',
             adminUserCreate:'transactional-migrated',
             adminPasswordReset:'transactional-migrated',
-            turnAssistant:'5.0.1-mobile-submit-fixed'
-          },null,2)+'\n');
+            turnAssistant:version,
+            smoke:'passed'
+          };
+          const serialized=JSON.stringify(record,null,2)+'\n';
+          fs.writeFileSync('deployment/latest.json',serialized);
+          fs.writeFileSync(`deployment/history/${process.env.GITHUB_RUN_ID}-success.json`,serialized);
           NODE
-          git add deployment/latest.json deployment/latest-failure.json 2>/dev/null || git add deployment/latest.json
+          git add deployment/latest.json deployment/latest-failure.json deployment/history 2>/dev/null || git add deployment/latest.json deployment/history
           git diff --cached --quiet || git commit -m "chore: registra deploy do Cloudflare [skip ci]"
           git push origin HEAD:main
 
@@ -299,30 +215,41 @@ jobs:
           PEPPER: ${{ steps.pepper.outcome }}
           PUBLISH: ${{ steps.publish.outcome }}
           SMOKE: ${{ steps.smoke.outcome }}
+          DEPLOYMENT_URL: ${{ steps.publish.outputs.url }}
+          CLOUDFLARE_VERSION_ID: ${{ steps.publish.outputs.version_id }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -- worker/auth.js worker/bootstrap.js 2>/dev/null || true
           git pull --rebase origin main
-          mkdir -p deployment
+          mkdir -p deployment/history
           node - <<'NODE'
           const fs=require('fs');
-          fs.writeFileSync('deployment/latest-failure.json', JSON.stringify({
+          const steps={
+            patch:process.env.PATCH,
+            validate:process.env.VALIDATE,
+            preflight:process.env.PREFLIGHT,
+            pepper:process.env.PEPPER,
+            publish:process.env.PUBLISH,
+            smoke:process.env.SMOKE
+          };
+          const failureStage=Object.entries(steps).find(([,value])=>value==='failure')?.[0] || 'unknown';
+          const record={
             status:'failure',
             commit:process.env.GITHUB_SHA,
             workflowRun:process.env.GITHUB_RUN_ID,
             failedAt:new Date().toISOString(),
-            steps:{
-              patch:process.env.PATCH,
-              validate:process.env.VALIDATE,
-              preflight:process.env.PREFLIGHT,
-              pepper:process.env.PEPPER,
-              publish:process.env.PUBLISH,
-              smoke:process.env.SMOKE
-            }
-          },null,2)+'\n');
+            failureStage,
+            workerPublished:process.env.PUBLISH==='success',
+            applicationUrl:process.env.DEPLOYMENT_URL || null,
+            cloudflareVersionId:process.env.CLOUDFLARE_VERSION_ID || null,
+            steps
+          };
+          const serialized=JSON.stringify(record,null,2)+'\n';
+          fs.writeFileSync('deployment/latest-failure.json',serialized);
+          fs.writeFileSync(`deployment/history/${process.env.GITHUB_RUN_ID}-failure.json`,serialized);
           NODE
-          git add deployment/latest-failure.json
+          git add deployment/latest-failure.json deployment/history
           git diff --cached --quiet || git commit -m "chore: registra falha do deploy [skip ci]"
           git push origin HEAD:main
