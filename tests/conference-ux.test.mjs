@@ -2,15 +2,18 @@ import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
-const [html, script, css, serviceWorker] = await Promise.all([
+const [html, authShell, script, css, serviceWorker] = await Promise.all([
   read('index.html'),
+  read('app/auth-shell.js'),
   read('app/conference-ux.js'),
   read('app/conference-ux.css'),
   read('sw.js')
 ]);
 
 assert(/conference-ux\.css(?:\?v=[^"']+)?/.test(html), 'Estilo da conferência compacta não está carregado.');
-assert(/conference-ux\.js(?:\?v=[^"']+)?/.test(html), 'Módulo da conferência compacta não está carregado.');
+const loadedDirectly = /conference-ux\.js(?:\?v=[^"']+)?/.test(html);
+const loadedAfterAuth = /import\(['"]\.\/conference-ux\.js['"]\)/.test(authShell);
+assert(loadedDirectly || loadedAfterAuth, 'Módulo da conferência compacta não está ligado à aplicação.');
 assert(serviceWorker.includes("'./app/conference-ux.css'"), 'CSS da conferência não está no cache offline.');
 assert(serviceWorker.includes("'./app/conference-ux.js'"), 'JavaScript da conferência não está no cache offline.');
 
