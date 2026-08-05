@@ -67,6 +67,7 @@ jobs:
           node --check app/desktop-workspace.js
           node --check app/turn-assistant-engine.js
           node --check app/turn-assistant.js
+          node --check app/turn-assistant-autostart.js
           node --check sw.js
           test -f app/desktop-workspace.css
           test -f app/desktop-workspace-fix.css
@@ -219,6 +220,7 @@ jobs:
           printf '%s' "$INDEX" | grep -q 'desktop-workspace.css?v=4.1.0'
           printf '%s' "$INDEX" | grep -q 'turn-assistant.css?v=5.0.0'
           printf '%s' "$INDEX" | grep -q 'turn-assistant.js?v=5.0.0'
+          printf '%s' "$INDEX" | grep -q 'turn-assistant-autostart.js?v=5.0.0'
 
           TURN_CSS="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/turn-assistant.css?v=5.0.0")"
           printf '%s' "$TURN_CSS" | grep -q 'ta-material-block'
