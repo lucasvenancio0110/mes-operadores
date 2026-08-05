@@ -7,11 +7,11 @@ import { calculateMeasurementPlans } from './measurement-engine.js';
 import {
   shiftWindow, minutesBetween, remainingShiftMinutes, calculateOrderForecast,
   calculatePeriodPerformance, formatDuration, predictionMessage
-} from './turn-assistant-engine.js';
-import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=5.0.3';
+} from './turn-assistant-engine.js?v=5.0.4';
+import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=5.0.4';
 
 const layers = document.getElementById('layers');
-const VERSION = '5.0.3';
+const VERSION = '5.0.4';
 const BAR_LENGTH_MM = 3600;
 const KERF_MM = 1;
 let contextCache = new Map();
@@ -405,11 +405,10 @@ function forecastHtml(forecast, session) {
   if(forecast.status==='missing')return `<section class="ta-forecast" data-tone="neutral"><div class="ta-section-label">PREVISÃO DA ORDEM</div><strong class="ta-forecast-time">—</strong><h3>Previsão indisponível</h3><p>${escapeHtml(predictionMessage(forecast))}</p></section>`;
   const material=forecast.reason==='material';
   return `<section class="ta-forecast" data-tone="${material?'danger':'success'}">
-    <div class="ta-section-label">${material?'PARADA PREVISTA':'CONCLUSÃO PREVISTA'}</div>
+    <div class="ta-section-label">FECHAMENTO PREVISTO</div>
     <strong class="ta-forecast-time">${escapeHtml(clock(forecast.estimatedAt))}</strong>
-    <h3>${material?'Falta de matéria-prima':'Meta da OP atingida'}</h3>
-    <p>${escapeHtml(predictionMessage(forecast))}</p>
-    ${material?`<div class="ta-action-needed"><strong>Faltarão cerca de ${formatNumber(forecast.missingPieces)} peças</strong><span>Ação necessária: adicionar ${formatNumber(forecast.additionalBars)} barra${forecast.additionalBars===1?'':'s'}.</span></div>`:`<div class="ta-action-needed is-ok"><strong>Material suficiente</strong><span>Capacidade estimada de sobra: ${formatNumber(forecast.leftoverMaterialPieces)} peças.</span></div>`}
+    <h3>${escapeHtml(predictionMessage(forecast))}</h3>
+    ${material?'':`<p>A matéria-prima consegue produzir até <strong>${escapeHtml(clock(forecast.materialEstimatedAt))}</strong>.</p>`}
     <small>Calculado com os dados confirmados às ${formatClock(session?.materialConfirmedAt || session?.updatedAt || new Date())}.</small>
   </section>`;
 }
