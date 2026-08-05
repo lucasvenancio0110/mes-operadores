@@ -5,13 +5,13 @@ import {
 import { escapeHtml, statusMeta } from './components.js';
 import { calculateMeasurementPlans } from './measurement-engine.js';
 import {
-  shiftWindow, minutesBetween, remainingShiftMinutes, calculateOrderForecast,
+  shiftWindow, minutesBetween, continuousMinutesBetween, remainingShiftMinutes, calculateOrderForecast,
   calculatePeriodPerformance, formatDuration, predictionMessage
-} from './turn-assistant-engine.js?v=5.0.4';
-import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=5.0.4';
+} from './turn-assistant-engine.js?v=5.0.5';
+import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=5.0.5';
 
 const layers = document.getElementById('layers');
-const VERSION = '5.0.4';
+const VERSION = '5.0.5';
 const BAR_LENGTH_MM = 3600;
 const KERF_MM = 1;
 let contextCache = new Map();
@@ -449,7 +449,7 @@ function periodInputCard(machineId,mode='shift') {
   const operator=store.state.session;const bounds=shiftWindow(operator.shift,operator.productionDate);
   const start=new Date(session.segmentStartedAt || bounds.start);
   const end=mode==='shift'?bounds.end:new Date();
-  const available=minutesBetween(start,end);
+  const available=mode==='order'?continuousMinutesBetween(start,end):minutesBetween(start,end);
   return `<article class="ta-close-card" data-close-machine="${escapeHtml(machineId)}" data-available-minutes="${available}" data-cycle-seconds="${session.cycleSeconds}">
     <header><div><strong>${escapeHtml(machine.name)}</strong><span>OP ${escapeHtml(session.op)} · período ${formatClock(start)}–${formatClock(end)}</span></div><b>${formatDuration(available)}</b></header>
     <div class="ta-close-fields"><label><span>Peças boas produzidas</span><div class="ta-number-input"><input name="goodPieces-${escapeHtml(machineId)}" data-ta-good="${escapeHtml(machineId)}" inputmode="numeric" min="0" required placeholder="0"><b>peças</b></div></label><label><span>Refugos</span><div class="ta-stepper"><button type="button" data-ta-reject-minus="${escapeHtml(machineId)}">−</button><input name="rejects-${escapeHtml(machineId)}" data-ta-rejects="${escapeHtml(machineId)}" inputmode="numeric" min="0" value="0"><button type="button" data-ta-reject-plus="${escapeHtml(machineId)}">＋</button></div></label></div>
