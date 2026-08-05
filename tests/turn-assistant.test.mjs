@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   calculateMaterial,calculateOrderForecast,calculatePeriodPerformance,
-  calculateTurnClock,predictionMessage,shiftWindow,minutesBetween
+  calculateTurnClock,predictionMessage,shiftWindow,minutesBetween,continuousMinutesBetween
 } from '../app/turn-assistant-engine.js';
 import { bindAssistantSubmit,formControlValue,isAssistantForm } from '../app/turn-assistant-submit.js';
 
@@ -14,11 +14,12 @@ const submitBridgePath=fileURLToPath(new URL('app/turn-assistant-submit.js',root
 const assistantPath=fileURLToPath(new URL('app/turn-assistant.js',root));
 execFileSync(process.execPath,['--check',submitBridgePath],{ stdio:'pipe' });
 execFileSync(process.execPath,['--check',assistantPath],{ stdio:'pipe' });
-const [submitBridge,assistant,index,serviceWorker]=await Promise.all([
+const [submitBridge,assistant,index,serviceWorker,workerAssistant]=await Promise.all([
   read('app/turn-assistant-submit.js'),
   read('app/turn-assistant.js'),
   read('index.html'),
-  read('sw.js')
+  read('sw.js'),
+  read('worker/turn-assistant.js')
 ]);
 
 assert(submitBridge.includes('onSubmit(form,button)'),'A ponte de toque não chama a rotina real de envio.');
@@ -34,11 +35,14 @@ assert(!assistant.includes('Faltarão cerca de'),'A quantidade faltante ainda es
 for(const formId of ['taHandoffForm','taFirstOrderForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
 }
-assert(index.includes('turn-assistant.js?v=5.0.4'),'Assistente 5.0.4 não está carregado no HTML.');
+assert(index.includes('turn-assistant.js?v=5.0.5'),'Assistente 5.0.5 não está carregado no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
 assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
 assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
-assert(serviceWorker.includes('v5.0.4-turn-assistant-submit'),'Versão do cache móvel não foi renovada.');
+assert(serviceWorker.includes('v5.0.5-turn-assistant-period'),'Versão do cache móvel não foi renovada.');
+assert(workerAssistant.includes("rolloverMinutes===1375"),'O Worker não valida períodos que atravessam a madrugada.');
+assert(workerAssistant.includes("started_at=?,ended_at=?"),'O Worker não repara o início incorreto do período.');
+assert(workerAssistant.includes("T${clock}:00-03:00"),'Os turnos do Worker não usam o horário de Curitiba.');
 
 const safariItemInput={ value:'317396' };
 const safariForm={
@@ -128,4 +132,14 @@ assert.equal(inconsistent.overrunMinutes,10);
 const bounds=shiftWindow('2','2026-08-05');
 assert.equal(minutesBetween(bounds.start,bounds.end),480);
 
-console.log('NEOMES 5.0.4: fechamento por material ou meta e autonomia total validados.');
+const continuousPeriod=continuousMinutesBetween(
+  '2026-08-05T14:30:00-03:00',
+  '2026-08-05T13:25:00-03:00'
+);
+assert.equal(continuousPeriod,1375,'14:30 até 13:25 deve atravessar a virada e totalizar 22h55.');
+const tnl091=calculatePeriodPerformance({ availableMinutes:continuousPeriod,goodPieces:100,rejects:2,cycleSeconds:324 });
+assert.equal(tnl091.inconsistent,false,'O apontamento real da TNL 091 não pode ser bloqueado.');
+assert.equal(Math.round(tnl091.runningMinutes),551);
+assert.equal(Math.round(tnl091.downtimeMinutes),824);
+
+console.log('NEOMES 5.0.5: período contínuo e apontamento da TNL 091 validados.');
