@@ -53,7 +53,8 @@ const APP_SHELL = [
   './app/shift-time-engine.js',
   './app/shift-time-fix.js',
   './app/turn-assistant-engine.js',
-  './app/turn-assistant.js'
+  './app/turn-assistant.js',
+  './app/turn-assistant-autostart.js'
 ].map(asset);
 
 self.addEventListener('install', event => {
