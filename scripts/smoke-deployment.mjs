@@ -102,16 +102,15 @@ console.log(`✓ Index publicado com ${expectedAssets.length} assets críticos a
 const uniqueAssets = [...new Set(expectedAssets)];
 for (const asset of uniqueAssets) {
   const content = await fetchText(`/${asset}`, asset);
-  if (asset.includes('turn-assistant-submit-fix.js')) {
-    requireIncludes(content, ['form.dispatchEvent(submitEvent)', "window.addEventListener('unhandledrejection'"], asset);
-  } else if (asset.includes('turn-assistant-submit-fix.css')) {
-    requireIncludes(content, ['ta-submit-feedback'], asset);
-  } else if (asset.includes('turn-assistant.js')) {
-    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas'], asset);
+  if (asset.includes('turn-assistant.js')) {
+    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)'], asset);
   } else if (asset.includes('turn-assistant.css')) {
-    requireIncludes(content, ['ta-material-block', 'ta-forecast-time'], asset);
+    requireIncludes(content, ['ta-material-block', 'ta-forecast-time', 'ta-submit-feedback'], asset);
   }
 }
+const submitBridge = await fetchText('/app/turn-assistant-submit.js', 'Ponte de salvamento móvel');
+requireIncludes(submitBridge, ['data-ta-submit-form', 'onSubmit(form,button)'], 'Ponte de salvamento móvel');
+assert(!submitBridge.includes('SubmitEvent'), 'A versão publicada ainda sintetiza eventos de submit.');
 console.log('✓ Assets críticos acessíveis e íntegros');
 
 const engine = await fetchText('/app/turn-assistant-engine.js', 'Motor do assistente');

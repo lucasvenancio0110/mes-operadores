@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v4.0.0-secure-auth-admin-v5.0.1-turn-assistant-submit';
+const VERSION = 'neomes-v4.0.0-secure-auth-admin-v5.0.2-turn-assistant-submit';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -26,7 +26,6 @@ const APP_SHELL = [
   './app/desktop-workspace-fix.css',
   './app/shift-performance.css',
   './app/turn-assistant.css',
-  './app/turn-assistant-submit-fix.css',
   './app/auth.css',
   './app/admin.css',
   './app/bootstrap-admin.css',
@@ -55,7 +54,7 @@ const APP_SHELL = [
   './app/shift-time-fix.js',
   './app/turn-assistant-engine.js',
   './app/turn-assistant.js',
-  './app/turn-assistant-submit-fix.js',
+  './app/turn-assistant-submit.js',
   './app/turn-assistant-autostart.js'
 ].map(asset);
 
