@@ -13,17 +13,6 @@
     "run_worker_first": [
       "/health",
       "/api/*"
-    ],
-    "exclude": [
-      ".git/**",
-      ".github/**",
-      "worker/**",
-      "migrations/**",
-      "node_modules/**",
-      "package.json",
-      "package-lock.json",
-      "wrangler.jsonc",
-      "README.md"
     ]
   },
   "d1_databases": [
