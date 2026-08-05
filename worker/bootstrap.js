@@ -1,7 +1,7 @@
 import { ensureAuthTables } from './auth.js';
 
 const encoder = new TextEncoder();
-const ITERATIONS = 160000;
+const ITERATIONS = 10000;
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -51,10 +51,13 @@ async function secureTokenEqual(left, right) {
   return difference === 0;
 }
 
-async function passwordHash(password, salt) {
+async function passwordHash(env, password, salt) {
+  const pepper = normalize(env?.NEOMES_PASSWORD_PEPPER);
+  if (!pepper) throw new Error('NEOMES_PASSWORD_PEPPER não configurado.');
+  const protectedPassword = String(password || '') + '\\u0000' + pepper;
   const key = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(String(password || '')),
+    encoder.encode(protectedPassword),
     { name: 'PBKDF2' },
     false,
     ['deriveBits']
@@ -72,13 +75,15 @@ async function passwordHash(password, salt) {
   return bytesToHex(bits);
 }
 
-export async function passwordCryptoHealth() {
+export async function passwordCryptoHealth(env) {
   const salt = '00112233445566778899aabbccddeeff';
-  const hash = await passwordHash('NEOMES-Cloudflare-Self-Test-2026', salt);
+  const hash = await passwordHash(env, 'NEOMES-Cloudflare-Self-Test-2026', salt);
   return {
     ok: /^[a-f0-9]{64}$/.test(hash),
-    algorithm: 'PBKDF2-SHA256-WebCrypto',
-    iterations: ITERATIONS
+    algorithm: 'PBKDF2-SHA256-WebCrypto-Peppered',
+    iterations: ITERATIONS,
+    pepperConfigured: Boolean(normalize(env?.NEOMES_PASSWORD_PEPPER)),
+    legacyMigration: 'automatic-on-login'
   };
 }
 
@@ -216,7 +221,7 @@ export async function handleBootstrap(request, env) {
 
     stage = 'geração segura da senha';
     const salt = randomHex(16);
-    const hash = await passwordHash(password, salt);
+    const hash = await passwordHash(env, password, salt);
     const now = new Date().toISOString();
 
     stage = 'localização da matrícula existente';
