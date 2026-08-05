@@ -6,33 +6,62 @@ import {
   calculateMaterial,calculateOrderForecast,calculatePeriodPerformance,
   calculateTurnClock,predictionMessage,shiftWindow,minutesBetween
 } from '../app/turn-assistant-engine.js';
+import { bindAssistantSubmit,isAssistantForm } from '../app/turn-assistant-submit.js';
 
 const root=new URL('../',import.meta.url);
 const read=path=>readFile(new URL(path,root),'utf8');
-const submitFixPath=fileURLToPath(new URL('app/turn-assistant-submit-fix.js',root));
-execFileSync(process.execPath,['--check',submitFixPath],{ stdio:'pipe' });
-const [submitFix,submitCss,index,serviceWorker]=await Promise.all([
-  read('app/turn-assistant-submit-fix.js'),
-  read('app/turn-assistant-submit-fix.css'),
+const submitBridgePath=fileURLToPath(new URL('app/turn-assistant-submit.js',root));
+const assistantPath=fileURLToPath(new URL('app/turn-assistant.js',root));
+execFileSync(process.execPath,['--check',submitBridgePath],{ stdio:'pipe' });
+execFileSync(process.execPath,['--check',assistantPath],{ stdio:'pipe' });
+const [submitBridge,assistant,index,serviceWorker]=await Promise.all([
+  read('app/turn-assistant-submit.js'),
+  read('app/turn-assistant.js'),
   read('index.html'),
   read('sw.js')
 ]);
 
-for(const token of [
-  'button[type="submit"][form]',
-  "new SubmitEvent('submit'",
-  'form.dispatchEvent(submitEvent)',
-  'event.stopImmediatePropagation()',
-  "window.addEventListener('unhandledrejection'",
-  'taFirstOrderForm',
-  'taHandoffForm'
-]) assert(submitFix.includes(token),`Proteção de envio ausente: ${token}`);
-assert(submitCss.includes('.ta-submit-feedback'),'Retorno visual do salvamento ausente.');
-assert(index.includes('turn-assistant-submit-fix.js?v=5.0.1'),'Hotfix móvel não está carregado no HTML.');
-assert(index.includes('turn-assistant-submit-fix.css?v=5.0.1'),'CSS do hotfix móvel não está carregado no HTML.');
-assert(serviceWorker.includes("'./app/turn-assistant-submit-fix.js'"),'Hotfix não está no cache do PWA.');
-assert(serviceWorker.includes("'./app/turn-assistant-submit-fix.css'"),'CSS do hotfix não está no cache do PWA.');
-assert(serviceWorker.includes('v5.0.1-turn-assistant-submit'),'Versão do cache móvel não foi renovada.');
+assert(submitBridge.includes('onSubmit(form,button)'),'A ponte de toque não chama a rotina real de envio.');
+assert(!submitBridge.includes('SubmitEvent'),'A ponte não deve sintetizar eventos de submit.');
+assert(!submitBridge.includes('form.dispatchEvent'),'A ponte não deve reenviar eventos artificialmente.');
+assert(assistant.includes("bindAssistantSubmit(document,submitAssistantForm)"),'A ponte móvel não está conectada ao assistente.');
+assert(assistant.includes("post('/api/v1/turn-assistant/handoff',body)"),'Persistência da passagem de turno não está conectada.');
+for(const formId of ['taHandoffForm','taFirstOrderForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
+  assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
+}
+assert(index.includes('turn-assistant.js?v=5.0.2'),'Assistente 5.0.2 não está carregado no HTML.');
+assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
+assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
+assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
+assert(serviceWorker.includes('v5.0.2-turn-assistant-submit'),'Versão do cache móvel não foi renovada.');
+
+const listeners=new Map();
+const firstOrderForm={ id:'taFirstOrderForm' };
+const fakeRoot={
+  addEventListener(type,listener,capture){ assert.equal(capture,true);listeners.set(type,listener); },
+  removeEventListener(type,listener,capture){ assert.equal(capture,true);assert.equal(listeners.get(type),listener);listeners.delete(type); },
+  getElementById(id){ return id===firstOrderForm.id ? firstOrderForm : null; }
+};
+let submitted=0;
+const button={
+  disabled:false,
+  dataset:{ taSubmitForm:firstOrderForm.id },
+  closest(selector){ return selector==='[data-ta-submit-form]' ? this : null; }
+};
+let prevented=0;let stopped=0;
+const unbind=bindAssistantSubmit(fakeRoot,(form,submitter)=>{
+  assert.equal(form,firstOrderForm);assert.equal(submitter,button);submitted+=1;submitter.disabled=true;
+});
+const click={ target:button,preventDefault(){prevented+=1;},stopImmediatePropagation(){stopped+=1;} };
+listeners.get('click')(click);
+listeners.get('click')(click);
+assert.equal(submitted,1,'Um toque deve iniciar exatamente um salvamento.');
+assert.equal(prevented,1);
+assert.equal(stopped,1);
+assert.equal(isAssistantForm(firstOrderForm),true);
+assert.equal(isAssistantForm({ id:'outroForm' }),false);
+unbind();
+assert.equal(listeners.has('click'),false);
 
 const material=calculateMaterial({ pieceLengthMm:11,currentBarPieces:276,feederBars:1,barLengthMm:3600,kerfMm:1 });
 assert.equal(material.piecesPerFullBar,300);
@@ -83,4 +112,4 @@ assert.equal(inconsistent.overrunMinutes,10);
 const bounds=shiftWindow('2','2026-08-05');
 assert.equal(minutesBetween(bounds.start,bounds.end),480);
 
-console.log('NEOMES 5.0.1: envio móvel, matéria-prima, refugos e relógio único validados.');
+console.log('NEOMES 5.0.2: toque direto, salvamento único, matéria-prima, refugos e relógio validados.');
