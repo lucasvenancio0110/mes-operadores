@@ -54,7 +54,7 @@ async function secureTokenEqual(left, right) {
 async function passwordHash(env, password, salt) {
   const pepper = normalize(env?.NEOMES_PASSWORD_PEPPER);
   if (!pepper) throw new Error('NEOMES_PASSWORD_PEPPER não configurado.');
-  const protectedPassword = String(password || '') + '\\u0000' + pepper;
+  const protectedPassword = String(password || '') + '\u0000' + pepper;
   const key = await crypto.subtle.importKey(
     'raw',
     encoder.encode(protectedPassword),
