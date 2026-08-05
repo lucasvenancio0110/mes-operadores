@@ -8,9 +8,10 @@ import {
   shiftWindow, minutesBetween, remainingShiftMinutes, calculateOrderForecast,
   calculatePeriodPerformance, formatDuration, predictionMessage
 } from './turn-assistant-engine.js';
+import { bindAssistantSubmit, isAssistantForm } from './turn-assistant-submit.js?v=5.0.2';
 
 const layers = document.getElementById('layers');
-const VERSION = '5.0.0';
+const VERSION = '5.0.2';
 const BAR_LENGTH_MM = 3600;
 const KERF_MM = 1;
 let contextCache = new Map();
@@ -64,12 +65,24 @@ function sheet({ title, eyebrow = 'ASSISTENTE DO TURNO', body, actions = '', wid
   return `<section class="ops-sheet ta-sheet ${wide ? 'ops-sheet--wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="taTitle">
     <header class="ops-sheet__head ta-sheet__head"><div><p class="ops-eyebrow">${escapeHtml(eyebrow)}</p><h2 id="taTitle">${escapeHtml(title)}</h2></div><button class="ops-icon-btn" type="button" data-ta-close aria-label="Fechar">×</button></header>
     <div class="ops-sheet__body ta-sheet__body">${body}</div>
-    ${actions ? `<footer class="ops-sheet__actions ta-sheet__actions">${actions}</footer>` : ''}
+    ${actions ? `<footer class="ops-sheet__actions ta-sheet__actions"><div class="ta-submit-feedback" data-ta-submit-feedback role="status" aria-live="polite"></div>${actions}</footer>` : ''}
   </section>`;
+}
+function setSubmitFeedback(form, message = '', state = '') {
+  const output = form?.closest('.ta-sheet')?.querySelector('[data-ta-submit-feedback]');
+  if (!output) return;
+  output.textContent = message;
+  output.dataset.state = state;
 }
 function showError(form, message) {
   const output = form?.querySelector('[data-ta-error]');
   if (output) output.textContent = message;
+  setSubmitFeedback(form,message,message ? 'error' : '');
+}
+function assistantSubmitButton(form) {
+  return layers?.querySelector(`[data-ta-submit-form="${form.id}"]`)
+    || form?.querySelector('button[type="submit"]')
+    || null;
 }
 function setBusy(button, busy, label = 'Salvando…') {
   if (!button) return;
@@ -77,6 +90,8 @@ function setBusy(button, busy, label = 'Salvando…') {
     button.dataset.originalText ||= button.textContent;
     button.disabled = true;
     button.textContent = label;
+    const form = document.getElementById(button.dataset.taSubmitForm || button.getAttribute('form') || '');
+    setSubmitFeedback(form,label,'working');
   } else {
     button.disabled = false;
     button.textContent = button.dataset.originalText || button.textContent;
@@ -239,7 +254,7 @@ function handoffForm(machineId, order, mode = 'handoff') {
     title:mode === 'update' ? `Atualizar ${machine.name}` : `Assumir ${machine.name}`,
     eyebrow:mode === 'update' ? 'ATUALIZAÇÃO RÁPIDA' : 'INÍCIO DO TURNO',
     body,
-    actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-close>Cancelar</button><button class="ops-btn ops-btn--primary ta-primary" type="submit" form="taHandoffForm">${mode === 'update' ? 'Atualizar e recalcular' : 'Confirmar e iniciar turno'}</button>`
+    actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-close>Cancelar</button><button class="ops-btn ops-btn--primary ta-primary" type="submit" form="taHandoffForm" data-ta-submit-form="taHandoffForm">${mode === 'update' ? 'Atualizar e recalcular' : 'Confirmar e iniciar turno'}</button>`
   }),'assistantHandoffLayer');
   activeFlow={ type:'handoff',machineId,order,mode };
 }
@@ -265,7 +280,7 @@ function firstOrderForm(machineId) {
   openAssistantLayer(sheet({
     title:`Cadastrar OP atual · ${machine.name}`,
     eyebrow:'CONFIGURAÇÃO INICIAL',body,
-    actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-close>Cancelar</button><button class="ops-btn ops-btn--primary" type="submit" form="taFirstOrderForm">Salvar e iniciar turno</button>`
+    actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-close>Cancelar</button><button class="ops-btn ops-btn--primary" type="submit" form="taFirstOrderForm" data-ta-submit-form="taFirstOrderForm">Salvar e iniciar turno</button>`
   }),'assistantFirstOrderLayer');
   activeFlow={ type:'first-order',machineId };
 }
@@ -306,7 +321,7 @@ async function submitHandoff(form) {
     pieceLengthMm:order.pieceLengthMm,barLengthMm:order.barLengthMm || BAR_LENGTH_MM,kerfMm:order.kerfMm ?? KERF_MM,
     productionConfirmed,currentBarPieces,feederBars,correctionNote:form.elements.correctionNote?.value?.trim() || ''
   };
-  const button=layers.querySelector('[type="submit"][form="taHandoffForm"]');setBusy(button,true,'Confirmando…');
+  const button=assistantSubmitButton(form);setBusy(button,true,'Confirmando…');
   try{
     const payload=await post('/api/v1/turn-assistant/handoff',body);
     const segment=(payload.segments || []).find(item=>item.status==='open'&&item.segmentType==='order');
@@ -341,7 +356,7 @@ async function submitFirstOrder(form) {
   if(!Number.isFinite(order.currentBarPieces))return showError(form,'Informe quantas peças a barra atual ainda fará.');
   if(!Number.isFinite(order.feederBars))return showError(form,'Informe quantas barras estão no alimentador.');
   const body={ ...order,productionConfirmed:order.producedSoFar,productionDate:operator.productionDate || localDateKey(),shift:String(operator.shift),machineId };
-  const button=layers.querySelector('[type="submit"][form="taFirstOrderForm"]');setBusy(button,true,'Salvando…');
+  const button=assistantSubmitButton(form);setBusy(button,true,'Salvando…');
   try{
     const payload=await post('/api/v1/turn-assistant/handoff',body);
     const segment=(payload.segments||[]).find(item=>item.status==='open'&&item.segmentType==='order');
@@ -449,7 +464,7 @@ function openShiftClose() {
   });
   if(!eligible.length)return;
   const body=`<form id="taShiftCloseForm" novalidate><div class="ta-close-intro"><strong>Informe apenas produção e refugos</strong><span>O NEOMES calcula o tempo rodando e a parada estimada de cada máquina.</span></div><div class="ta-close-list">${eligible.map(item=>periodInputCard(item.machineId,'shift')).join('')}</div><div class="field-error ta-error" data-ta-error role="alert"></div></form>`;
-  openAssistantLayer(sheet({ title:'Fechar produção do turno',eyebrow:`${store.state.session.shift}º TURNO · RELÓGIO DE 480 MINUTOS`,body,actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-close>Cancelar</button><button class="ops-btn ops-btn--primary" type="submit" form="taShiftCloseForm">Confirmar apontamentos</button>` }),'assistantShiftCloseLayer');
+  openAssistantLayer(sheet({ title:'Fechar produção do turno',eyebrow:`${store.state.session.shift}º TURNO · RELÓGIO DE 480 MINUTOS`,body,actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-close>Cancelar</button><button class="ops-btn ops-btn--primary" type="submit" form="taShiftCloseForm" data-ta-submit-form="taShiftCloseForm">Confirmar apontamentos</button>` }),'assistantShiftCloseLayer');
   activeFlow={ type:'shift-close',machineIds:eligible.map(item=>item.machineId) };
 }
 function updateTimePreview(machineId) {
@@ -486,7 +501,7 @@ function appendRecord(machineId,payload,response) {
   api.post('/api/v1/records',record).catch(()=>{});
 }
 async function submitShiftClose(form) {
-  const button=layers.querySelector('[type="submit"][form="taShiftCloseForm"]');
+  const button=assistantSubmitButton(form);
   const payloads=activeFlow.machineIds.map(machineId=>closePayload(machineId,'shift'));
   const invalid=payloads.find(payload=>!Number.isFinite(payload.goodPieces)||!Number.isFinite(payload.rejects));
   if(invalid)return showError(form,'Informe as peças boas e os refugos de todas as máquinas.');
@@ -504,7 +519,7 @@ async function submitShiftClose(form) {
 function openOrderClose(machineId) {
   const machine=machineInfo(machineId);const session=currentMachineSession(machineId);if(!session)return;
   const body=`<form id="taOrderCloseForm" data-machine-id="${escapeHtml(machineId)}" novalidate><div class="ta-close-intro"><strong>Encerrar OP ${escapeHtml(session.op)}</strong><span>O tempo desta OP será fechado agora. O restante do turno ficará disponível para a próxima ordem.</span></div>${periodInputCard(machineId,'order')}<div class="field-error ta-error" data-ta-error role="alert"></div></form>`;
-  openAssistantLayer(sheet({ title:`Encerrar OP · ${machine.name}`,eyebrow:'FECHAMENTO DE PERÍODO',body,actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-close>Cancelar</button><button class="ops-btn ops-btn--danger" type="submit" form="taOrderCloseForm">Confirmar encerramento</button>` }),'assistantOrderCloseLayer');
+  openAssistantLayer(sheet({ title:`Encerrar OP · ${machine.name}`,eyebrow:'FECHAMENTO DE PERÍODO',body,actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-close>Cancelar</button><button class="ops-btn ops-btn--danger" type="submit" form="taOrderCloseForm" data-ta-submit-form="taOrderCloseForm">Confirmar encerramento</button>` }),'assistantOrderCloseLayer');
   activeFlow={ type:'order-close',machineId,previous:{ ...session } };
 }
 async function submitOrderClose(form) {
@@ -512,7 +527,7 @@ async function submitOrderClose(form) {
   if(!Number.isFinite(payload.goodPieces)||!Number.isFinite(payload.rejects))return showError(form,'Informe as peças boas e os refugos desta OP.');
   const card=layers.querySelector(`[data-close-machine="${CSS.escape(machineId)}"]`);const result=calculatePeriodPerformance({ availableMinutes:Number(card.dataset.availableMinutes),goodPieces:payload.goodPieces,rejects:payload.rejects,cycleSeconds:Number(card.dataset.cycleSeconds) });
   if(result.inconsistent)return showError(form,'Os valores ultrapassam o tempo disponível desta OP. Confira produção, refugos ou ciclo.');
-  const button=layers.querySelector('[type="submit"][form="taOrderCloseForm"]');setBusy(button,true,'Encerrando…');
+  const button=assistantSubmitButton(form);setBusy(button,true,'Encerrando…');
   try{const response=await post('/api/v1/turn-assistant/close-period',payload);appendRecord(machineId,payload,response);openNextOrderChoice(machineId,activeFlow.previous,response);}catch(error){showError(form,error.message);setBusy(button,false);}
 }
 function openNextOrderChoice(machineId,previous,response) {
@@ -531,7 +546,7 @@ function newOrderForm(machineId,type) {
     <div class="ta-reason-group"><span>Tempo entre as ordens <small>(opcional)</small></span><div>${[['setup','Setup'],['adjustment','Ajuste'],['material','Aguardando material'],['quality','Qualidade'],['other','Outro']].map(([value,label])=>`<button type="button" data-ta-transition-reason="${value}">${label}</button>`).join('')}</div></div>
     <div class="field-error ta-error" data-ta-error role="alert"></div>
   </form>`;
-  openAssistantLayer(sheet({ title:same?'Nova OP do mesmo item':'Nova OP de outro item',eyebrow:`${machine.name} · ${formatDuration(remainingShiftMinutes({ shift:store.state.session.shift,productionDate:store.state.session.productionDate }))} RESTANTES`,body,actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-back-next>Voltar</button><button class="ops-btn ops-btn--primary" type="submit" form="taNewOrderForm">Iniciar nova OP</button>` }),'assistantNewOrderLayer');
+  openAssistantLayer(sheet({ title:same?'Nova OP do mesmo item':'Nova OP de outro item',eyebrow:`${machine.name} · ${formatDuration(remainingShiftMinutes({ shift:store.state.session.shift,productionDate:store.state.session.productionDate }))} RESTANTES`,body,actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-back-next>Voltar</button><button class="ops-btn ops-btn--primary" type="submit" form="taNewOrderForm" data-ta-submit-form="taNewOrderForm">Iniciar nova OP</button>` }),'assistantNewOrderLayer');
   activeFlow={ ...activeFlow,type:'new-order-form',orderType:type,previous };
 }
 async function submitNewOrder(form) {
@@ -541,17 +556,17 @@ async function submitNewOrder(form) {
   if(!same){body.item=form.elements.item.value.trim();body.description=form.elements.description.value.trim();body.cycleSeconds=parseCycle(form.elements.cycle.value);body.frequency1=asNumber(form.elements.frequency1.value);body.frequency2=asNumber(form.elements.frequency2.value);body.pieceLengthMm=asNumber(form.elements.pieceLengthMm.value);}
   if(!body.op)return showError(form,'Informe o número da nova OP.');if(!(body.opTarget>0))return showError(form,'Informe a meta da nova OP.');if(!Number.isFinite(body.productionInitial))return showError(form,'Informe a produção inicial.');if(!Number.isFinite(body.currentBarPieces))return showError(form,'Informe quantas peças a barra atual ainda fará.');if(!Number.isFinite(body.feederBars))return showError(form,'Informe quantas barras estão no alimentador.');
   if(!same&&(!body.item||!(body.cycleSeconds>0)||!(body.frequency1>0)||!(body.pieceLengthMm>0)))return showError(form,'Informe item, ciclo, frequência e comprimento da peça.');
-  const button=layers.querySelector('[type="submit"][form="taNewOrderForm"]');setBusy(button,true,'Iniciando…');
+  const button=assistantSubmitButton(form);setBusy(button,true,'Iniciando…');
   try{const payload=await post('/api/v1/turn-assistant/start-order',body);const segment=(payload.segments||[]).find(item=>item.status==='open'&&item.segmentType==='order');mergeOrderIntoSession(machineId,payload.activeOrder,{ turnAssistantConfirmedAt:nowIso(),turnAssistantShiftKey:shiftKey(),productionBaselineAtShift:Number(payload.activeOrder.producedSoFar||0),producedThisShift:0,segmentStartedAt:segment?.startedAt || nowIso(),currentSegmentId:payload.segmentId,assistantSegments:payload.segments || [],assistantTurnClock:payload.turnClock || null,materialConfirmedAt:nowIso(),status:'producing',assistantMachineStopped:false,reason:'turn-assistant-new-order' });contextCache.delete(`${machineId}|${shiftKey()}`);closeAssistantLayer();}catch(error){showError(form,error.message);setBusy(button,false);}
 }
 function stoppedForm(machineId) {
   const machine=machineInfo(machineId);const body=`<form id="taStoppedForm" data-machine-id="${escapeHtml(machineId)}"><p class="ta-help-text">Selecione o motivo. O tempo restante ficará registrado como máquina parada.</p><div class="ta-stop-reasons">${[['no-schedule','Sem programação'],['material','Aguardando material'],['setup','Aguardando setup'],['maintenance','Manutenção'],['quality','Qualidade'],['other','Outro']].map(([value,label])=>`<button type="button" data-ta-stop-reason="${value}">${label}</button>`).join('')}</div><label class="ta-full-field"><span>Observação <small>(opcional)</small></span><textarea name="note"></textarea></label><div class="field-error ta-error" data-ta-error></div></form>`;
-  openAssistantLayer(sheet({ title:`${machine.name} ficará parada`,eyebrow:'SEM NOVA OP',body,actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-back-next>Voltar</button><button class="ops-btn ops-btn--primary" type="submit" form="taStoppedForm">Confirmar parada</button>` }),'assistantStoppedLayer');activeFlow={ ...activeFlow,type:'stopped-form' };
+  openAssistantLayer(sheet({ title:`${machine.name} ficará parada`,eyebrow:'SEM NOVA OP',body,actions:`<button class="ops-btn ops-btn--ghost" type="button" data-ta-back-next>Voltar</button><button class="ops-btn ops-btn--primary" type="submit" form="taStoppedForm" data-ta-submit-form="taStoppedForm">Confirmar parada</button>` }),'assistantStoppedLayer');activeFlow={ ...activeFlow,type:'stopped-form' };
 }
 async function submitStopped(form) {
   const machineId=form.dataset.machineId;const machine=machineInfo(machineId);const operator=store.state.session;const selected=layers.querySelector('[data-ta-stop-reason][aria-pressed="true"]');if(!selected)return showError(form,'Selecione o motivo da parada.');
   const body={ productionDate:operator.productionDate || localDateKey(),shift:String(operator.shift),machineId,lineId:machine.lineId,reason:selected.dataset.taStopReason,note:form.elements.note.value.trim() };
-  const button=layers.querySelector('[type="submit"][form="taStoppedForm"]');setBusy(button,true,'Salvando…');
+  const button=assistantSubmitButton(form);setBusy(button,true,'Salvando…');
   try{await post('/api/v1/turn-assistant/stopped',body);store.update(state=>{state.machineSessions[machineId]={ ...(state.machineSessions[machineId]||{}),machineId,lineId:machine.lineId,lineName:machine.lineName,machineName:machine.name,status:'pointed',assistantMachineStopped:true,statusNote:selected.textContent.trim(),updatedAt:nowIso() };},'turn-assistant-stopped');closeAssistantLayer();}catch(error){showError(form,error.message);setBusy(button,false);}
 }
 
@@ -602,13 +617,30 @@ document.addEventListener('change',event=>{
 document.addEventListener('input',event=>{
   const machineId=event.target.dataset.taGood || event.target.dataset.taRejects;if(machineId)updateTimePreview(machineId);
 },true);
+function submitAssistantForm(form) {
+  const handlers={
+    taHandoffForm:submitHandoff,
+    taFirstOrderForm:submitFirstOrder,
+    taShiftCloseForm:submitShiftClose,
+    taOrderCloseForm:submitOrderClose,
+    taNewOrderForm:submitNewOrder,
+    taStoppedForm:submitStopped
+  };
+  const handler=handlers[form?.id];
+  if(!handler)return false;
+  setSubmitFeedback(form,'Validando informações…','working');
+  Promise.resolve(handler(form)).catch(error=>{
+    console.error('Falha ao salvar dados do assistente:',error);
+    showError(form,error?.message || 'Não foi possível salvar. Tente novamente.');
+    setBusy(assistantSubmitButton(form),false);
+  });
+  return true;
+}
+
+bindAssistantSubmit(document,submitAssistantForm);
 document.addEventListener('submit',event=>{
-  if(event.target.id==='taHandoffForm'){event.preventDefault();event.stopImmediatePropagation();submitHandoff(event.target);}
-  if(event.target.id==='taFirstOrderForm'){event.preventDefault();event.stopImmediatePropagation();submitFirstOrder(event.target);}
-  if(event.target.id==='taShiftCloseForm'){event.preventDefault();event.stopImmediatePropagation();submitShiftClose(event.target);}
-  if(event.target.id==='taOrderCloseForm'){event.preventDefault();event.stopImmediatePropagation();submitOrderClose(event.target);}
-  if(event.target.id==='taNewOrderForm'){event.preventDefault();event.stopImmediatePropagation();submitNewOrder(event.target);}
-  if(event.target.id==='taStoppedForm'){event.preventDefault();event.stopImmediatePropagation();submitStopped(event.target);}
+  if(!isAssistantForm(event.target))return;
+  event.preventDefault();event.stopImmediatePropagation();submitAssistantForm(event.target);
 },true);
 
 function schedule() {
