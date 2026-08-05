@@ -103,7 +103,7 @@ const uniqueAssets = [...new Set(expectedAssets)];
 for (const asset of uniqueAssets) {
   const content = await fetchText(`/${asset}`, asset);
   if (asset.includes('turn-assistant.js')) {
-    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)'], asset);
+    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)', 'Vai fechar neste horário por falta de matéria-prima', 'A matéria-prima consegue produzir até'], asset);
   } else if (asset.includes('turn-assistant.css')) {
     requireIncludes(content, ['ta-material-block', 'ta-forecast-time', 'ta-submit-feedback'], asset);
   }
