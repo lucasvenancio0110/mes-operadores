@@ -1,6 +1,8 @@
 name: Validate MES
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths-ignore:
@@ -56,6 +58,12 @@ jobs:
             node --check app/turn-assistant-submit.js
             node --check app/turn-assistant.js
             node --check sw.js
+            node scripts/apply-cloudflare-password-crypto.mjs
+            node --check worker/auth.js
+            node --check worker/bootstrap.js
+            node --check worker/admin-user-create.js
+            node --check worker/admin-password-reset.js
+            node --check worker/secure-main.js
             node --check worker/main.js
             node --check worker/index.js
             node --check worker/database.js
@@ -64,12 +72,14 @@ jobs:
             node --check worker/operations.js
             node --check worker/settings.js
             node --check tests/static-check.mjs
+            node --check tests/password-migration.test.mjs
             node --check tests/measurement-plan.test.mjs
             node --check tests/conference-ux.test.mjs
             node --check tests/shift-performance.test.mjs
             node --check tests/shift-time.test.mjs
             node --check tests/turn-assistant.test.mjs
             node tests/static-check.mjs
+            node tests/password-migration.test.mjs
             node tests/measurement-plan.test.mjs
             node tests/conference-ux.test.mjs
             node tests/shift-performance.test.mjs
@@ -107,6 +117,7 @@ jobs:
             test -f app/turn-assistant.css
             test -f app/turn-assistant-submit.js
             test -f app/turn-assistant.js
+            test -f tests/password-migration.test.mjs
             test -f tests/shift-time.test.mjs
             test -f tests/turn-assistant.test.mjs
             test -f worker/settings.js
@@ -125,6 +136,7 @@ jobs:
             validatedAt: new Date().toISOString(),
             checks: [
               'javascript-syntax',
+              'legacy-password-automatic-migration',
               'worker-syntax',
               'static-architecture',
               'manifest-json',
