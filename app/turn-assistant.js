@@ -8,10 +8,10 @@ import {
   shiftWindow, minutesBetween, remainingShiftMinutes, calculateOrderForecast,
   calculatePeriodPerformance, formatDuration, predictionMessage
 } from './turn-assistant-engine.js';
-import { bindAssistantSubmit, isAssistantForm } from './turn-assistant-submit.js?v=5.0.2';
+import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=5.0.3';
 
 const layers = document.getElementById('layers');
-const VERSION = '5.0.2';
+const VERSION = '5.0.3';
 const BAR_LENGTH_MM = 3600;
 const KERF_MM = 1;
 let contextCache = new Map();
@@ -340,7 +340,7 @@ async function submitHandoff(form) {
 async function submitFirstOrder(form) {
   const machineId=form.dataset.machineId;const machine=machineInfo(machineId);const operator=store.state.session;
   const order={
-    op:form.elements.op.value.trim(),item:form.elements.item.value.trim(),description:form.elements.description.value.trim(),
+    op:form.elements.op.value.trim(),item:formControlValue(form,'item').trim(),description:form.elements.description.value.trim(),
     opTarget:asNumber(form.elements.opTarget.value),cycleSeconds:parseCycle(form.elements.cycle.value),
     frequency1:asNumber(form.elements.frequency1.value),frequency2:asNumber(form.elements.frequency2.value),
     pieceLengthMm:asNumber(form.elements.pieceLengthMm.value),producedSoFar:asInteger(form.elements.productionConfirmed.value),
@@ -553,7 +553,7 @@ async function submitNewOrder(form) {
   const machineId=form.dataset.machineId;const type=form.dataset.orderType;const same=type==='same-item';const previous=activeFlow.previous || {};const machine=machineInfo(machineId);const operator=store.state.session;
   const selected=layers.querySelector('[data-ta-transition-reason][aria-pressed="true"]');
   const body={ productionDate:operator.productionDate || localDateKey(),shift:String(operator.shift),machineId,lineId:machine.lineId,lineName:machine.lineName,machineName:machine.name,orderType:type,op:form.elements.op.value.trim(),opTarget:asNumber(form.elements.opTarget.value),productionInitial:asInteger(form.elements.productionInitial.value),currentBarPieces:asInteger(form.elements.currentBarPieces.value),feederBars:asInteger(form.elements.feederBars.value),transitionReason:selected?.dataset.taTransitionReason || '' };
-  if(!same){body.item=form.elements.item.value.trim();body.description=form.elements.description.value.trim();body.cycleSeconds=parseCycle(form.elements.cycle.value);body.frequency1=asNumber(form.elements.frequency1.value);body.frequency2=asNumber(form.elements.frequency2.value);body.pieceLengthMm=asNumber(form.elements.pieceLengthMm.value);}
+  if(!same){body.item=formControlValue(form,'item').trim();body.description=form.elements.description.value.trim();body.cycleSeconds=parseCycle(form.elements.cycle.value);body.frequency1=asNumber(form.elements.frequency1.value);body.frequency2=asNumber(form.elements.frequency2.value);body.pieceLengthMm=asNumber(form.elements.pieceLengthMm.value);}
   if(!body.op)return showError(form,'Informe o número da nova OP.');if(!(body.opTarget>0))return showError(form,'Informe a meta da nova OP.');if(!Number.isFinite(body.productionInitial))return showError(form,'Informe a produção inicial.');if(!Number.isFinite(body.currentBarPieces))return showError(form,'Informe quantas peças a barra atual ainda fará.');if(!Number.isFinite(body.feederBars))return showError(form,'Informe quantas barras estão no alimentador.');
   if(!same&&(!body.item||!(body.cycleSeconds>0)||!(body.frequency1>0)||!(body.pieceLengthMm>0)))return showError(form,'Informe item, ciclo, frequência e comprimento da peça.');
   const button=assistantSubmitButton(form);setBusy(button,true,'Iniciando…');
