@@ -7,6 +7,11 @@ const ASSISTANT_FORM_IDS = new Set([
   'taStoppedForm'
 ]);
 
+export function formControlValue(form, name) {
+  const control = form?.elements?.namedItem?.(name);
+  return control?.value == null ? '' : String(control.value);
+}
+
 export function isAssistantForm(form) {
   return Boolean(form && ASSISTANT_FORM_IDS.has(form.id));
 }

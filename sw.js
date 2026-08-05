@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v4.0.0-secure-auth-admin-v5.0.2-turn-assistant-submit';
+const VERSION = 'neomes-v4.0.0-secure-auth-admin-v5.0.3-turn-assistant-submit';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
