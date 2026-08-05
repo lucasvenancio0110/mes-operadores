@@ -28,14 +28,17 @@ assert(assistant.includes("bindAssistantSubmit(document,submitAssistantForm)"),'
 assert(assistant.includes("post('/api/v1/turn-assistant/handoff',body)"),'Persistência da passagem de turno não está conectada.');
 assert(assistant.includes("formControlValue(form,'item')"),'O campo Item não usa leitura segura para Safari.');
 assert(!assistant.includes('form.elements.item.value'),'A colisão com HTMLFormControlsCollection.item ainda existe.');
+assert(assistant.includes('A matéria-prima consegue produzir até'),'Autonomia do material após a meta ausente.');
+assert(!assistant.includes('Ação necessária: adicionar'),'A recomendação inviável de adicionar barra ainda está visível.');
+assert(!assistant.includes('Faltarão cerca de'),'A quantidade faltante ainda está visível.');
 for(const formId of ['taHandoffForm','taFirstOrderForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
 }
-assert(index.includes('turn-assistant.js?v=5.0.3'),'Assistente 5.0.3 não está carregado no HTML.');
+assert(index.includes('turn-assistant.js?v=5.0.4'),'Assistente 5.0.4 não está carregado no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
 assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
 assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
-assert(serviceWorker.includes('v5.0.3-turn-assistant-submit'),'Versão do cache móvel não foi renovada.');
+assert(serviceWorker.includes('v5.0.4-turn-assistant-submit'),'Versão do cache móvel não foi renovada.');
 
 const safariItemInput={ value:'317396' };
 const safariForm={
@@ -85,7 +88,8 @@ const finishesByOp=calculateOrderForecast({
 assert.equal(finishesByOp.reason,'op');
 assert.equal(finishesByOp.opRemaining,528);
 assert.equal(finishesByOp.leftoverMaterialPieces,48);
-assert.equal(predictionMessage(finishesByOp),'A meta da OP deverá ser atingida antes de acabar a matéria-prima.');
+assert.equal(new Date(finishesByOp.materialEstimatedAt)-new Date(finishesByOp.estimatedAt),48*287*1000);
+assert.equal(predictionMessage(finishesByOp),'Vai fechar por atingir a meta da OP.');
 
 const stopsByMaterial=calculateOrderForecast({
   now:'2026-08-05T14:42:00-03:00',cycleSeconds:60,opTarget:1000,producedSoFar:472,
@@ -95,7 +99,8 @@ assert.equal(stopsByMaterial.reason,'material');
 assert.equal(stopsByMaterial.availablePieces,400);
 assert.equal(stopsByMaterial.missingPieces,128);
 assert.equal(stopsByMaterial.additionalBars,1);
-assert.equal(predictionMessage(stopsByMaterial),'A matéria-prima informada deverá acabar antes de atingir a meta da OP.');
+assert.equal(stopsByMaterial.materialEstimatedAt,stopsByMaterial.estimatedAt);
+assert.equal(predictionMessage(stopsByMaterial),'Vai fechar neste horário por falta de matéria-prima.');
 
 const period=calculatePeriodPerformance({ availableMinutes:480,goodPieces:80,rejects:4,cycleSeconds:300 });
 assert.equal(period.totalCycles,84);
@@ -123,4 +128,4 @@ assert.equal(inconsistent.overrunMinutes,10);
 const bounds=shiftWindow('2','2026-08-05');
 assert.equal(minutesBetween(bounds.start,bounds.end),480);
 
-console.log('NEOMES 5.0.3: campo Item no Safari, toque direto e salvamento único validados.');
+console.log('NEOMES 5.0.4: fechamento por material ou meta e autonomia total validados.');
