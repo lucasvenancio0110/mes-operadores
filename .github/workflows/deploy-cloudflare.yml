@@ -21,7 +21,7 @@ jobs:
   deploy:
     name: Publicar aplicação e API
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
 
     steps:
       - name: Baixar repositório
@@ -46,6 +46,8 @@ jobs:
           node --check worker/auth.js
           node --check worker/bootstrap.js
           node --check worker/admin-user-create.js
+          node --check worker/admin-password-reset.js
+          node --check worker/turn-assistant.js
           node --check worker/secure-main.js
 
       - name: Validar aplicação
@@ -60,10 +62,15 @@ jobs:
           node --check app/bootstrap-admin-ui.js
           node --check app/admin-ui.js
           node --check app/admin-password-fix.js
+          node --check app/admin-password-reset-fix.js
           node --check app/admin-user-create.js
           node --check app/desktop-workspace.js
+          node --check app/turn-assistant-engine.js
+          node --check app/turn-assistant.js
+          node --check sw.js
           test -f app/desktop-workspace.css
           test -f app/desktop-workspace-fix.css
+          test -f app/turn-assistant.css
           node --check app/measurement-engine.js
           node --check app/measurement-frequency-parser.js
           node --check app/measurement-frequency-fix.js
@@ -75,6 +82,7 @@ jobs:
           node tests/conference-ux.test.mjs
           node tests/shift-performance.test.mjs
           node tests/shift-time.test.mjs
+          node tests/turn-assistant.test.mjs
 
       - name: Verificar Cloudflare e D1
         id: preflight
@@ -154,19 +162,27 @@ jobs:
           echo "Aguardando a propagação completa do Worker e dos secrets..."
           sleep 12
 
-          CRYPTO_FILE="$(mktemp)"
-          CRYPTO_STATUS=""
-          for ATTEMPT in $(seq 1 20); do
-            CRYPTO_STATUS="$(curl --silent --show-error --output "$CRYPTO_FILE" --write-out '%{http_code}' "$DEPLOYMENT_URL/api/v1/auth/crypto-health" || true)"
-            if [ "$CRYPTO_STATUS" = "200" ]; then
-              break
-            fi
-            echo "PBKDF2 ainda propagando: tentativa $ATTEMPT/20, HTTP ${CRYPTO_STATUS:-indisponível}."
-            sleep 5
-          done
-          test "$CRYPTO_STATUS" = "200" || { echo "Resposta criptográfica:"; cat "$CRYPTO_FILE"; exit 1; }
-          CRYPTO="$(cat "$CRYPTO_FILE")"
-          echo "$CRYPTO"
+          wait_json() {
+            local path="$1"
+            local label="$2"
+            local file
+            file="$(mktemp)"
+            local status=""
+            for attempt in $(seq 1 20); do
+              status="$(curl --silent --show-error --output "$file" --write-out '%{http_code}' "$DEPLOYMENT_URL$path" || true)"
+              if [ "$status" = "200" ]; then
+                cat "$file"
+                return 0
+              fi
+              echo "$label ainda propagando: tentativa $attempt/20, HTTP ${status:-indisponível}." >&2
+              sleep 5
+            done
+            echo "Falha em $label:" >&2
+            cat "$file" >&2
+            return 1
+          }
+
+          CRYPTO="$(wait_json '/api/v1/auth/crypto-health' 'PBKDF2')"
           node -e '
             const x=JSON.parse(process.argv[1]);
             if(!x.ok) throw new Error(x.error || "PBKDF2 falhou");
@@ -175,44 +191,56 @@ jobs:
             if(!x.pepperConfigured) throw new Error("Pepper ausente");
           ' "$CRYPTO"
 
-          ADMIN_CREATE_FILE="$(mktemp)"
-          ADMIN_CREATE_STATUS=""
-          for ATTEMPT in $(seq 1 12); do
-            ADMIN_CREATE_STATUS="$(curl --silent --show-error --output "$ADMIN_CREATE_FILE" --write-out '%{http_code}' "$DEPLOYMENT_URL/api/v1/auth/admin-user-create-health" || true)"
-            if [ "$ADMIN_CREATE_STATUS" = "200" ]; then
-              break
-            fi
-            echo "Migração administrativa ainda propagando: tentativa $ATTEMPT/12, HTTP ${ADMIN_CREATE_STATUS:-indisponível}."
-            sleep 5
-          done
-          test "$ADMIN_CREATE_STATUS" = "200" || { echo "Resposta do cadastro administrativo:"; cat "$ADMIN_CREATE_FILE"; exit 1; }
-          ADMIN_CREATE="$(cat "$ADMIN_CREATE_FILE")"
-          echo "$ADMIN_CREATE"
+          ADMIN_CREATE="$(wait_json '/api/v1/auth/admin-user-create-health' 'Cadastro administrativo')"
           node -e '
             const x=JSON.parse(process.argv[1]);
-            if(!x.ok) throw new Error(x.error || "Cadastro administrativo indisponível");
-            if(!x.schemaReady || x.missingColumns?.length) throw new Error("Migração do D1 incompleta");
-            if(!x.passwordHashReady) throw new Error("Hash de senha do cadastro falhou");
-            if(x.transaction!=="d1-batch") throw new Error("Persistência não transacional");
+            if(!x.ok || !x.schemaReady || x.missingColumns?.length) throw new Error("Migração administrativa incompleta");
+            if(!x.passwordHashReady || x.transaction!=="d1-batch") throw new Error("Cadastro administrativo inseguro");
           ' "$ADMIN_CREATE"
+
+          ADMIN_RESET="$(wait_json '/api/v1/auth/admin-password-reset-health' 'Redefinição de senha')"
+          node -e '
+            const x=JSON.parse(process.argv[1]);
+            if(!x.ok || !x.schemaReady || !x.passwordHashReady || !x.temporaryPasswordPolicy) throw new Error("Redefinição de senha indisponível");
+            if(x.transaction!=="d1-batch") throw new Error("Reset não transacional");
+          ' "$ADMIN_RESET"
+
+          TURN_ASSISTANT="$(wait_json '/api/v1/auth/turn-assistant-health' 'Assistente de turno')"
+          node -e '
+            const x=JSON.parse(process.argv[1]);
+            if(!x.ok || !x.schemaReady || !x.periodCalculationReady) throw new Error("Assistente de turno indisponível");
+            if(Number(x.shiftMinutes)!==480) throw new Error("Relógio do turno incorreto");
+            if(x.transaction!=="d1-batch") throw new Error("Persistência do turno não transacional");
+            if(!Array.isArray(x.tables) || x.tables.length!==4) throw new Error("Tabelas do turno incompletas");
+          ' "$TURN_ASSISTANT"
 
           INDEX="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/")"
           printf '%s' "$INDEX" | grep -q 'NEOMES — Gestão Operacional'
           printf '%s' "$INDEX" | grep -q 'desktop-workspace.css?v=4.1.0'
-          printf '%s' "$INDEX" | grep -q 'desktop-workspace.js?v=4.1.0'
+          printf '%s' "$INDEX" | grep -q 'turn-assistant.css?v=5.0.0'
+          printf '%s' "$INDEX" | grep -q 'turn-assistant.js?v=5.0.0'
 
-          DESKTOP_CSS="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/desktop-workspace.css?v=4.1.0")"
-          printf '%s' "$DESKTOP_CSS" | grep -q 'ops-desktop-layout'
-          printf '%s' "$DESKTOP_CSS" | grep -q 'ops-icon-btn\[data-action="menu"\]'
+          TURN_CSS="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/turn-assistant.css?v=5.0.0")"
+          printf '%s' "$TURN_CSS" | grep -q 'ta-material-block'
+          printf '%s' "$TURN_CSS" | grep -q 'ta-forecast-time'
 
-          DESKTOP_JS="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/desktop-workspace.js?v=4.1.0")"
-          printf '%s' "$DESKTOP_JS" | grep -q 'arrangeDesktopWorkspace'
-          printf '%s' "$DESKTOP_JS" | grep -q 'ops-desktop-menu'
+          TURN_JS="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/turn-assistant.js?v=5.0.0")"
+          printf '%s' "$TURN_JS" | grep -q 'Confirmar e iniciar turno'
+          printf '%s' "$TURN_JS" | grep -q 'Peças boas produzidas'
+
+          ENGINE="$(curl --fail --silent --show-error "$DEPLOYMENT_URL/app/turn-assistant-engine.js?v=5.0.0")"
+          printf '%s' "$ENGINE" | grep -q 'A matéria-prima informada deverá acabar antes de atingir a meta da OP.'
+          printf '%s' "$ENGINE" | grep -q 'DEFAULT_SHIFT_MINUTES = 480'
 
           AUTH_FILE="$(mktemp)"
           AUTH_STATUS="$(curl --silent --show-error --output "$AUTH_FILE" --write-out '%{http_code}' "$DEPLOYMENT_URL/api/v1/auth/me")"
           test "$AUTH_STATUS" = "401"
           node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.code!=="UNAUTHENTICATED") process.exit(1)' "$AUTH_FILE"
+
+          CONTEXT_FILE="$(mktemp)"
+          CONTEXT_STATUS="$(curl --silent --show-error --output "$CONTEXT_FILE" --write-out '%{http_code}' "$DEPLOYMENT_URL/api/v1/turn-assistant/context?machineId=tnl-091&lineId=linha-05&productionDate=2026-08-05&shift=2")"
+          test "$CONTEXT_STATUS" = "401"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.code!=="UNAUTHENTICATED") process.exit(1)' "$CONTEXT_FILE"
 
       - name: Registrar deploy concluído
         if: success()
@@ -238,7 +266,9 @@ jobs:
             authentication:'protected',
             passwordCrypto:'pbkdf2-sha256-webcrypto-10000-peppered',
             workspace:'desktop-tablet-4.1.0',
-            adminUserCreate:'transactional-migrated'
+            adminUserCreate:'transactional-migrated',
+            adminPasswordReset:'transactional-migrated',
+            turnAssistant:'5.0.0-confirm-by-exception'
           },null,2)+'\n');
           NODE
           git add deployment/latest.json deployment/latest-failure.json 2>/dev/null || git add deployment/latest.json
