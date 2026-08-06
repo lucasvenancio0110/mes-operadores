@@ -28,6 +28,7 @@ assert(submitBridge.includes('onSubmit(form,button)'),'A ponte de toque não cha
 assert(!submitBridge.includes('SubmitEvent'),'A ponte não deve sintetizar eventos de submit.');
 assert(!submitBridge.includes('form.dispatchEvent'),'A ponte não deve reenviar eventos artificialmente.');
 assert(assistant.includes("bindAssistantSubmit(document,submitAssistantForm)"),'A ponte móvel não está conectada ao assistente.');
+assert(assistant.includes('taPointingForm:submitPointing'),'O formulário de apontamento não está ligado à rotina de persistência.');
 assert(assistant.includes("post('/api/v1/turn-assistant/handoff',body)"),'Persistência da passagem de turno não está conectada.');
 assert(assistant.includes("formControlValue(form,'item')"),'O campo Item não usa leitura segura para Safari.');
 assert(!assistant.includes('form.elements.item.value'),'A colisão com HTMLFormControlsCollection.item ainda existe.');
@@ -37,11 +38,11 @@ assert(!assistant.includes('Faltarão cerca de'),'A quantidade faltante ainda es
 for(const formId of ['taHandoffForm','taFirstOrderForm','taPointingForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
 }
-assert(index.includes('turn-assistant.js?v=6.0.0'),'Assistente 6.0.0 não está carregado no HTML.');
+assert(index.includes('turn-assistant.js?v=6.0.1'),'Hotfix 6.0.1 do apontamento não está carregado no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
 assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
 assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
-assert(serviceWorker.includes('neomes-v6.0.0-preparer-cockpit'),'Versão do cache móvel não foi renovada.');
+assert(serviceWorker.includes('neomes-v6.0.1-pointing-submit'),'Cache móvel não foi renovado para o hotfix do apontamento.');
 assert(workerAssistant.includes("rolloverMinutes===1375"),'O Worker não valida períodos que atravessam a madrugada.');
 assert(workerAssistant.includes('const endedAt=now;'),'O Worker não fecha o apontamento no instante real do registro.');
 assert(workerAssistant.includes("T${clock}:00-03:00"),'Os turnos do Worker não usam o horário de Curitiba.');
@@ -72,21 +73,21 @@ const safariForm={
 assert.equal(formControlValue(safariForm,'item'),'317396','Safari deve ler o campo Item sem colidir com elements.item().');
 
 const listeners=new Map();
-const firstOrderForm={ id:'taFirstOrderForm' };
+const pointingForm={ id:'taPointingForm' };
 const fakeRoot={
   addEventListener(type,listener,capture){ assert.equal(capture,true);listeners.set(type,listener); },
   removeEventListener(type,listener,capture){ assert.equal(capture,true);assert.equal(listeners.get(type),listener);listeners.delete(type); },
-  getElementById(id){ return id===firstOrderForm.id ? firstOrderForm : null; }
+  getElementById(id){ return id===pointingForm.id ? pointingForm : null; }
 };
 let submitted=0;
 const button={
   disabled:false,
-  dataset:{ taSubmitForm:firstOrderForm.id },
+  dataset:{ taSubmitForm:pointingForm.id },
   closest(selector){ return selector==='[data-ta-submit-form]' ? this : null; }
 };
 let prevented=0;let stopped=0;
 const unbind=bindAssistantSubmit(fakeRoot,(form,submitter)=>{
-  assert.equal(form,firstOrderForm);assert.equal(submitter,button);submitted+=1;submitter.disabled=true;
+  assert.equal(form,pointingForm);assert.equal(submitter,button);submitted+=1;submitter.disabled=true;
 });
 const click={ target:button,preventDefault(){prevented+=1;},stopImmediatePropagation(){stopped+=1;} };
 listeners.get('click')(click);
@@ -94,7 +95,9 @@ listeners.get('click')(click);
 assert.equal(submitted,1,'Um toque deve iniciar exatamente um salvamento.');
 assert.equal(prevented,1);
 assert.equal(stopped,1);
-assert.equal(isAssistantForm(firstOrderForm),true);
+for(const formId of ['taHandoffForm','taFirstOrderForm','taPointingForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
+  assert.equal(isAssistantForm({ id:formId }),true,`${formId} precisa ser reconhecido pela ponte móvel.`);
+}
 assert.equal(isAssistantForm({ id:'outroForm' }),false);
 unbind();
 assert.equal(listeners.has('click'),false);
@@ -187,4 +190,4 @@ assert.equal(tnl092.inconsistent,true,'A estimativa da TNL 092 deve continuar al
 assert.equal(Math.round(tnl092.runningMinutes),478);
 assert.equal(Math.round(tnl092.overrunMinutes),320);
 
-console.log('NEOMES 6.0.0: fluxo consultivo e instruções de liberação operacionais validados.');
+console.log('NEOMES 6.0.1: apontamento móvel, fluxo consultivo e instruções operacionais validados.');
