@@ -32,9 +32,10 @@ assert(fitted.scale>=.24&&fitted.scale<.5);
 const clamped=clampCamera({ x:9999,y:-9999,scale:1 },{ width:390,height:600 },{ width:1000,height:800 });
 assert(clamped.x<=72&&clamped.y>=600-800-72);
 
-assert.equal(semanticZoomLevel(.3),'distant');
-assert.equal(semanticZoomLevel(.7),'intermediate');
-assert.equal(semanticZoomLevel(1.1),'close');
+assert.equal(semanticZoomLevel(.479),'distant');
+assert.equal(semanticZoomLevel(.48),'intermediate');
+assert.equal(semanticZoomLevel(.879),'intermediate');
+assert.equal(semanticZoomLevel(.88),'close');
 
 const world=viewportWorldRect({ x:-100,y:-50,scale:.5 },{ width:400,height:300 });
 assert.deepEqual(world,{ x:200,y:100,width:800,height:600 });
