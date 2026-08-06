@@ -37,7 +37,8 @@ jobs:
         run: |
           mkdir -p validation
           set +e
-          {
+          (
+            set -euo pipefail
             echo "Commit: $GITHUB_SHA"
             echo "Started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo
@@ -149,7 +150,7 @@ jobs:
             test -f wrangler.jsonc
             test -f .assetsignore
             test -f .github/workflows/deploy-cloudflare.yml
-          } > validation/log.txt 2>&1
+          ) > validation/log.txt 2>&1
           STATUS=$?
           STATUS=$STATUS node - <<'NODE'
           const fs = require('fs');
