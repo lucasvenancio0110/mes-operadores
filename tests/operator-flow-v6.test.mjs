@@ -33,8 +33,8 @@ assert(assistant.includes("operatorCardState({ physicalStatus,opStatus,workflowS
 assert(assistant.includes('Confira novamente antes de continuar'),'Reconferência após apontamento não está visível.');
 assert(assistant.includes('release.turnPiece'),'Liberações após reconferência não usam a produção acumulada no turno.');
 
-assert(index.includes('app/auth-shell.js?v=6.0.0'));
+assert(index.includes('app/auth-shell.js?v=6.1.0'));
 assert(index.includes('app/turn-assistant.js?v=6.0.1'));
-assert(serviceWorker.includes('neomes-v6.0.1-pointing-submit'));
+assert(serviceWorker.includes('neomes-v6.1.0-factory-card-map'));
 
 console.log('NEOMES v6 operador: login, multisseleção, apontamento e continuidade validados.');

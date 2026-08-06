@@ -5,7 +5,7 @@ const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const [
   html, manifestText, wranglerText, serviceWorker, deployWorkflow, smokeDeployment,
   authWorker, secureMain, authShell, adminUi, authCss, adminCss,
-  worker, operatorMain, core, turnAssistant, turnAssistantEngine, preparerDashboard, preparerEngine, preparerCss, planningRuntime, measurementEngine,
+  worker, operatorMain, core, turnAssistant, turnAssistantEngine, preparerDashboard, preparerEngine, preparerMap, preparerCss, planningRuntime, measurementEngine,
   measurementFrequencyParser, measurementFrequencyFix, shiftPerformance,
   shiftTimeEngine, shiftTimeFix, exportsModule, settingsWorker,
   officialLogo, officialSymbol, offline
@@ -15,7 +15,7 @@ const [
   read('worker/auth.js'), read('worker/secure-main.js'),
   read('app/auth-shell.js'), read('app/admin-ui.js'), read('app/auth.css'), read('app/admin.css'),
   read('worker/main.js'), read('app/operator-main.js'), read('app/core.js'),
-  read('app/turn-assistant.js'), read('app/turn-assistant-engine.js'), read('app/preparer-dashboard.js'), read('app/preparer-dashboard-engine.js'), read('app/preparer-dashboard.css'), read('app/production-planning.js'), read('app/measurement-engine.js'),
+  read('app/turn-assistant.js'), read('app/turn-assistant-engine.js'), read('app/preparer-dashboard.js'), read('app/preparer-dashboard-engine.js'), read('app/preparer-map-layout.js'), read('app/preparer-dashboard.css'), read('app/production-planning.js'), read('app/measurement-engine.js'),
   read('app/measurement-frequency-parser.js'), read('app/measurement-frequency-fix.js'),
   read('app/shift-performance.js'), read('app/shift-time-engine.js'), read('app/shift-time-fix.js'),
   read('app/exports.js'), read('worker/settings.js'), read('assets/brand/neomes-logo-horizontal.svg'),
@@ -29,16 +29,16 @@ const wrangler = JSON.parse(wranglerText);
 assert(!html.includes('maximum-scale=1'), 'O zoom do navegador não pode ser bloqueado.');
 assert(html.includes('viewport-fit=cover'), 'O layout deve respeitar safe areas.');
 assert(html.includes('<title>NEOMES — Gestão Operacional</title>'), 'Título oficial NEOMES ausente.');
-assert(html.includes('app/auth-shell.js?v=6.0.0'), 'Entrada segura 6.0.0 não foi publicada.');
+assert(html.includes('app/auth-shell.js?v=6.1.0'), 'Entrada segura 6.1.0 não foi publicada.');
 assert(html.includes('app/turn-assistant.js?v=6.0.1'), 'Hotfix do apontamento 6.0.1 não foi publicado.');
 assert(html.includes('app/auth.css?v=6.0.0') && html.includes('app/admin.css?v=4.0.0'), 'Estilos de autenticação ou administração ausentes.');
 assert(!html.includes('NEODENT MES'), 'Identidade antiga permanece no ponto de entrada.');
 assert.equal(manifest.name, 'NEOMES');
 assert.equal(manifest.short_name, 'NEOMES');
 assert.equal(manifest.display, 'standalone');
-assert(manifest.start_url.includes('v=6.0.1'), 'Manifesto não aponta para o hotfix operacional 6.0.1.');
-assert(serviceWorker.includes('neomes-v6.0.1-pointing-submit'), 'Cache PWA do apontamento 6.0.1 não foi ativado.');
-for (const asset of ['./app/auth-shell.js','./app/auth.css','./app/admin-ui.js','./app/admin.css','./app/operator-main.js','./app/shift-performance.js','./app/preparer-dashboard.css','./app/preparer-dashboard.js','./app/preparer-dashboard-engine.js']) {
+assert(manifest.start_url.includes('v=6.1.0'), 'Manifesto não aponta para o mapa operacional 6.1.0.');
+assert(serviceWorker.includes('neomes-v6.1.0-factory-card-map'), 'Cache PWA do mapa operacional 6.1.0 não foi ativado.');
+for (const asset of ['./app/auth-shell.js','./app/auth.css','./app/admin-ui.js','./app/admin.css','./app/operator-main.js','./app/shift-performance.js','./app/preparer-dashboard.css','./app/preparer-dashboard.js','./app/preparer-dashboard-engine.js','./app/preparer-map-layout.js']) {
   assert(serviceWorker.includes(asset), `Service Worker não inclui ${asset}.`);
 }
 assert(officialLogo.includes('#AF249D') && officialSymbol.includes('#AF249D'), 'Marca oficial NEOMES foi alterada.');
@@ -81,7 +81,7 @@ assert(secureMain.includes('recordBelongsToUser') && secureMain.includes('canAcc
 assert(authShell.includes('/api/v1/auth/login') && authShell.includes('/api/v1/auth/me'), 'Cliente não valida a sessão no servidor.');
 assert(authShell.includes('JSON.stringify({ registration,password })') && authShell.includes('operationalContext'), 'Login não usa matrícula, senha e turno automático.');
 assert(!authShell.includes('id="secureShift"'), 'Login ainda permite escolher o turno manualmente.');
-assert(authShell.includes("user.roleCode === 'preparator'") && authShell.includes("import('./preparer-dashboard.js')"), 'Preparador não é roteado ao cockpit próprio.');
+assert(authShell.includes("['preparator','leadership'].includes(user.roleCode)") && authShell.includes("import('./preparer-dashboard.js')"), 'Preparador e liderança não são roteados ao cockpit próprio.');
 assert(authShell.includes('current-password') && authShell.includes('new-password'), 'Autocompletes seguros de senha ausentes.');
 assert(authShell.includes('offlineUntil') && authShell.includes("!navigator.onLine"), 'Credencial offline limitada ausente.');
 assert(!/localStorage\.setItem\([^\n]*password/i.test(authShell), 'Senha não pode ser gravada no localStorage.');
@@ -103,9 +103,13 @@ assert(turnAssistant.includes('A quantidade digitada será salva normalmente.'),
 assert(turnAssistantEngine.includes('calculatePointingAccounting') && turnAssistantEngine.includes('advisory:overrunMinutes > 0'), 'Cálculo consultivo do apontamento ausente.');
 assert(preparerDashboard.includes('/api/v1/turn-assistant/line-dashboard') && preparerDashboard.includes('REFRESH_INTERVAL_MS = 15000'), 'Cockpit ao vivo do preparador ausente.');
 assert(preparerDashboard.includes('Operador responsável') && preparerDashboard.includes('Liberações do turno'), 'Cockpit não mostra operador ou liberações.');
+assert(preparerDashboard.includes('Mapa de cards') && preparerDashboard.includes('VISÃO ESPACIAL EM CARDS') && preparerDashboard.includes('prepDetailLayer'), 'Mapa navegável ou detalhe da máquina ausente.');
 assert(!/fetch\([^\n]+method:\s*['\"](?:POST|PUT|PATCH|DELETE)/.test(preparerDashboard), 'Cockpit do preparador deve ser somente leitura.');
-assert(preparerEngine.includes('calculatePreparerMetrics') && preparerEngine.includes('closureCopy'), 'Cálculos do cockpit ausentes.');
+assert(preparerEngine.includes('calculatePreparerMetrics') && preparerEngine.includes('closureCopy') && preparerEngine.includes('closureUrgency'), 'Cálculos ou alertas do cockpit ausentes.');
+assert(preparerMap.includes('FACTORY_MAP_ZONES') && preparerMap.includes('WORKCENTER_GROUPS') && preparerMap.includes('tnl(144)') && preparerMap.includes('tnl(145)'), 'Mapa físico, work center ou posições provisórias ausentes.');
 assert(preparerCss.includes('@media(max-width:760px)') && preparerCss.includes('repeat(3,minmax(0,1fr))'), 'Cockpit não é responsivo para celular e desktop.');
+assert(preparerCss.includes('grid-auto-rows:220px') && preparerCss.includes('height:220px'), 'Cards do mapa não têm tamanho horizontal uniforme.');
+assert(html.includes('app/preparer-dashboard.css?v=6.1.0'), 'CSS do mapa 6.1.0 não foi publicado.');
 assert(operatorMain.includes('Última situação informada'), 'A situação deve continuar identificada como informação manual.');
 assert(core.includes('syncQueue') && core.includes('mes-operadores:v2'), 'Fila offline ou migração anterior foi removida.');
 
@@ -123,4 +127,4 @@ for (const feature of ['exportPdf','exportImage','shareSummary']) assert(exports
 assert(settingsWorker.includes('CREATE TABLE IF NOT EXISTS app_settings'), 'Ajustes globais ausentes.');
 for (const route of ['/api/v1/machine-states','/api/v1/events','/api/v1/records','/api/v1/assignments','/api/v1/settings']) assert(worker.includes(route), `Rota operacional ausente: ${route}`);
 
-console.log('NEOMES 6.0.1: autenticação segura, turno automático e apontamento móvel validados.');
+console.log('NEOMES 6.1.0: autenticação segura, apontamento móvel e mapa operacional validados.');

@@ -128,7 +128,7 @@ async function loadOperationalApp(user, offline = false) {
   currentAuth = { user, offline };
   window.NEOMES_AUTH = currentAuth;
   await setOperationalSession(user,offline);
-  if (user.roleCode === 'preparator') {
+  if (['preparator','leadership'].includes(user.roleCode)) {
     await import('./preparer-dashboard.js');
     return;
   }
