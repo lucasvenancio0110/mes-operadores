@@ -1,4 +1,4 @@
-export const CAMERA_LIMITS = Object.freeze({ minScale:0.24,maxScale:1.65,overscroll:72 });
+export const CAMERA_LIMITS = Object.freeze({ minScale:0.12,maxScale:1.65,overscroll:72 });
 
 const finite = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 
