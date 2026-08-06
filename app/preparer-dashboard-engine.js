@@ -59,3 +59,21 @@ export function closureCopy(machine = {}) {
     secondary:forecast.materialEstimatedAt ? 'A matéria-prima consegue produzir até este horário.' : ''
   };
 }
+
+export function closureUrgency(machine = {}, now = new Date()) {
+  const estimatedAt=machine.forecast?.estimatedAt;
+  const estimatedDate=new Date(estimatedAt || '');
+  const referenceDate=now instanceof Date ? now : new Date(now);
+  if (!estimatedAt || Number.isNaN(estimatedDate.getTime()) || Number.isNaN(referenceDate.getTime())) {
+    return { code:'none',tone:'neutral',remainingMinutes:null,estimatedAt:null,label:'Sem previsão' };
+  }
+  const remainingMilliseconds=Math.max(0,estimatedDate-referenceDate);
+  const remainingMinutes=Math.floor(remainingMilliseconds/60000);
+  if (remainingMilliseconds < 8*60*60*1000) {
+    return { code:'critical',tone:'critical',remainingMinutes,estimatedAt,label:'Fecha em menos de 8h' };
+  }
+  if (remainingMilliseconds <= 16*60*60*1000) {
+    return { code:'attention',tone:'attention',remainingMinutes,estimatedAt,label:'Fecha em até 16h' };
+  }
+  return { code:'stable',tone:'stable',remainingMinutes,estimatedAt,label:'Acima de 16h' };
+}

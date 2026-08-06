@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v6.0.1-pointing-submit';
+const VERSION = 'neomes-v6.1.0-factory-card-map';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -58,6 +58,7 @@ const APP_SHELL = [
   './app/turn-assistant-submit.js',
   './app/turn-assistant-autostart.js',
   './app/preparer-dashboard-engine.js',
+  './app/preparer-map-layout.js',
   './app/preparer-dashboard.js'
 ].map(asset);
 

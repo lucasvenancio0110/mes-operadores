@@ -42,7 +42,7 @@ assert(index.includes('turn-assistant.js?v=6.0.1'),'Hotfix 6.0.1 do apontamento 
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
 assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
 assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
-assert(serviceWorker.includes('neomes-v6.0.1-pointing-submit'),'Cache móvel não foi renovado para o hotfix do apontamento.');
+assert(serviceWorker.includes('neomes-v6.1.0-factory-card-map'),'Cache móvel não foi renovado para o mapa sem perder o hotfix do apontamento.');
 assert(workerAssistant.includes("rolloverMinutes===1375"),'O Worker não valida períodos que atravessam a madrugada.');
 assert(workerAssistant.includes('const endedAt=now;'),'O Worker não fecha o apontamento no instante real do registro.');
 assert(workerAssistant.includes("T${clock}:00-03:00"),'Os turnos do Worker não usam o horário de Curitiba.');

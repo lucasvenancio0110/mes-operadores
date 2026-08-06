@@ -50,6 +50,7 @@ jobs:
             node --check app/auth-shell.js
             node --check app/desktop-workspace.js
             node --check app/preparer-dashboard-engine.js
+            node --check app/preparer-map-layout.js
             node --check app/preparer-dashboard.js
             node --check app/cloud-state.js
             node --check app/exports.js
@@ -139,6 +140,7 @@ jobs:
             test -f app/turn-assistant.js
             test -f app/preparer-dashboard.css
             test -f app/preparer-dashboard-engine.js
+            test -f app/preparer-map-layout.js
             test -f app/preparer-dashboard.js
             test -f tests/password-migration.test.mjs
             test -f tests/shift-time.test.mjs
@@ -204,6 +206,8 @@ jobs:
               'preparator-v6-authorized-lines',
               'preparator-v6-live-readonly-cockpit',
               'preparator-v6-closure-and-releases',
+              'preparator-v6-factory-card-map',
+              'preparator-v6-closure-urgency',
               'ci-v6-validate-before-deploy',
               'ci-v6-same-commit-deploy'
             ]

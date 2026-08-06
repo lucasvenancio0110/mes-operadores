@@ -79,6 +79,7 @@ jobs:
           node --check app/admin-user-create.js
           node --check app/desktop-workspace.js
           node --check app/preparer-dashboard-engine.js
+          node --check app/preparer-map-layout.js
           node --check app/preparer-dashboard.js
           node --check app/turn-assistant-engine.js
           node --check app/turn-assistant.js
@@ -97,6 +98,7 @@ jobs:
           test -f app/turn-assistant-submit.js
           test -f app/preparer-dashboard.css
           test -f app/preparer-dashboard-engine.js
+          test -f app/preparer-map-layout.js
           test -f app/preparer-dashboard.js
           test -f tests/workflow-gate-v6.test.mjs
           test -f .assetsignore
