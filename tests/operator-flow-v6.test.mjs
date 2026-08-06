@@ -34,7 +34,7 @@ assert(assistant.includes('Confira novamente antes de continuar'),'Reconferênci
 assert(assistant.includes('release.turnPiece'),'Liberações após reconferência não usam a produção acumulada no turno.');
 
 assert(index.includes('app/auth-shell.js?v=6.0.0'));
-assert(index.includes('app/turn-assistant.js?v=6.0.0'));
-assert(serviceWorker.includes('neomes-v6.0.0-preparer-cockpit'));
+assert(index.includes('app/turn-assistant.js?v=6.0.1'));
+assert(serviceWorker.includes('neomes-v6.0.1-pointing-submit'));
 
 console.log('NEOMES v6 operador: login, multisseleção, apontamento e continuidade validados.');
