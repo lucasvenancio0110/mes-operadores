@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v6.0.0-preparer-cockpit';
+const VERSION = 'neomes-v6.0.1-pointing-submit';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
