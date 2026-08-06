@@ -2,13 +2,10 @@ name: Deploy NEOMES to Cloudflare
 
 on:
   workflow_dispatch:
-  push:
+  workflow_run:
+    workflows: ['Validate MES']
+    types: [completed]
     branches: [main]
-    paths-ignore:
-      - 'validation/**'
-      - 'deployment/**'
-      - 'README.md'
-      - '*.md'
 
 permissions:
   contents: write
@@ -19,15 +16,29 @@ concurrency:
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     name: Publicar aplicação e API
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      VALIDATION_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || 'manual' }}
+      VALIDATION_CONCLUSION: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion || 'manual' }}
 
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ env.SOURCE_SHA }}
+
+      - name: Confirmar commit aprovado
+        run: |
+          set -euo pipefail
+          CHECKED_SHA="$(git rev-parse HEAD)"
+          test "$CHECKED_SHA" = "$SOURCE_SHA"
 
       - name: Preparar Node.js
         uses: actions/setup-node@v4
@@ -78,6 +89,7 @@ jobs:
           node --check tests/turn-assistant-worker-v6.test.mjs
           node --check tests/operator-flow-v6.test.mjs
           node --check tests/preparer-dashboard-v6.test.mjs
+          node --check tests/workflow-gate-v6.test.mjs
           node --check sw.js
           test -f app/desktop-workspace.css
           test -f app/desktop-workspace-fix.css
@@ -86,6 +98,7 @@ jobs:
           test -f app/preparer-dashboard.css
           test -f app/preparer-dashboard-engine.js
           test -f app/preparer-dashboard.js
+          test -f tests/workflow-gate-v6.test.mjs
           test -f .assetsignore
           node --check app/measurement-engine.js
           node --check app/measurement-frequency-parser.js
@@ -104,6 +117,7 @@ jobs:
           node tests/turn-assistant-worker-v6.test.mjs
           node tests/operator-flow-v6.test.mjs
           node tests/preparer-dashboard-v6.test.mjs
+          node tests/workflow-gate-v6.test.mjs
 
       - name: Verificar Cloudflare e D1
         id: preflight
@@ -200,7 +214,9 @@ jobs:
           const version=index.match(/turn-assistant\.js\?v=([^"']+)/)?.[1] || 'unknown';
           const record={
             status:'success',
-            commit:process.env.GITHUB_SHA,
+            commit:process.env.SOURCE_SHA,
+            validationWorkflowRun:process.env.VALIDATION_RUN_ID,
+            validationConclusion:process.env.VALIDATION_CONCLUSION,
             workflowRun:process.env.GITHUB_RUN_ID,
             deployedAt:new Date().toISOString(),
             applicationUrl:process.env.DEPLOYMENT_URL,
@@ -253,7 +269,9 @@ jobs:
           const failureStage=Object.entries(steps).find(([,value])=>value==='failure')?.[0] || 'unknown';
           const record={
             status:'failure',
-            commit:process.env.GITHUB_SHA,
+            commit:process.env.SOURCE_SHA,
+            validationWorkflowRun:process.env.VALIDATION_RUN_ID,
+            validationConclusion:process.env.VALIDATION_CONCLUSION,
             workflowRun:process.env.GITHUB_RUN_ID,
             failedAt:new Date().toISOString(),
             failureStage,

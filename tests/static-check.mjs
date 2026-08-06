@@ -53,6 +53,8 @@ assert(deployWorkflow.includes('CLOUDFLARE_API_TOKEN') && deployWorkflow.include
 assert(deployWorkflow.includes('scripts/smoke-deployment.mjs'), 'Workflow não executa o smoke test publicado.');
 assert(deployWorkflow.includes('tests/password-migration.test.mjs'), 'Workflow não testa a migração de hashes legados.');
 assert(deployWorkflow.includes('tests/preparer-dashboard-v6.test.mjs'), 'Workflow não testa o cockpit do preparador.');
+assert(deployWorkflow.includes("workflows: ['Validate MES']") && deployWorkflow.includes("github.event.workflow_run.conclusion == 'success'"), 'Deploy não aguarda validação verde.');
+assert(deployWorkflow.includes('github.event.workflow_run.head_sha') && deployWorkflow.includes('commit:process.env.SOURCE_SHA'), 'Deploy não fixa o mesmo commit aprovado.');
 assert(smokeDeployment.includes("waitForJson('/health'") && smokeDeployment.includes('payload.database'), 'Deploy não valida Worker e D1.');
 assert(smokeDeployment.includes('/api/v1/auth/turn-assistant-health') && smokeDeployment.includes('minuteLedger') && smokeDeployment.includes('stateAxes'), 'Deploy não valida o assistente de turno v6.');
 assert(smokeDeployment.includes('/app/preparer-dashboard.js') && smokeDeployment.includes('Cockpit do preparador'), 'Deploy não valida o cockpit publicado.');
