@@ -1,3 +1,5 @@
+import { detectOperationalContext } from '../app/turn-assistant-engine.js';
+
 const COOKIE_NAME = 'neomes_session';
 const SESSION_TTL_SECONDS = 12 * 60 * 60;
 const PASSWORD_ITERATIONS = 10000;
@@ -302,6 +304,7 @@ async function publicUser(env, user) {
     id:user.id, name:user.name, registration:user.registration, roleCode:user.roleCode,
     defaultShift:user.defaultShift, email:user.email, status:user.status,
     mustChangePassword:user.mustChangePassword, lastLoginAt:user.lastLoginAt,
+    operationalContext:detectOperationalContext(),
     permissions:await permissionCodes(env, user.roleCode), ...access
   };
 }
@@ -441,7 +444,6 @@ async function routeAuth(request, env, url) {
     const body = await request.json().catch(() => null);
     const registration = normalize(body?.registration);
     const password = String(body?.password || '');
-    const shift = normalize(body?.shift);
     const attempts = await attemptState(env, registration, requestIp(request));
     if (attempts.lockedUntil && new Date(attempts.lockedUntil) > new Date()) return json({ error:'Muitas tentativas. Aguarde alguns minutos.', code:'LOGIN_LOCKED' }, 429);
     const user = registration ? await getUserByRegistration(env,registration) : null;
@@ -454,8 +456,7 @@ async function routeAuth(request, env, url) {
     if (user.status === 'blocked') return json({ error:'Conta bloqueada. Procure o administrador.', code:'ACCOUNT_BLOCKED' }, 403);
     if (user.status !== 'active') return json({ error:'Conta inativa ou pendente. Procure o administrador.', code:'ACCOUNT_INACTIVE' }, 403);
     await clearAttempts(env,attempts,user);
-    if (shift && ['1','2','3'].includes(shift)) user.defaultShift = shift;
-    await env.DB.prepare('UPDATE users SET default_shift=?,last_login_at=?,updated_at=? WHERE id=?').bind(user.defaultShift,nowIso(),nowIso(),user.id).run();
+    await env.DB.prepare('UPDATE users SET last_login_at=?,updated_at=? WHERE id=?').bind(nowIso(),nowIso(),user.id).run();
     const session = await createSession(env,request,user);
     await writeAudit(env,request,user,'auth.login','session',session.id,'Login realizado.');
     const refreshed = await getUserById(env,user.id);

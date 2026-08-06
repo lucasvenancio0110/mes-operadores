@@ -1,11 +1,113 @@
 export const DEFAULT_SHIFT_MINUTES = 480;
 export const DEFAULT_BAR_LENGTH_MM = 3600;
 export const DEFAULT_KERF_MM = 1;
+export const FACTORY_TIME_ZONE = 'America/Sao_Paulo';
+export const MACHINE_PHYSICAL_STATUSES = Object.freeze(['producing','stopped','setup','maintenance']);
+export const ORDER_STATUSES = Object.freeze(['none','active','closed']);
+export const OPERATOR_WORKFLOW_STATUSES = Object.freeze(['conference_pending','ready','shift_closed']);
 
 const finite = value => Number.isFinite(Number(value));
 const nonNegative = value => finite(value) ? Math.max(0, Number(value)) : NaN;
 const positive = value => finite(value) && Number(value) > 0 ? Number(value) : NaN;
 const integer = value => finite(value) ? Math.max(0, Math.floor(Number(value))) : NaN;
+
+function dateKeyWithOffset(dateKey, days = 0) {
+  const [year,month,day] = String(dateKey).split('-').map(Number);
+  const date = new Date(Date.UTC(year,month - 1,day + days));
+  return date.toISOString().slice(0,10);
+}
+
+function zonedDateParts(reference = new Date(), timeZone = FACTORY_TIME_ZONE) {
+  const date = reference instanceof Date ? reference : new Date(reference);
+  if (Number.isNaN(date.getTime())) return null;
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(date).filter(part => part.type !== 'literal').map(part => [part.type,part.value]));
+  return {
+    dateKey:`${parts.year}-${parts.month}-${parts.day}`,
+    hour:Number(parts.hour),
+    minute:Number(parts.minute)
+  };
+}
+
+export function detectOperationalContext(reference = new Date(), timeZone = FACTORY_TIME_ZONE) {
+  const parts = zonedDateParts(reference,timeZone);
+  if (!parts) return { shift:'1',productionDate:'',shiftMinutes:DEFAULT_SHIFT_MINUTES,timeZone };
+  const minuteOfDay = parts.hour * 60 + parts.minute;
+  if (minuteOfDay >= 390 && minuteOfDay < 870) {
+    return { shift:'1',productionDate:parts.dateKey,shiftMinutes:DEFAULT_SHIFT_MINUTES,timeZone };
+  }
+  if (minuteOfDay >= 870 && minuteOfDay < 1350) {
+    return { shift:'2',productionDate:parts.dateKey,shiftMinutes:DEFAULT_SHIFT_MINUTES,timeZone };
+  }
+  return {
+    shift:'3',
+    productionDate:minuteOfDay < 390 ? dateKeyWithOffset(parts.dateKey,-1) : parts.dateKey,
+    shiftMinutes:DEFAULT_SHIFT_MINUTES,
+    timeZone
+  };
+}
+
+export function createTurnClock(input = {}) {
+  const totalMinutes = positive(input.totalMinutes) || DEFAULT_SHIFT_MINUTES;
+  const usedMinutes = Number.isFinite(nonNegative(input.usedMinutes)) ? nonNegative(input.usedMinutes) : 0;
+  return {
+    totalMinutes,
+    usedMinutes,
+    remainingMinutes:Math.max(0,totalMinutes - usedMinutes),
+    overrunMinutes:Math.max(0,usedMinutes - totalMinutes)
+  };
+}
+
+export function calculatePointingAccounting(input = {}) {
+  const goodPieces = integer(input.goodPieces);
+  const rejects = integer(input.rejects);
+  const cycleSeconds = positive(input.cycleSeconds);
+  const stopMinutes = Number.isFinite(nonNegative(input.stopMinutes)) ? nonNegative(input.stopMinutes) : 0;
+  const clock = createTurnClock({ totalMinutes:input.totalMinutes,usedMinutes:input.usedMinutes });
+  const missing = [];
+  if (!Number.isFinite(goodPieces)) missing.push('peças boas');
+  if (!Number.isFinite(rejects)) missing.push('refugos');
+  if (!Number.isFinite(cycleSeconds)) missing.push('tempo de ciclo');
+  if (missing.length) return { accepted:false,status:'missing',missing,...clock };
+
+  const totalCycles = goodPieces + rejects;
+  const productiveMinutes = totalCycles * cycleSeconds / 60;
+  const accountedMinutes = productiveMinutes + stopMinutes;
+  const usedAfter = clock.usedMinutes + accountedMinutes;
+  const remainingAfter = Math.max(0,clock.totalMinutes - usedAfter);
+  const overrunMinutes = Math.max(0,usedAfter - clock.totalMinutes);
+  return {
+    accepted:true,
+    advisory:overrunMinutes > 0,
+    status:overrunMinutes > 0 ? 'advisory' : 'ready',
+    missing:[],goodPieces,rejects,totalCycles,cycleSeconds,productiveMinutes,stopMinutes,accountedMinutes,
+    totalMinutes:clock.totalMinutes,usedBefore:clock.usedMinutes,usedAfter,remainingBefore:clock.remainingMinutes,
+    remainingAfter,overrunMinutes,rejectMinutes:rejects * cycleSeconds / 60
+  };
+}
+
+export function nextFlowAxes(input = {}) {
+  const closeOrder = Boolean(input.closeOrder);
+  const finalShift = Boolean(input.finalShift);
+  return {
+    physicalStatus:MACHINE_PHYSICAL_STATUSES.includes(input.physicalStatus) ? input.physicalStatus : 'producing',
+    opStatus:closeOrder ? 'closed' : 'active',
+    workflowStatus:finalShift ? 'shift_closed' : 'conference_pending'
+  };
+}
+
+export function operatorCardState(input = {}) {
+  const physicalStatus = MACHINE_PHYSICAL_STATUSES.includes(input.physicalStatus) ? input.physicalStatus : 'producing';
+  const opStatus = ORDER_STATUSES.includes(input.opStatus) ? input.opStatus : 'none';
+  const workflowStatus = OPERATOR_WORKFLOW_STATUSES.includes(input.workflowStatus) ? input.workflowStatus : 'conference_pending';
+  if (physicalStatus === 'stopped' && opStatus !== 'active') return 'stopped';
+  if (opStatus !== 'active') return 'no-order';
+  if (workflowStatus === 'shift_closed') return 'shift-closed';
+  if (workflowStatus === 'conference_pending') return 'conference-pending';
+  return 'ready';
+}
 
 export function shiftWindow(shift, productionDate = '', reference = new Date()) {
   const base = productionDate

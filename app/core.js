@@ -1,4 +1,5 @@
 import { FALLBACK_CATALOG } from './catalog.js';
+import { detectOperationalContext as detectFactoryOperationalContext } from './turn-assistant-engine.js';
 
 export const APP_VERSION = '3.0.0';
 export const STORAGE_KEY = 'neodent-mes:v3';
@@ -72,10 +73,11 @@ export function formatCycle(seconds) {
 }
 
 export function detectShift(date = new Date()) {
-  const minutes = date.getHours() * 60 + date.getMinutes();
-  if (minutes >= 390 && minutes < 870) return '1';
-  if (minutes >= 870 && minutes < 1350) return '2';
-  return '3';
+  return detectFactoryOperationalContext(date).shift;
+}
+
+export function detectOperationalContext(date = new Date()) {
+  return detectFactoryOperationalContext(date);
 }
 
 export function shiftWindow(shift, now = new Date()) {
@@ -140,13 +142,15 @@ function migrateLegacy() {
     if (!raw) return next;
     const legacy = JSON.parse(raw);
     const legacyUser = legacy.sessionUser;
+    const operationalContext = detectOperationalContext();
     if (legacyUser?.name && legacyUser?.registration) {
       next.session = {
         id: legacyUser.id || `operator-${legacyUser.registration}`,
         name: legacyUser.name,
         registration: String(legacyUser.registration),
-        shift: String(legacy.activeSessionShift || legacyUser.currentShift || legacyUser.defaultShift || legacy.shift || detectShift()),
-        productionDate: localDateKey(),
+        shift: String(operationalContext.shift),
+        productionDate: operationalContext.productionDate,
+        operationalContext,
         startedAt: new Date().toISOString()
       };
     } else if (legacy.operatorName) {
@@ -154,15 +158,16 @@ function migrateLegacy() {
         id: `operator-${legacy.operatorRegistration || 'local'}`,
         name: legacy.operatorName,
         registration: String(legacy.operatorRegistration || ''),
-        shift: String(legacy.shift || detectShift()),
-        productionDate: localDateKey(),
+        shift: String(operationalContext.shift),
+        productionDate: operationalContext.productionDate,
+        operationalContext,
         startedAt: new Date().toISOString()
       };
     }
     next.catalog = normalizeCatalog(legacy.catalog);
     next.records = Array.isArray(legacy.records) ? legacy.records : [];
     if (next.session) {
-      const assignmentKey = `${localDateKey()}|${next.session.shift}|${next.session.registration}`;
+      const assignmentKey = `${next.session.productionDate}|${next.session.shift}|${next.session.registration}`;
       const daily = legacy.dailyMachineAssignments?.[assignmentKey] || [];
       next.assignments = daily.map((item, index) => ({ id:item.id || `assignment-${index}`, slotOrder:index + 1, lineId:item.lineId, machineId:item.machineId }));
       if (!next.assignments.length && legacy.slots) {
@@ -315,14 +320,18 @@ export async function loadCloudRecords() {
   store.update(state => { state.records = [...map.values()].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)); }, 'records');
 }
 
-export async function loginOperator({ name, registration, shift }) {
-  let operator = { id:`operator-${registration}`, name, registration, defaultShift:String(shift) };
+export async function loginOperator({ name, registration }) {
+  const operationalContext=detectOperationalContext();
+  let operator = { id:`operator-${registration}`, name, registration, defaultShift:operationalContext.shift };
   if (API_BASE) {
-    try { operator = (await api.post('/api/v1/session/login', { name, registration, shift }, false)).operator || operator; }
+    try { operator = (await api.post('/api/v1/session/login', { name, registration, shift:operationalContext.shift }, false)).operator || operator; }
     catch (error) { console.warn('Login salvo apenas localmente:', error); }
   }
   store.update(state => {
-    state.session = { ...operator, shift:String(shift), productionDate:localDateKey(), startedAt:new Date().toISOString() };
+    state.session = {
+      ...operator,shift:operationalContext.shift,productionDate:operationalContext.productionDate,
+      operationalContext,startedAt:new Date().toISOString()
+    };
     state.assignments = [];
     state.activeMachineId = '';
   }, 'login');
@@ -335,7 +344,7 @@ export async function loadAssignments() {
   if (!session) return [];
   if (API_BASE) {
     try {
-      const params = new URLSearchParams({ productionDate:localDateKey(), shift:String(session.shift), registration:String(session.registration) });
+      const params = new URLSearchParams({ productionDate:String(session.productionDate), shift:String(session.shift), registration:String(session.registration) });
       const payload = await api.get(`/api/v1/assignments?${params}`);
       if (payload.assignments?.length) store.update(state => { state.assignments = payload.assignments; state.activeMachineId ||= payload.assignments[0].machineId; }, 'assignments');
     } catch (error) { console.warn('Máquinas carregadas localmente:', error); }
@@ -349,7 +358,7 @@ export async function saveAssignments(assignments) {
   if (!session || !API_BASE) return assignments;
   try {
     await api.post('/api/v1/assignments', {
-      productionDate:localDateKey(), shift:String(session.shift), registration:String(session.registration), operatorName:session.name,
+      productionDate:String(session.productionDate), shift:String(session.shift), registration:String(session.registration), operatorName:session.name,
       assignments:assignments.map(({lineId,machineId}) => ({lineId,machineId}))
     });
   } catch (error) { console.warn('Seleção pendente de sincronização:', error); }

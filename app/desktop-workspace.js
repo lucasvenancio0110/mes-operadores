@@ -21,7 +21,7 @@ function desktopUserCard() {
   const user = window.NEOMES_AUTH?.user || {};
   const name = user.name || document.querySelector('.ops-session strong')?.textContent?.trim() || 'Usuário';
   const registration = user.registration || '';
-  const shift = user.defaultShift || document.querySelector('.ops-shift')?.textContent?.replace(/\D/g,'') || '—';
+  const shift = user.operationalContext?.shift || document.querySelector('.ops-shift')?.textContent?.replace(/\D/g,'') || '—';
   const machineText = document.querySelector('.ops-session button')?.textContent?.trim() || '0 máquinas';
 
   return `<section class="ops-desktop-user" aria-label="Sessão atual">

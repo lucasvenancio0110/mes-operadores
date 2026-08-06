@@ -1,4 +1,9 @@
 import { ensureAuthTables, authenticateRequest, canAccessMachine } from './auth.js';
+import {
+  calculatePointingAccounting,
+  createTurnClock,
+  detectOperationalContext
+} from '../app/turn-assistant-engine.js';
 
 const DEFAULT_SHIFT_MINUTES = 480;
 const DEFAULT_BAR_LENGTH_MM = 3600;
@@ -162,10 +167,53 @@ async function initialize(env) {
       user_agent TEXT,
       created_at TEXT NOT NULL
     )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS machine_turn_states (
+      production_date TEXT NOT NULL,
+      shift TEXT NOT NULL,
+      machine_id TEXT NOT NULL,
+      line_id TEXT NOT NULL DEFAULT '',
+      operator_registration TEXT NOT NULL DEFAULT '',
+      operator_name TEXT NOT NULL DEFAULT '',
+      workflow_status TEXT NOT NULL DEFAULT 'conference_pending',
+      accounted_minutes REAL NOT NULL DEFAULT 0,
+      good_pieces INTEGER NOT NULL DEFAULT 0,
+      rejects INTEGER NOT NULL DEFAULT 0,
+      stop_minutes REAL NOT NULL DEFAULT 0,
+      last_conference_at TEXT,
+      last_pointing_at TEXT,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (production_date,shift,machine_id)
+    )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS machine_runtime_states (
+      machine_id TEXT PRIMARY KEY,
+      line_id TEXT NOT NULL DEFAULT '',
+      physical_status TEXT NOT NULL DEFAULT 'producing',
+      reason TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      updated_by_registration TEXT NOT NULL DEFAULT '',
+      updated_by_name TEXT NOT NULL DEFAULT ''
+    )`),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_turn_handoff_machine ON machine_turn_handoffs (machine_id,confirmed_at DESC)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_turn_segments_machine_shift ON machine_turn_segments (machine_id,production_date,shift,started_at)'),
     env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_turn_segments_open ON machine_turn_segments (machine_id,status,production_date,shift)'),
-    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_turn_events_machine ON turn_assistant_events (machine_id,created_at DESC)')
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_turn_events_machine ON turn_assistant_events (machine_id,created_at DESC)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_turn_states_line_shift ON machine_turn_states (line_id,production_date,shift,updated_at DESC)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_runtime_states_line ON machine_runtime_states (line_id,physical_status,updated_at DESC)')
+  ]);
+  await env.DB.batch([
+    env.DB.prepare(`INSERT INTO machine_runtime_states (
+        machine_id,line_id,physical_status,reason,note,updated_at,updated_by_registration,updated_by_name
+      )
+      SELECT machine_id,line_id,'stopped','Estado migrado','',updated_at,
+        COALESCE(updated_by_registration,''),COALESCE(updated_by_name,'')
+      FROM machine_active_orders WHERE status='stopped'
+      ON CONFLICT(machine_id) DO UPDATE SET
+        physical_status='stopped',updated_at=excluded.updated_at,
+        updated_by_registration=excluded.updated_by_registration,updated_by_name=excluded.updated_by_name`),
+    env.DB.prepare(`UPDATE machine_active_orders
+      SET status=CASE WHEN closed_at IS NULL THEN 'active' ELSE 'closed' END
+      WHERE status='stopped'`)
   ]);
 }
 
@@ -216,18 +264,81 @@ async function segments(env, machineId, productionDate, shift) {
   return result.results || [];
 }
 
-function turnClock(rows) {
-  const used = rows.reduce((sum,row) => {
-    const value = number(row.availableMinutes);
-    if (value !== null) return sum + value;
-    if (row.endedAt) return sum + durationMinutes(row.startedAt,row.endedAt);
-    return sum;
-  },0);
+function mapTurnState(row) {
+  if (!row) return null;
   return {
-    totalMinutes:DEFAULT_SHIFT_MINUTES,
-    usedMinutes:used,
-    remainingMinutes:Math.max(0,DEFAULT_SHIFT_MINUTES - used),
-    overrunMinutes:Math.max(0,used - DEFAULT_SHIFT_MINUTES)
+    productionDate:row.productionDate,shift:String(row.shift),machineId:row.machineId,lineId:row.lineId,
+    operatorRegistration:row.operatorRegistration || '',operatorName:row.operatorName || '',
+    workflowStatus:row.workflowStatus || 'conference_pending',
+    accountedMinutes:Number(row.accountedMinutes || 0),goodPieces:Number(row.goodPieces || 0),
+    rejects:Number(row.rejects || 0),stopMinutes:Number(row.stopMinutes || 0),
+    lastConferenceAt:row.lastConferenceAt || null,lastPointingAt:row.lastPointingAt || null,
+    updatedAt:row.updatedAt || null
+  };
+}
+
+function mapRuntimeState(row, order = null) {
+  return {
+    machineId:row?.machineId || order?.machineId || '',
+    lineId:row?.lineId || order?.lineId || '',
+    physicalStatus:row?.physicalStatus || (order ? 'producing' : 'stopped'),
+    reason:row?.reason || '',note:row?.note || '',updatedAt:row?.updatedAt || order?.updatedAt || null
+  };
+}
+
+async function savedTurnState(env, machineId, productionDate, shift) {
+  const row=await env.DB.prepare(`SELECT
+      production_date AS productionDate,shift,machine_id AS machineId,line_id AS lineId,
+      operator_registration AS operatorRegistration,operator_name AS operatorName,
+      workflow_status AS workflowStatus,accounted_minutes AS accountedMinutes,
+      good_pieces AS goodPieces,rejects,stop_minutes AS stopMinutes,
+      last_conference_at AS lastConferenceAt,last_pointing_at AS lastPointingAt,updated_at AS updatedAt
+    FROM machine_turn_states WHERE machine_id=? AND production_date=? AND shift=? LIMIT 1`)
+    .bind(machineId,productionDate,shift).first();
+  return mapTurnState(row);
+}
+
+async function turnState(env, machineId, productionDate, shift, lineId = '') {
+  const saved=await savedTurnState(env,machineId,productionDate,shift);
+  if(saved)return saved;
+  const legacy=await env.DB.prepare(`SELECT
+      COALESCE(SUM(CASE WHEN status='closed' THEN COALESCE(available_minutes,0) ELSE 0 END),0) AS accountedMinutes,
+      COALESCE(SUM(CASE WHEN status='closed' THEN COALESCE(good_pieces,0) ELSE 0 END),0) AS goodPieces,
+      COALESCE(SUM(CASE WHEN status='closed' THEN COALESCE(rejects,0) ELSE 0 END),0) AS rejects,
+      COALESCE(SUM(CASE WHEN status='closed' THEN COALESCE(downtime_minutes,0) ELSE 0 END),0) AS stopMinutes,
+      MAX(ended_at) AS lastPointingAt
+    FROM machine_turn_segments WHERE machine_id=? AND production_date=? AND shift=?`)
+    .bind(machineId,productionDate,shift).first();
+  return {
+    productionDate,shift:String(shift),machineId,lineId,operatorRegistration:'',operatorName:'',
+    workflowStatus:legacy?.lastPointingAt?'conference_pending':'conference_pending',
+    accountedMinutes:Number(legacy?.accountedMinutes || 0),goodPieces:Number(legacy?.goodPieces || 0),
+    rejects:Number(legacy?.rejects || 0),stopMinutes:Number(legacy?.stopMinutes || 0),
+    lastConferenceAt:null,lastPointingAt:legacy?.lastPointingAt || null,updatedAt:null
+  };
+}
+
+async function runtimeState(env, machineId, order = null) {
+  const row=await env.DB.prepare(`SELECT machine_id AS machineId,line_id AS lineId,
+      physical_status AS physicalStatus,reason,note,updated_at AS updatedAt
+    FROM machine_runtime_states WHERE machine_id=? LIMIT 1`).bind(machineId).first();
+  return mapRuntimeState(row,order);
+}
+
+function turnClock(rows, state = null) {
+  const legacyUsed = rows.reduce((sum,row) => {
+    if(row.status!=='closed')return sum;
+    const value=number(row.availableMinutes);
+    return sum+(value === null ? 0 : value);
+  },0);
+  return createTurnClock({ totalMinutes:DEFAULT_SHIFT_MINUTES,usedMinutes:state ? state.accountedMinutes : legacyUsed });
+}
+
+function flowAxes(order, state, runtime) {
+  return {
+    physicalStatus:runtime.physicalStatus,
+    opStatus:order?.status==='active'?'active':order?.status==='closed'?'closed':'none',
+    workflowStatus:state?.workflowStatus || 'conference_pending'
   };
 }
 
@@ -235,8 +346,19 @@ async function requireAuth(request, env, machineId = '', lineId = '') {
   const auth = await authenticateRequest(request,env);
   if (!auth) return { response:json({ error:'Sua sessão expirou. Entre novamente.',code:'UNAUTHENTICATED' },401) };
   if (auth.user?.mustChangePassword) return { response:json({ error:'Troque sua senha antes de continuar.',code:'PASSWORD_CHANGE_REQUIRED' },403) };
-  if (machineId && !canAccessMachine(auth,lineId,machineId)) return { response:json({ error:'Máquina ou linha não autorizada.',code:'MACHINE_FORBIDDEN' },403) };
-  return { auth };
+  if (machineId) {
+    const machine=await env.DB.prepare('SELECT id,line_id AS lineId FROM machines WHERE id=? AND active=1 LIMIT 1').bind(machineId).first();
+    if(!machine)return { response:json({ error:'Máquina não encontrada ou inativa.',code:'MACHINE_NOT_FOUND' },404) };
+    if(lineId&&lineId!==machine.lineId)return { response:json({ error:'A linha informada não pertence a esta máquina.',code:'MACHINE_LINE_MISMATCH' },403) };
+    if(!canAccessMachine(auth,machine.lineId,machineId))return { response:json({ error:'Máquina ou linha não autorizada.',code:'MACHINE_FORBIDDEN' },403) };
+    return { auth,machine };
+  }
+  return { auth,machine:null };
+}
+
+function requireCapability(auth, permissions = []) {
+  if(auth?.user?.roleCode==='admin'||permissions.some(permission=>auth?.permissions?.includes(permission)))return null;
+  return json({ error:'Seu perfil não pode alterar este fluxo.',code:'FORBIDDEN' },403);
 }
 
 function validShiftPayload(body) {
@@ -255,29 +377,43 @@ async function writeEvent(env, request, auth, body, type, payload) {
 
 async function contextRoute(request, env, url) {
   const machineId = text(url.searchParams.get('machineId'));
-  const lineId = text(url.searchParams.get('lineId'));
+  const requestedLineId = text(url.searchParams.get('lineId'));
   const productionDate = text(url.searchParams.get('productionDate'));
   const shift = text(url.searchParams.get('shift'));
   if (!machineId || !productionDate || !['1','2','3'].includes(shift)) {
     return json({ error:'Máquina, data e turno são obrigatórios.',code:'INVALID_CONTEXT' },400);
   }
-  const access = await requireAuth(request,env,machineId,lineId); if (access.response) return access.response;
-  const [order,turnSegments,handoff] = await Promise.all([
+  const access = await requireAuth(request,env,machineId,requestedLineId); if (access.response) return access.response;
+  const denied=requireCapability(access.auth,['machines.view']);if(denied)return denied;
+  const lineId=access.machine.lineId;
+  const [order,turnSegments,handoff,state] = await Promise.all([
     activeOrder(env,machineId),
     segments(env,machineId,productionDate,shift),
     env.DB.prepare(`SELECT
       production_confirmed AS productionConfirmed,current_bar_pieces AS currentBarPieces,
       feeder_bars AS feederBars,confirmed_at AS confirmedAt,operator_name AS operatorName
-      FROM machine_turn_handoffs WHERE machine_id=? ORDER BY confirmed_at DESC LIMIT 1`).bind(machineId).first()
+      FROM machine_turn_handoffs WHERE machine_id=? ORDER BY confirmed_at DESC LIMIT 1`).bind(machineId).first(),
+    turnState(env,machineId,productionDate,shift,lineId)
   ]);
-  return json({ ok:true,activeOrder:order,segments:turnSegments,handoff:handoff || null,turnClock:turnClock(turnSegments) });
+  const runtime=await runtimeState(env,machineId,order);
+  const opShiftGoodPieces=order
+    ? turnSegments.filter(segment=>segment.status==='closed'&&segment.segmentType==='order'&&String(segment.op)===String(order.op))
+      .reduce((sum,segment)=>sum+Number(segment.goodPieces || 0),0)
+    : 0;
+  return json({
+    ok:true,activeOrder:order,segments:turnSegments,handoff:handoff || null,
+    turnState:state,runtimeState:runtime,flowAxes:flowAxes(order,state,runtime),
+    opShiftGoodPieces,turnClock:turnClock(turnSegments,state)
+  });
 }
 
 async function handoffRoute(request, env) {
   const body = await request.json().catch(() => null);
   if (!body || !validShiftPayload(body)) return json({ error:'Dados do turno inválidos.',code:'INVALID_BODY' },400);
-  const machineId = text(body.machineId); const lineId = text(body.lineId);
-  const access = await requireAuth(request,env,machineId,lineId); if (access.response) return access.response;
+  const machineId = text(body.machineId); const requestedLineId = text(body.lineId);
+  const access = await requireAuth(request,env,machineId,requestedLineId); if (access.response) return access.response;
+  const denied=requireCapability(access.auth,['conference.create','conference.edit']);if(denied)return denied;
+  const lineId=access.machine.lineId;
   const productionConfirmed = number(body.productionConfirmed);
   const currentBarPieces = integer(body.currentBarPieces);
   const feederBars = integer(body.feederBars);
@@ -302,15 +438,16 @@ async function handoffRoute(request, env) {
   const handoffId = uid('handoff');
   const { start:scheduledStart } = shiftBounds(text(body.productionDate),text(body.shift));
   const initialStart = continuousPeriodStart(scheduledStart,now) || scheduledStart;
-  const [existingOpen,latestClosed] = await Promise.all([
+  const [existingOpen,latestClosed,stateBefore] = await Promise.all([
     env.DB.prepare(`SELECT id,op_number AS op FROM machine_turn_segments
       WHERE machine_id=? AND production_date=? AND shift=? AND status='open' AND segment_type='order'
       ORDER BY started_at DESC LIMIT 1`).bind(machineId,text(body.productionDate),text(body.shift)).first(),
     env.DB.prepare(`SELECT ended_at AS endedAt FROM machine_turn_segments
       WHERE machine_id=? AND production_date=? AND shift=? AND status='closed' AND segment_type='order'
-      ORDER BY ended_at DESC LIMIT 1`).bind(machineId,text(body.productionDate),text(body.shift)).first()
+      ORDER BY ended_at DESC LIMIT 1`).bind(machineId,text(body.productionDate),text(body.shift)).first(),
+    turnState(env,machineId,text(body.productionDate),text(body.shift),order.lineId || lineId)
   ]);
-  const start = latestClosed?.endedAt ? now : initialStart;
+  const start = latestClosed?.endedAt || stateBefore.accountedMinutes > 0 ? now : initialStart;
   const segmentId = existingOpen?.id || uid('segment');
   const statements = [
     env.DB.prepare(`INSERT INTO machine_active_orders (
@@ -336,6 +473,25 @@ async function handoffRoute(request, env) {
     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
       handoffId,text(body.productionDate),text(body.shift),machineId,order.op,access.auth.user.registration,access.auth.user.name,
       previous?.producedSoFar ?? productionConfirmed,productionConfirmed,currentBarPieces,feederBars,now,text(body.correctionNote),now
+    ),
+    env.DB.prepare(`INSERT INTO machine_turn_states (
+      production_date,shift,machine_id,line_id,operator_registration,operator_name,workflow_status,
+      accounted_minutes,good_pieces,rejects,stop_minutes,last_conference_at,last_pointing_at,updated_at
+    ) VALUES (?,?,?,?,?,?,'ready',?,?,?,?,?,?,?)
+    ON CONFLICT(production_date,shift,machine_id) DO UPDATE SET
+      line_id=excluded.line_id,operator_registration=excluded.operator_registration,operator_name=excluded.operator_name,
+      workflow_status='ready',last_conference_at=excluded.last_conference_at,updated_at=excluded.updated_at`).bind(
+      text(body.productionDate),text(body.shift),machineId,order.lineId || lineId,
+      access.auth.user.registration,access.auth.user.name,stateBefore.accountedMinutes,stateBefore.goodPieces,
+      stateBefore.rejects,stateBefore.stopMinutes,now,stateBefore.lastPointingAt,now
+    ),
+    env.DB.prepare(`INSERT INTO machine_runtime_states (
+      machine_id,line_id,physical_status,reason,note,updated_at,updated_by_registration,updated_by_name
+    ) VALUES (?,?,'producing','','',?,?,?)
+    ON CONFLICT(machine_id) DO UPDATE SET
+      line_id=excluded.line_id,physical_status='producing',reason='',note='',updated_at=excluded.updated_at,
+      updated_by_registration=excluded.updated_by_registration,updated_by_name=excluded.updated_by_name`).bind(
+      machineId,order.lineId || lineId,now,access.auth.user.registration,access.auth.user.name
     )
   ];
   if (!existingOpen) {
@@ -351,7 +507,15 @@ async function handoffRoute(request, env) {
   await writeEvent(env,request,access.auth,body,'turn.handoff_confirmed',{ productionConfirmed,currentBarPieces,feederBars,segmentId });
   const saved = await activeOrder(env,machineId);
   const turnSegments = await segments(env,machineId,text(body.productionDate),text(body.shift));
-  return json({ ok:true,activeOrder:saved,segmentId,handoff:{ id:handoffId,confirmedAt:now },segments:turnSegments,turnClock:turnClock(turnSegments) },201);
+  const savedState=await savedTurnState(env,machineId,text(body.productionDate),text(body.shift));
+  const runtime=await runtimeState(env,machineId,saved);
+  const opShiftGoodPieces=turnSegments.filter(segment=>segment.status==='closed'&&segment.segmentType==='order'&&String(segment.op)===String(saved.op))
+    .reduce((sum,segment)=>sum+Number(segment.goodPieces || 0),0);
+  return json({
+    ok:true,activeOrder:saved,segmentId,handoff:{ id:handoffId,confirmedAt:now },segments:turnSegments,
+    turnState:savedState,runtimeState:runtime,flowAxes:flowAxes(saved,savedState,runtime),
+    opShiftGoodPieces,turnClock:turnClock(turnSegments,savedState)
+  },201);
 }
 
 function performance({ availableMinutes,goodPieces,rejects,cycleSeconds }) {
@@ -367,56 +531,94 @@ function performance({ availableMinutes,goodPieces,rejects,cycleSeconds }) {
 async function closePeriodRoute(request, env) {
   const body = await request.json().catch(() => null);
   if (!body || !validShiftPayload(body)) return json({ error:'Dados do fechamento inválidos.',code:'INVALID_BODY' },400);
-  const machineId=text(body.machineId); const lineId=text(body.lineId);
-  const access=await requireAuth(request,env,machineId,lineId); if(access.response)return access.response;
+  const machineId=text(body.machineId); const requestedLineId=text(body.lineId);
+  const access=await requireAuth(request,env,machineId,requestedLineId); if(access.response)return access.response;
+  const denied=requireCapability(access.auth,['production.create']);if(denied)return denied;
+  const lineId=access.machine.lineId;
   const goodPieces=integer(body.goodPieces); const rejects=integer(body.rejects);
+  const stopMinutes=number(body.stopMinutes) ?? 0;
   if(goodPieces===null)return json({ error:'Informe as peças boas produzidas.',code:'GOOD_PIECES_REQUIRED' },400);
   if(rejects===null)return json({ error:'Informe a quantidade de refugos.',code:'REJECTS_REQUIRED' },400);
+  if(stopMinutes<0)return json({ error:'Os minutos de parada não podem ser negativos.',code:'INVALID_STOP_MINUTES' },400);
   const order=await activeOrder(env,machineId);
   if(!order)return json({ error:'Nenhuma OP ativa foi encontrada para esta máquina.',code:'ACTIVE_ORDER_NOT_FOUND' },409);
   const segment=await env.DB.prepare(`SELECT id,started_at AS startedAt,cycle_time_seconds AS cycleSeconds
     FROM machine_turn_segments WHERE machine_id=? AND production_date=? AND shift=? AND status='open' AND segment_type='order'
     ORDER BY started_at DESC LIMIT 1`).bind(machineId,text(body.productionDate),text(body.shift)).first();
   if(!segment)return json({ error:'Confirme os dados da máquina antes de apontar.',code:'OPEN_SEGMENT_NOT_FOUND' },409);
-  const mode=text(body.mode)==='order'?'order':'shift';
-  const bounds=shiftBounds(text(body.productionDate),text(body.shift));
+  const mode=text(body.mode)==='order'?'order':'pointing';
+  const finalShift=body.finalShift===true;
   const now=nowIso();
-  const endedAt=mode==='shift'?bounds.end:now;
-  const effectiveStartedAt=continuousPeriodStart(segment.startedAt,endedAt) || segment.startedAt;
-  const availableMinutes=continuousDurationMinutes(segment.startedAt,endedAt);
-  const result=performance({ availableMinutes,goodPieces,rejects,cycleSeconds:Number(segment.cycleSeconds || order.cycleSeconds) });
+  const endedAt=now;
+  const stateBefore=await turnState(env,machineId,text(body.productionDate),text(body.shift),lineId || order.lineId);
+  const result=calculatePointingAccounting({
+    totalMinutes:DEFAULT_SHIFT_MINUTES,usedMinutes:stateBefore.accountedMinutes,
+    goodPieces,rejects,stopMinutes,cycleSeconds:Number(segment.cycleSeconds || order.cycleSeconds)
+  });
+  if(!result.accepted)return json({ error:`Informe ${result.missing.join(', ')}.`,code:'INVALID_POINTING' },400);
   const newTotal=Number(order.producedSoFar || 0)+goodPieces;
   const status=mode==='order'?'closed':'active';
+  const workflowStatus=finalShift?'shift_closed':'conference_pending';
   const eventId=uid('turn-event');
-  const payload={ mode,goodPieces,rejects,availableMinutes,...result,downtimeReason:text(body.downtimeReason),downtimeNote:text(body.downtimeNote) };
+  const payload={
+    mode,finalShift,goodPieces,rejects,stopMinutes,
+    productiveMinutes:result.productiveMinutes,accountedMinutes:result.accountedMinutes,
+    remainingBefore:result.remainingBefore,remainingAfter:result.remainingAfter,
+    overrunMinutes:result.overrunMinutes,downtimeReason:text(body.downtimeReason),downtimeNote:text(body.downtimeNote)
+  };
   await env.DB.batch([
     env.DB.prepare(`UPDATE machine_turn_segments SET
-      started_at=?,ended_at=?,good_pieces=?,rejects=?,total_cycles=?,available_minutes=?,running_minutes=?,downtime_minutes=?,
+      ended_at=?,good_pieces=?,rejects=?,total_cycles=?,available_minutes=?,running_minutes=?,downtime_minutes=?,
       reject_minutes=?,downtime_reason=?,downtime_note=?,status='closed',updated_at=? WHERE id=?`).bind(
-        effectiveStartedAt,endedAt,goodPieces,rejects,result.totalCycles,availableMinutes,result.runningMinutes,result.downtimeMinutes,
+        endedAt,goodPieces,rejects,result.totalCycles,result.accountedMinutes,result.productiveMinutes,result.stopMinutes,
         result.rejectMinutes,text(body.downtimeReason),text(body.downtimeNote),now,segment.id
       ),
     env.DB.prepare(`UPDATE machine_active_orders SET produced_total=?,status=?,closed_at=?,updated_at=?,updated_by_registration=?,updated_by_name=? WHERE machine_id=?`).bind(
       newTotal,status,mode==='order'?endedAt:null,now,access.auth.user.registration,access.auth.user.name,machineId
     ),
+    env.DB.prepare(`INSERT INTO machine_turn_states (
+      production_date,shift,machine_id,line_id,operator_registration,operator_name,workflow_status,
+      accounted_minutes,good_pieces,rejects,stop_minutes,last_conference_at,last_pointing_at,updated_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(production_date,shift,machine_id) DO UPDATE SET
+      line_id=excluded.line_id,operator_registration=excluded.operator_registration,operator_name=excluded.operator_name,
+      workflow_status=excluded.workflow_status,accounted_minutes=excluded.accounted_minutes,
+      good_pieces=excluded.good_pieces,rejects=excluded.rejects,stop_minutes=excluded.stop_minutes,
+      last_conference_at=excluded.last_conference_at,last_pointing_at=excluded.last_pointing_at,updated_at=excluded.updated_at`).bind(
+      text(body.productionDate),text(body.shift),machineId,lineId || order.lineId,
+      access.auth.user.registration,access.auth.user.name,workflowStatus,result.usedAfter,
+      stateBefore.goodPieces+goodPieces,stateBefore.rejects+rejects,stateBefore.stopMinutes+stopMinutes,
+      stateBefore.lastConferenceAt,now,now
+    ),
     env.DB.prepare(`INSERT INTO turn_assistant_events (
       id,production_date,shift,machine_id,op_number,event_type,operator_registration,operator_name,payload,ip_address,user_agent,created_at
     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`).bind(
-      eventId,text(body.productionDate),text(body.shift),machineId,order.op,mode==='order'?'order.closed':'shift.pointed',
+      eventId,text(body.productionDate),text(body.shift),machineId,order.op,
+      mode==='order'?'order.closed':finalShift?'shift.finalized':'production.pointed',
       access.auth.user.registration,access.auth.user.name,JSON.stringify(payload),ip(request),agent(request),now
     )
   ]);
   const turnSegments=await segments(env,machineId,text(body.productionDate),text(body.shift));
-  return json({ ok:true,mode,activeOrder:mode==='order'?null:{ ...order,producedSoFar:newTotal,updatedAt:now },
+  const savedState=await savedTurnState(env,machineId,text(body.productionDate),text(body.shift));
+  const nextOrder=mode==='order'?null:{ ...order,producedSoFar:newTotal,updatedAt:now,status:'active' };
+  const runtime=await runtimeState(env,machineId,nextOrder);
+  return json({ ok:true,mode,finalShift,activeOrder:nextOrder,
     closedOrder:mode==='order'?{ ...order,producedSoFar:newTotal,status:'closed',closedAt:endedAt }:null,
-    performance:{ ...result,availableMinutes },segments:turnSegments,turnClock:turnClock(turnSegments),endedAt });
+    performance:{
+      ...result,availableMinutes:result.remainingBefore,runningMinutes:result.productiveMinutes,
+      downtimeMinutes:result.stopMinutes
+    },
+    turnState:savedState,runtimeState:runtime,flowAxes:flowAxes(nextOrder || { ...order,status:'closed' },savedState,runtime),
+    segments:turnSegments,turnClock:turnClock(turnSegments,savedState),endedAt });
 }
 
 async function startOrderRoute(request, env) {
   const body=await request.json().catch(()=>null);
   if(!body||!validShiftPayload(body))return json({ error:'Dados da nova OP inválidos.',code:'INVALID_BODY' },400);
-  const machineId=text(body.machineId);const lineId=text(body.lineId);
-  const access=await requireAuth(request,env,machineId,lineId);if(access.response)return access.response;
+  const machineId=text(body.machineId);const requestedLineId=text(body.lineId);
+  const access=await requireAuth(request,env,machineId,requestedLineId);if(access.response)return access.response;
+  const denied=requireCapability(access.auth,['production.create']);if(denied)return denied;
+  const lineId=access.machine.lineId;
   const previous=await activeOrder(env,machineId,true);
   const sameItem=text(body.orderType)==='same-item';
   const op=text(body.op);const item=sameItem?text(previous?.item):text(body.item);
@@ -439,25 +641,11 @@ async function startOrderRoute(request, env) {
   const openOther=await env.DB.prepare(`SELECT id,started_at AS startedAt,segment_type AS segmentType FROM machine_turn_segments
     WHERE machine_id=? AND production_date=? AND shift=? AND status='open' ORDER BY started_at DESC LIMIT 1`)
     .bind(machineId,text(body.productionDate),text(body.shift)).first();
+  const stateBefore=await turnState(env,machineId,text(body.productionDate),text(body.shift),lineId);
   const statements=[];
   if(openOther){
-    const idleMinutes=durationMinutes(openOther.startedAt,now);
     statements.push(env.DB.prepare(`UPDATE machine_turn_segments SET ended_at=?,available_minutes=?,downtime_minutes=?,downtime_reason=?,status='closed',updated_at=? WHERE id=?`)
-      .bind(now,idleMinutes,idleMinutes,text(body.transitionReason)||'Troca de ordem',now,openOther.id));
-  } else {
-    const latest=await env.DB.prepare(`SELECT ended_at AS endedAt FROM machine_turn_segments
-      WHERE machine_id=? AND production_date=? AND shift=? AND status='closed' ORDER BY ended_at DESC LIMIT 1`)
-      .bind(machineId,text(body.productionDate),text(body.shift)).first();
-    if(latest?.endedAt && durationMinutes(latest.endedAt,now)>0.5){
-      const gap=durationMinutes(latest.endedAt,now);
-      statements.push(env.DB.prepare(`INSERT INTO machine_turn_segments (
-        id,production_date,shift,machine_id,line_id,segment_type,operator_registration,operator_name,
-        started_at,ended_at,available_minutes,downtime_minutes,downtime_reason,status,created_at,updated_at
-      ) VALUES (?,?,?,?,?,'transition',?,?,?,?,?,?,?,'closed',?,?)`).bind(
-        uid('segment'),text(body.productionDate),text(body.shift),machineId,lineId,access.auth.user.registration,access.auth.user.name,
-        latest.endedAt,now,gap,gap,text(body.transitionReason)||'Troca de ordem',now,now
-      ));
-    }
+      .bind(now,0,0,text(body.transitionReason)||'Troca de ordem',now,openOther.id));
   }
   const segmentId=uid('segment');
   statements.push(
@@ -484,25 +672,72 @@ async function startOrderRoute(request, env) {
     ) VALUES (?,?,?,?,?,?,?,'order',?,?,?,?,?,'open',?,?)`).bind(
       segmentId,text(body.productionDate),text(body.shift),machineId,lineId,op,item,access.auth.user.registration,access.auth.user.name,
       now,producedSoFar,cycleSeconds,now,now
+    ),
+    env.DB.prepare(`INSERT INTO machine_turn_states (
+      production_date,shift,machine_id,line_id,operator_registration,operator_name,workflow_status,
+      accounted_minutes,good_pieces,rejects,stop_minutes,last_conference_at,last_pointing_at,updated_at
+    ) VALUES (?,?,?,?,?,?,'ready',?,?,?,?,?,?,?)
+    ON CONFLICT(production_date,shift,machine_id) DO UPDATE SET
+      line_id=excluded.line_id,operator_registration=excluded.operator_registration,operator_name=excluded.operator_name,
+      workflow_status='ready',last_conference_at=excluded.last_conference_at,updated_at=excluded.updated_at`).bind(
+      text(body.productionDate),text(body.shift),machineId,lineId,access.auth.user.registration,access.auth.user.name,
+      stateBefore.accountedMinutes,stateBefore.goodPieces,stateBefore.rejects,stateBefore.stopMinutes,
+      now,stateBefore.lastPointingAt,now
+    ),
+    env.DB.prepare(`INSERT INTO machine_runtime_states (
+      machine_id,line_id,physical_status,reason,note,updated_at,updated_by_registration,updated_by_name
+    ) VALUES (?,?,'producing','','',?,?,?)
+    ON CONFLICT(machine_id) DO UPDATE SET
+      line_id=excluded.line_id,physical_status='producing',reason='',note='',updated_at=excluded.updated_at,
+      updated_by_registration=excluded.updated_by_registration,updated_by_name=excluded.updated_by_name`).bind(
+      machineId,lineId,now,access.auth.user.registration,access.auth.user.name
     )
   );
   await env.DB.batch(statements);
   await writeEvent(env,request,access.auth,{ ...body,op },'order.started',{ orderType:sameItem?'same-item':'different-item',segmentId });
   const order=await activeOrder(env,machineId);
   const turnSegments=await segments(env,machineId,text(body.productionDate),text(body.shift));
-  return json({ ok:true,activeOrder:order,segmentId,segments:turnSegments,turnClock:turnClock(turnSegments) },201);
+  const savedState=await savedTurnState(env,machineId,text(body.productionDate),text(body.shift));
+  const runtime=await runtimeState(env,machineId,order);
+  return json({
+    ok:true,activeOrder:order,segmentId,segments:turnSegments,turnState:savedState,runtimeState:runtime,
+    flowAxes:flowAxes(order,savedState,runtime),opShiftGoodPieces:0,turnClock:turnClock(turnSegments,savedState)
+  },201);
 }
 
 async function stoppedRoute(request, env) {
   const body=await request.json().catch(()=>null);
   if(!body||!validShiftPayload(body))return json({ error:'Dados inválidos.',code:'INVALID_BODY' },400);
-  const machineId=text(body.machineId);const lineId=text(body.lineId);
-  const access=await requireAuth(request,env,machineId,lineId);if(access.response)return access.response;
+  const machineId=text(body.machineId);const requestedLineId=text(body.lineId);
+  const access=await requireAuth(request,env,machineId,requestedLineId);if(access.response)return access.response;
+  const denied=requireCapability(access.auth,['machines.update_status']);if(denied)return denied;
+  const lineId=access.machine.lineId;
   const now=nowIso();
   const segmentId=uid('segment');
+  const stateBefore=await turnState(env,machineId,text(body.productionDate),text(body.shift),lineId);
   await env.DB.batch([
-    env.DB.prepare(`UPDATE machine_active_orders SET status='stopped',updated_at=?,updated_by_registration=?,updated_by_name=? WHERE machine_id=?`)
-      .bind(now,access.auth.user.registration,access.auth.user.name,machineId),
+    env.DB.prepare(`INSERT INTO machine_runtime_states (
+      machine_id,line_id,physical_status,reason,note,updated_at,updated_by_registration,updated_by_name
+    ) VALUES (?,?,'stopped',?,?,?,?,?)
+    ON CONFLICT(machine_id) DO UPDATE SET
+      line_id=excluded.line_id,physical_status='stopped',reason=excluded.reason,note=excluded.note,
+      updated_at=excluded.updated_at,updated_by_registration=excluded.updated_by_registration,
+      updated_by_name=excluded.updated_by_name`).bind(
+      machineId,lineId,text(body.reason)||'Sem programação',text(body.note),now,
+      access.auth.user.registration,access.auth.user.name
+    ),
+    env.DB.prepare(`INSERT INTO machine_turn_states (
+      production_date,shift,machine_id,line_id,operator_registration,operator_name,workflow_status,
+      accounted_minutes,good_pieces,rejects,stop_minutes,last_conference_at,last_pointing_at,updated_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(production_date,shift,machine_id) DO UPDATE SET
+      line_id=excluded.line_id,operator_registration=excluded.operator_registration,operator_name=excluded.operator_name,
+      workflow_status=excluded.workflow_status,updated_at=excluded.updated_at`).bind(
+      text(body.productionDate),text(body.shift),machineId,lineId,access.auth.user.registration,access.auth.user.name,
+      stateBefore.workflowStatus==='shift_closed'?'shift_closed':'conference_pending',
+      stateBefore.accountedMinutes,stateBefore.goodPieces,stateBefore.rejects,stateBefore.stopMinutes,
+      stateBefore.lastConferenceAt,stateBefore.lastPointingAt,now
+    ),
     env.DB.prepare(`INSERT INTO machine_turn_segments (
       id,production_date,shift,machine_id,line_id,segment_type,operator_registration,operator_name,
       started_at,downtime_reason,downtime_note,status,created_at,updated_at
@@ -512,7 +747,125 @@ async function stoppedRoute(request, env) {
     )
   ]);
   await writeEvent(env,request,access.auth,body,'machine.stopped',{ reason:text(body.reason)||'Sem programação',segmentId });
-  return json({ ok:true,segmentId,status:'stopped' });
+  const savedState=await savedTurnState(env,machineId,text(body.productionDate),text(body.shift));
+  const runtime=await runtimeState(env,machineId,null);
+  return json({
+    ok:true,segmentId,status:'stopped',activeOrder:null,turnState:savedState,runtimeState:runtime,
+    flowAxes:flowAxes(null,savedState,runtime),turnClock:createTurnClock({ usedMinutes:savedState.accountedMinutes })
+  });
+}
+
+function dashboardForecast(order) {
+  if(!order)return { reason:'none',estimatedAt:null,materialEstimatedAt:null,opRemaining:0,availablePieces:0 };
+  const opRemaining=Math.max(0,Math.ceil(Number(order.opTarget || 0)-Number(order.producedSoFar || 0)));
+  const divisor=Number(order.pieceLengthMm || 0)+Number(order.kerfMm || DEFAULT_KERF_MM);
+  const piecesPerFullBar=divisor>0?Math.max(0,Math.floor(Number(order.barLengthMm || DEFAULT_BAR_LENGTH_MM)/divisor)):0;
+  const availablePieces=Math.max(0,Number(order.currentBarPieces || 0)+Number(order.feederBars || 0)*piecesPerFullBar);
+  const reason=availablePieces<opRemaining?'material':'op';
+  const stopPieces=Math.min(opRemaining,availablePieces);
+  const estimatedAt=Number(order.cycleSeconds)>0
+    ?new Date(Date.now()+stopPieces*Number(order.cycleSeconds)*1000).toISOString()
+    :null;
+  const materialEstimatedAt=Number(order.cycleSeconds)>0
+    ?new Date(Date.now()+availablePieces*Number(order.cycleSeconds)*1000).toISOString()
+    :null;
+  return { reason,estimatedAt,materialEstimatedAt,opRemaining,availablePieces,piecesPerFullBar,stopPieces };
+}
+
+function dashboardRisk(order, state, runtime, forecast) {
+  if(runtime.physicalStatus==='maintenance')return { priority:1,code:'maintenance',label:'Manutenção' };
+  if(runtime.physicalStatus==='stopped')return { priority:2,code:'stopped',label:'Máquina parada' };
+  if(order&&state.workflowStatus==='conference_pending')return { priority:1,code:'conference_pending',label:'Conferência pendente' };
+  if(!order)return { priority:3,code:'no_order',label:'Sem OP ativa' };
+  if(forecast.reason==='material')return { priority:2,code:'material',label:'Risco de matéria-prima' };
+  const minutesToClose=forecast.stopPieces*Number(order.cycleSeconds || 0)/60;
+  if(minutesToClose<=120)return { priority:3,code:'closing_soon',label:'OP fecha em breve' };
+  return { priority:5,code:'normal',label:'Normal' };
+}
+
+async function lineDashboardRoute(request, env, url) {
+  const access=await requireAuth(request,env);if(access.response)return access.response;
+  const auth=access.auth;
+  const allowed=['admin','leadership','preparator'].includes(auth.user.roleCode);
+  if(!allowed)return json({ error:'Acesso restrito ao preparador e à liderança.',code:'FORBIDDEN' },403);
+  const detected=detectOperationalContext();
+  const productionDate=text(url.searchParams.get('productionDate'))||detected.productionDate;
+  const shift=['1','2','3'].includes(text(url.searchParams.get('shift')))?text(url.searchParams.get('shift')):detected.shift;
+  const conditions=['m.active=1'];
+  const bindings=[productionDate,shift,productionDate,shift];
+  if(auth.user.roleCode!=='admin'){
+    if(!auth.lineAccess.length)return json({ ok:true,productionDate,shift,serverTime:nowIso(),lines:[],machines:[],summary:{ total:0,producing:0,setup:0,stopped:0,pending:0,closingSoon:0,materialRisks:0 } });
+    conditions.push(`m.line_id IN (${auth.lineAccess.map(()=>'?').join(',')})`);
+    bindings.push(...auth.lineAccess);
+  }
+  if(auth.machineAccess.length){
+    conditions.push(`m.id IN (${auth.machineAccess.map(()=>'?').join(',')})`);
+    bindings.push(...auth.machineAccess);
+  }
+  const result=await env.DB.prepare(`SELECT
+      m.id AS machineId,m.name AS machineName,m.line_id AS lineId,pl.name AS lineName,
+      ao.op_number AS op,ao.item_number AS item,ao.item_description AS description,ao.op_target AS opTarget,
+      ao.cycle_time_seconds AS cycleSeconds,ao.frequency_1 AS frequency1,ao.frequency_2 AS frequency2,
+      ao.piece_length_mm AS pieceLengthMm,ao.produced_total AS producedSoFar,
+      ao.current_bar_pieces AS currentBarPieces,ao.feeder_bars AS feederBars,
+      ao.bar_length_mm AS barLengthMm,ao.kerf_mm AS kerfMm,ao.status AS orderStatus,
+      ts.operator_registration AS stateRegistration,ts.operator_name AS stateOperatorName,
+      ts.workflow_status AS workflowStatus,ts.accounted_minutes AS accountedMinutes,
+      ts.good_pieces AS shiftGoodPieces,ts.rejects AS shiftRejects,ts.stop_minutes AS shiftStopMinutes,
+      ts.last_conference_at AS lastConferenceAt,ts.last_pointing_at AS lastPointingAt,ts.updated_at AS stateUpdatedAt,
+      rs.physical_status AS physicalStatus,rs.reason AS physicalReason,rs.note AS physicalNote,rs.updated_at AS runtimeUpdatedAt,
+      assignment.operator_registration AS assignedRegistration,assignment.operator_name AS assignedOperatorName
+    FROM machines m
+    JOIN production_lines pl ON pl.id=m.line_id
+    LEFT JOIN machine_active_orders ao ON ao.machine_id=m.id AND ao.status='active'
+    LEFT JOIN machine_turn_states ts ON ts.machine_id=m.id AND ts.production_date=? AND ts.shift=?
+    LEFT JOIN machine_runtime_states rs ON rs.machine_id=m.id
+    LEFT JOIN operator_machine_assignments assignment ON assignment.id=(
+      SELECT latest.id FROM operator_machine_assignments latest
+      WHERE latest.machine_id=m.id AND latest.production_date=? AND latest.shift=?
+      ORDER BY latest.updated_at DESC,latest.id DESC LIMIT 1
+    )
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY pl.sort_order,m.sort_order,m.name`).bind(...bindings).all();
+  const machines=(result.results||[]).map(row=>{
+    const order=row.op?mapOrder({
+      machineId:row.machineId,lineId:row.lineId,lineName:row.lineName,machineName:row.machineName,
+      op:row.op,item:row.item,description:row.description,opTarget:row.opTarget,cycleSeconds:row.cycleSeconds,
+      frequency1:row.frequency1,frequency2:row.frequency2,pieceLengthMm:row.pieceLengthMm,
+      producedSoFar:row.producedSoFar,currentBarPieces:row.currentBarPieces,feederBars:row.feederBars,
+      barLengthMm:row.barLengthMm,kerfMm:row.kerfMm,status:row.orderStatus,openedAt:null,closedAt:null,updatedAt:row.stateUpdatedAt
+    }):null;
+    const state=mapTurnState({
+      productionDate,shift,machineId:row.machineId,lineId:row.lineId,
+      operatorRegistration:row.stateRegistration,operatorName:row.stateOperatorName,
+      workflowStatus:row.workflowStatus||'conference_pending',accountedMinutes:row.accountedMinutes,
+      goodPieces:row.shiftGoodPieces,rejects:row.shiftRejects,stopMinutes:row.shiftStopMinutes,
+      lastConferenceAt:row.lastConferenceAt,lastPointingAt:row.lastPointingAt,updatedAt:row.stateUpdatedAt
+    });
+    const runtime=mapRuntimeState({
+      machineId:row.machineId,lineId:row.lineId,physicalStatus:row.physicalStatus||(order?'producing':'stopped'),
+      reason:row.physicalReason,note:row.physicalNote,updatedAt:row.runtimeUpdatedAt
+    },order);
+    const forecast=dashboardForecast(order);
+    return {
+      machineId:row.machineId,machineName:row.machineName,lineId:row.lineId,lineName:row.lineName,
+      assignedOperator:row.assignedRegistration?{ registration:row.assignedRegistration,name:row.assignedOperatorName }:null,
+      activeOrder:order,turnState:state,runtimeState:runtime,flowAxes:flowAxes(order,state,runtime),
+      turnClock:createTurnClock({ usedMinutes:state.accountedMinutes }),forecast,
+      risk:dashboardRisk(order,state,runtime,forecast)
+    };
+  }).sort((left,right)=>left.risk.priority-right.risk.priority||left.lineName.localeCompare(right.lineName)||left.machineName.localeCompare(right.machineName));
+  const summary={
+    total:machines.length,
+    producing:machines.filter(machine=>machine.runtimeState.physicalStatus==='producing').length,
+    setup:machines.filter(machine=>machine.runtimeState.physicalStatus==='setup').length,
+    stopped:machines.filter(machine=>['stopped','maintenance'].includes(machine.runtimeState.physicalStatus)).length,
+    pending:machines.filter(machine=>machine.flowAxes.workflowStatus==='conference_pending'&&machine.activeOrder).length,
+    closingSoon:machines.filter(machine=>machine.risk.code==='closing_soon').length,
+    materialRisks:machines.filter(machine=>machine.risk.code==='material').length
+  };
+  const lines=[...new Map(machines.map(machine=>[machine.lineId,{ id:machine.lineId,name:machine.lineName }])).values()];
+  return json({ ok:true,productionDate,shift,serverTime:nowIso(),lines,machines,summary });
 }
 
 export async function handleTurnAssistant(request, env) {
@@ -525,26 +878,36 @@ export async function handleTurnAssistant(request, env) {
   if(url.pathname==='/api/v1/turn-assistant/close-period'&&request.method==='POST')return closePeriodRoute(request,env);
   if(url.pathname==='/api/v1/turn-assistant/start-order'&&request.method==='POST')return startOrderRoute(request,env);
   if(url.pathname==='/api/v1/turn-assistant/stopped'&&request.method==='POST')return stoppedRoute(request,env);
+  if(url.pathname==='/api/v1/turn-assistant/line-dashboard'&&request.method==='GET')return lineDashboardRoute(request,env,url);
   return json({ error:'Rota do assistente de turno não encontrada.',code:'NOT_FOUND' },404);
 }
 
 export async function turnAssistantHealth(env) {
   await ensureTables(env);
-  const tables=['machine_active_orders','machine_turn_handoffs','machine_turn_segments','turn_assistant_events'];
+  const tables=[
+    'machine_active_orders','machine_turn_handoffs','machine_turn_segments','turn_assistant_events',
+    'machine_turn_states','machine_runtime_states'
+  ];
   const found=[];
   for(const table of tables){
     const row=await env.DB.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").bind(table).first();
     if(row?.name)found.push(row.name);
   }
-  const sample=performance({ availableMinutes:480,goodPieces:80,rejects:4,cycleSeconds:300 });
+  const sample=calculatePointingAccounting({ usedMinutes:0,goodPieces:80,rejects:4,cycleSeconds:300,stopMinutes:60 });
   const rolloverMinutes=continuousDurationMinutes('2026-08-05T17:30:00.000Z','2026-08-05T16:25:00.000Z');
+  const automaticShift=detectOperationalContext('2026-08-06T07:00:00.000Z');
   return {
-    ok:found.length===tables.length&&Math.round(sample.downtimeMinutes)===60&&rolloverMinutes===1375,
+    ok:found.length===tables.length&&Math.round(sample.accountedMinutes)===480&&rolloverMinutes===1375
+      &&automaticShift.shift==='3'&&automaticShift.productionDate==='2026-08-05',
+    version:'6.0.0',
     schemaReady:found.length===tables.length,
     tables:found,
-    periodCalculationReady:Math.round(sample.runningMinutes)===420&&Math.round(sample.downtimeMinutes)===60&&rolloverMinutes===1375,
+    periodCalculationReady:Math.round(sample.productiveMinutes)===420&&Math.round(sample.stopMinutes)===60&&rolloverMinutes===1375,
     rolloverMinutes,
     pointingValidation:'advisory-only',
+    minuteLedger:'logical-accounted-per-machine-shift',
+    automaticShift,
+    stateAxes:['physicalStatus','opStatus','workflowStatus'],
     shiftMinutes:DEFAULT_SHIFT_MINUTES,
     transaction:'d1-batch'
   };

@@ -81,19 +81,24 @@ await waitForJson('/api/v1/auth/admin-password-reset-health', 'Redefinição de 
 
 await waitForJson('/api/v1/auth/turn-assistant-health', 'Assistente de turno', payload => {
   assert(payload.ok && payload.schemaReady, payload.error || 'Assistente indisponível.');
+  assert.equal(payload.version, '6.0.0', 'Versão do fluxo operacional incorreta.');
   assert(payload.periodCalculationReady, 'Cálculo dos períodos indisponível.');
   assert.equal(Number(payload.rolloverMinutes), 1375, 'Virada 14:30–13:25 incorreta.');
   assert.equal(payload.pointingValidation, 'advisory-only', 'A estimativa ainda pode bloquear apontamentos.');
   assert.equal(Number(payload.shiftMinutes), 480);
   assert.equal(payload.transaction, 'd1-batch');
-  assert(Array.isArray(payload.tables) && payload.tables.length === 4, 'Tabelas do turno incompletas.');
+  assert.equal(payload.minuteLedger, 'logical-accounted-per-machine-shift', 'Relógio lógico do turno indisponível.');
+  assert.deepEqual(payload.stateAxes, ['physicalStatus','opStatus','workflowStatus'], 'Estados físico, da OP e do operador não estão separados.');
+  assert.equal(payload.automaticShift?.shift, '3', 'Detecção automática do terceiro turno falhou.');
+  assert.equal(payload.automaticShift?.productionDate, '2026-08-05', 'Data operacional do terceiro turno incorreta.');
+  assert(Array.isArray(payload.tables) && payload.tables.length === 6, 'Tabelas do turno incompletas.');
 });
 
 const localIndex = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const remoteIndex = await fetchText('/', 'Página inicial');
 requireIncludes(remoteIndex, ['NEOMES — Gestão Operacional'], 'Página inicial');
 
-const assetPattern = /(?:href|src)=["']((?:app\/)(?:desktop-workspace|turn-assistant)[^"']*\.(?:css|js)(?:\?v=[^"']+)?)['"]/g;
+const assetPattern = /(?:href|src)=["']((?:app\/)(?:auth-shell|operator|desktop-workspace|turn-assistant)[^"']*\.(?:css|js)(?:\?v=[^"']+)?)['"]/g;
 const expectedAssets = [...localIndex.matchAll(assetPattern)].map(match => match[1]);
 assert(expectedAssets.length >= 6, 'Não foi possível identificar os assets críticos no index local.');
 for (const asset of expectedAssets) {
@@ -105,13 +110,24 @@ const uniqueAssets = [...new Set(expectedAssets)];
 for (const asset of uniqueAssets) {
   const content = await fetchText(`/${asset}`, asset);
   if (asset.includes('turn-assistant.js')) {
-    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'bindAssistantSubmit(document,submitAssistantForm)', 'A matéria-prima consegue produzir até', 'O apontamento será salvo normalmente.', 'data-ta-reconfirm', 'clearLocalMachineSession', 'Meta do turno', 'LIBERAÇÕES DO TURNO', 'listMeasurementReleases', 'releaseSequenceLabel', 'A próxima liberação', 'peças produzidas neste turno.'], asset);
+    requireIncludes(content, ['Confirmar e iniciar turno', 'Peças boas produzidas', 'Minutos de parada', 'Fazer apontamento', 'Encerrar meu turno', 'bindAssistantSubmit(document,submitAssistantForm)', 'A matéria-prima consegue produzir até', 'A quantidade digitada será salva normalmente.', 'data-ta-reconfirm', 'clearLocalMachineSession', 'Meta do turno', 'LIBERAÇÕES DO TURNO', 'listMeasurementReleases', 'releaseSequenceLabel', 'A próxima liberação', 'peças produzidas neste turno.', 'pointedGoodPieces'], asset);
     assert(!content.includes('480 min ÷ ciclo'), `${asset}: a fórmula técnica da meta ainda está exposta.`);
     assert(!content.includes('peças possíveis nesta OP durante o turno.'), `${asset}: o resumo técnico antigo ainda está exposto.`);
+  } else if (asset.includes('auth-shell.js')) {
+    requireIncludes(content, ['operationalContext', 'O turno é identificado automaticamente', 'JSON.stringify({ registration,password })'], asset);
+    assert(!content.includes('id="secureShift"'), `${asset}: seletor manual de turno ainda está no login.`);
   } else if (asset.includes('turn-assistant.css')) {
     requireIncludes(content, ['ta-material-block', 'ta-forecast-time', 'ta-submit-feedback'], asset);
   }
 }
+const operatorMain = await fetchText('/app/operator-main.js', 'Fluxo do operador');
+requireIncludes(operatorMain, ['data-assignment-machine', 'aria-pressed', 'Confirmar ${assignmentDraft.length', 'operationalDateKey', 'Encerrar meu turno'], 'Fluxo do operador');
+assert(!operatorMain.includes('assignmentStage'), 'Fluxo do operador: seleção antiga de uma máquina por vez ainda está ativa.');
+const preparerDashboard = await fetchText('/app/preparer-dashboard.js', 'Cockpit do preparador');
+requireIncludes(preparerDashboard, ['/api/v1/turn-assistant/line-dashboard', 'REFRESH_INTERVAL_MS = 15000', 'visibilitychange', 'Operador responsável', 'Meta no saldo do turno', 'Liberações do turno', 'Último apontamento'], 'Cockpit do preparador');
+assert(!/fetch\([^\n]+method:\s*['"](?:POST|PUT|PATCH|DELETE)/.test(preparerDashboard), 'Cockpit do preparador não pode alterar dados.');
+const preparerEngine = await fetchText('/app/preparer-dashboard-engine.js', 'Cálculos do cockpit do preparador');
+requireIncludes(preparerEngine, ['calculatePreparerMetrics', 'listMeasurementReleases', 'Vai fechar neste horário por falta de matéria-prima.', 'A matéria-prima consegue produzir até este horário.'], 'Cálculos do cockpit do preparador');
 const submitBridge = await fetchText('/app/turn-assistant-submit.js', 'Ponte de salvamento móvel');
 requireIncludes(submitBridge, ['data-ta-submit-form', 'onSubmit(form,button)'], 'Ponte de salvamento móvel');
 assert(!submitBridge.includes('SubmitEvent'), 'A versão publicada ainda sintetiza eventos de submit.');
@@ -124,6 +140,9 @@ requireIncludes(engine, [
   'materialEstimatedAt',
   'continuousMinutesBetween',
   'DEFAULT_SHIFT_MINUTES = 480',
+  'detectOperationalContext',
+  'calculatePointingAccounting',
+  "workflowStatus:'conference_pending'",
   'calculateFullShiftTarget',
   'listMeasurementReleases'
 ], 'Motor do assistente');
@@ -131,7 +150,8 @@ console.log('✓ Motor do assistente publicado');
 
 for (const [path, label] of [
   ['/api/v1/auth/me', 'Sessão protegida'],
-  ['/api/v1/turn-assistant/context?machineId=tnl-091&lineId=linha-05&productionDate=2026-08-05&shift=2', 'Contexto protegido']
+  ['/api/v1/turn-assistant/context?machineId=tnl-091&lineId=linha-05&productionDate=2026-08-05&shift=2', 'Contexto protegido'],
+  ['/api/v1/turn-assistant/line-dashboard?productionDate=2026-08-05&shift=2', 'Cockpit da linha protegido']
 ]) {
   const response = await request(path, { cache:'no-store' });
   const payload = await response.json().catch(() => ({}));

@@ -76,16 +76,14 @@ function renderCloudRequired() {
 
 function renderLogin(message = '') {
   const cached = authCache();
-  const shift = cached?.user?.defaultShift || '1';
   shell(`<header class="auth-heading"><p>ACESSO PROTEGIDO</p><h1>Acesse sua operação</h1><span>Entre com sua matrícula e senha individual.</span></header>
     <form id="secureLoginForm" class="auth-form" novalidate>
       <label><span>Matrícula</span><input id="secureRegistration" name="registration" inputmode="numeric" autocomplete="username" required value="${escapeHtml(cached?.user?.registration || '')}"></label>
       <label><span>Senha</span><div class="auth-password"><input id="securePassword" name="password" type="password" autocomplete="current-password" required><button type="button" data-toggle-password="securePassword" aria-label="Mostrar senha">Mostrar</button></div></label>
-      <label><span>Turno</span><select id="secureShift" name="shift"><option value="1" ${shift==='1'?'selected':''}>1º turno</option><option value="2" ${shift==='2'?'selected':''}>2º turno</option><option value="3" ${shift==='3'?'selected':''}>3º turno</option></select></label>
       <div class="auth-error" id="secureLoginError" role="alert">${escapeHtml(message)}</div>
       <button class="auth-primary" type="submit">Entrar</button>
     </form>
-    <p class="auth-footnote">O primeiro acesso neste aparelho precisa de internet. Sua senha não é salva no dispositivo.</p>`,'login');
+    <p class="auth-footnote">O turno é identificado automaticamente pelo horário da fábrica. Sua senha não é salva no dispositivo.</p>`,'login');
 }
 
 function renderChangePassword(user, message = '') {
@@ -101,14 +99,16 @@ function renderChangePassword(user, message = '') {
 }
 
 async function setOperationalSession(user, offline = false) {
-  const { store, localDateKey } = await import('./core.js');
+  const { store, detectOperationalContext } = await import('./core.js');
+  const operationalContext=offline ? detectOperationalContext() : (user.operationalContext || detectOperationalContext());
   store.update(state => {
     state.session = {
       id:user.id,
       name:user.name,
       registration:String(user.registration),
-      shift:String(user.defaultShift || '1'),
-      productionDate:localDateKey(),
+      shift:String(operationalContext.shift),
+      productionDate:operationalContext.productionDate,
+      operationalContext,
       startedAt:new Date().toISOString(),
       roleCode:user.roleCode,
       offlineAuthenticated:offline
@@ -128,6 +128,10 @@ async function loadOperationalApp(user, offline = false) {
   currentAuth = { user, offline };
   window.NEOMES_AUTH = currentAuth;
   await setOperationalSession(user,offline);
+  if (user.roleCode === 'preparator') {
+    await import('./preparer-dashboard.js');
+    return;
+  }
   await import('./operator-main.js');
   await import('./cloud-state.js');
   await import('./exports.js');
@@ -146,7 +150,6 @@ async function login(form) {
   if (authBusy) return;
   const registration = form.querySelector('#secureRegistration').value.trim();
   const password = form.querySelector('#securePassword').value;
-  const shift = form.querySelector('#secureShift').value;
   const error = form.querySelector('#secureLoginError');
   if (!registration || !password) return void (error.textContent = 'Informe matrícula e senha.');
   if (!navigator.onLine) return void (error.textContent = 'O primeiro acesso precisa de conexão com a internet.');
@@ -155,11 +158,11 @@ async function login(form) {
   button.disabled = true;
   button.textContent = 'Entrando…';
   try {
-    const payload = await request('/api/v1/auth/login',{ method:'POST',body:JSON.stringify({ registration,password,shift }) });
+    const payload = await request('/api/v1/auth/login',{ method:'POST',body:JSON.stringify({ registration,password }) });
     const cache = saveAuthCache(payload.user,payload.expiresAt);
     if (payload.user.mustChangePassword) return renderChangePassword(payload.user);
-    await loadOperationalApp({ ...payload.user, defaultShift:shift },false);
-    saveAuthCache({ ...payload.user, defaultShift:shift },cache.expiresAt);
+    await loadOperationalApp(payload.user,false);
+    saveAuthCache(payload.user,cache.expiresAt);
   } catch (failure) {
     error.textContent = failure.message;
     button.disabled = false;
