@@ -11,6 +11,10 @@ on:
       - 'deployment/**'
   workflow_dispatch:
 
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -42,6 +46,8 @@ jobs:
             node --check app/components.js
             node --check app/brand.js
             node --check app/operator-main.js
+            node --check app/auth-shell.js
+            node --check app/desktop-workspace.js
             node --check app/cloud-state.js
             node --check app/exports.js
             node --check app/premium-runtime.js
@@ -71,6 +77,7 @@ jobs:
             node --check worker/shift.js
             node --check worker/operations.js
             node --check worker/settings.js
+            node --check worker/turn-assistant.js
             node --check tests/static-check.mjs
             node --check tests/password-migration.test.mjs
             node --check tests/measurement-plan.test.mjs
@@ -78,6 +85,7 @@ jobs:
             node --check tests/shift-performance.test.mjs
             node --check tests/shift-time.test.mjs
             node --check tests/turn-assistant.test.mjs
+            node --check tests/turn-flow-v6.test.mjs
             node tests/static-check.mjs
             node tests/password-migration.test.mjs
             node tests/measurement-plan.test.mjs
@@ -85,6 +93,7 @@ jobs:
             node tests/shift-performance.test.mjs
             node tests/shift-time.test.mjs
             node tests/turn-assistant.test.mjs
+            node tests/turn-flow-v6.test.mjs
             node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest JSON passed.')"
             test -f offline.html
             test -f assets/brand/neomes-logo-horizontal.svg
@@ -168,7 +177,10 @@ jobs:
               'stoppage-time',
               'target-color-status',
               'full-shift-480-minutes',
-              'cycle-decimal-minute-conversion'
+              'cycle-decimal-minute-conversion',
+              'turn-v6-automatic-shift',
+              'turn-v6-logical-clock',
+              'turn-v6-independent-states'
             ]
           };
           fs.writeFileSync('validation/latest.json', JSON.stringify(result, null, 2) + '\n');
