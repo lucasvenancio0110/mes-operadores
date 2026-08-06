@@ -1,6 +1,6 @@
 import {
   store, api, API_BASE, uid, localDateKey, formatDate, formatClock, formatNumber,
-  parseNumber, parseCycle, formatCycle, detectShift, minutesRemaining, getLine,
+  parseNumber, parseCycle, formatCycle, detectOperationalContext,
   getMachine, currentMachineSession, calculateSession, loadCloudCatalog,
   loadCloudRecords, loginOperator, loadAssignments, saveAssignments,
   getShiftContext, productionTotalFromRecords
@@ -24,7 +24,6 @@ let returnFocus = null;
 let toastTimer = null;
 let installPrompt = null;
 let assignmentDraft = [];
-let assignmentStage = 'review';
 let assignmentLineId = '';
 let conferenceDraft = null;
 let batchDraft = {};
@@ -34,6 +33,10 @@ let nextOrderPreset = null;
 function activeRoute() {
   const route = store.state.ui?.route;
   return ROUTES.has(route) ? route : 'turn';
+}
+
+function operationalDateKey() {
+  return store.state.session?.productionDate || detectOperationalContext().productionDate || localDateKey();
 }
 
 function setRoute(route) {
@@ -118,8 +121,8 @@ function currentShiftRecords(machineId) {
 
 function hasPointing(machineId) {
   const session = currentMachineSession(machineId);
-  if (['pointed', 'closed'].includes(session?.status)) return true;
-  return currentShiftRecords(machineId).some(record => ['shift-pointing', 'order-close'].includes(record.eventType));
+  if (session?.workflowStatus === 'shift_closed') return true;
+  return currentShiftRecords(machineId).some(record => record.eventType === 'shift-pointing');
 }
 
 function pendingCounts() {
@@ -139,7 +142,7 @@ function renderHeader() {
       <div><strong>NEODENT MES</strong><span>Registro operacional do turno</span></div>
     </div>
     <div class="ops-header__actions">
-      <button class="ops-shift" type="button" data-action="change-shift">${escapeHtml(session?.shift || '—')}º turno</button>
+      <span class="ops-shift" title="Turno identificado automaticamente">${escapeHtml(session?.shift || '—')}º turno</span>
       <button class="ops-sync" type="button" data-action="sync" data-state="${sync.state}" aria-label="${escapeHtml(sync.label)}"><span></span></button>
       <button class="ops-icon-btn" type="button" data-action="menu" aria-label="Abrir menu">${icon('menu')}</button>
     </div>
@@ -252,13 +255,16 @@ function renderTurn() {
   </section>`;
 
   const cards = store.state.assignments.map(renderMachineCard).join('');
-  const closable = store.state.assignments.filter(item => currentMachineSession(item.machineId) && !hasPointing(item.machineId));
+  const closable = store.state.assignments.filter(item => {
+    const session=currentMachineSession(item.machineId);
+    return session&&session.opStatus!=='closed'&&session.workflowStatus!=='conference_pending'&&!hasPointing(item.machineId);
+  });
   return `${renderPendingSummary()}
     <div class="ops-machine-list">${cards}</div>
     <div class="ops-turn-action">
-      <div><strong>Fechamento manual do turno</strong><span>A produção só será registrada quando você confirmar o fechamento.</span></div>
+      <div><strong>Encerrar meu turno</strong><span>Faça o apontamento final das máquinas prontas antes de sair.</span></div>
       <button class="ops-btn ops-btn--primary" type="button" data-action="close-shift" ${closable.length ? '' : 'disabled'}>
-        ${closable.length ? `Fechar produção (${closable.length})` : 'Produção já apontada'}
+        ${closable.length ? `Encerrar turno (${closable.length})` : 'Sem máquinas prontas'}
       </button>
     </div>`;
 }
@@ -274,7 +280,7 @@ function historyPeriodRecords() {
       if (period === 'all') return true;
       if (period === 'month') return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
       if (period === '7d') return date >= new Date(startToday.getTime() - 6 * 86400000);
-      return String(record.productionDate || '') === localDateKey();
+      return String(record.productionDate || '') === operationalDateKey();
     })
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
@@ -283,7 +289,7 @@ function renderHistory() {
   const records = historyPeriodRecords();
   const groups = new Map();
   for (const record of records) {
-    const key = `${record.productionDate || localDateKey()}|${record.shift || '—'}`;
+    const key = `${record.productionDate || operationalDateKey()}|${record.shift || '—'}`;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(record);
   }
@@ -325,7 +331,6 @@ function renderMore() {
       <p class="ops-eyebrow">Organização do turno</p>
       <div class="action-list">
         <button class="action-row" type="button" data-action="assign-machines"><div><strong>Alterar máquinas</strong><span>Adicionar, remover ou substituir máquinas</span></div>${icon('chevron')}</button>
-        <button class="action-row" type="button" data-action="change-shift"><div><strong>Alterar turno</strong><span>Trocar o turno desta sessão</span></div>${icon('chevron')}</button>
         <button class="action-row" type="button" data-action="cell-view"><div><strong>Situação informada da célula</strong><span>Últimos estados registrados manualmente</span></div>${icon('chevron')}</button>
       </div>
     </section>
@@ -377,14 +382,12 @@ function render() {
 
 function loginSheet() {
   const previous = store.state.session;
-  const shift = previous?.shift || detectShift();
   const known = previous?.name && previous?.registration;
   const body = `<form id="loginForm" novalidate>
     ${known ? `<div class="ops-recognized"><strong>${escapeHtml(previous.name)}</strong><span>Matrícula ${escapeHtml(previous.registration)}</span></div>` : ''}
     <div class="field"><label for="loginRegistration">Matrícula</label><input id="loginRegistration" inputmode="numeric" autocomplete="username" required value="${escapeHtml(previous?.registration || '')}"></div>
     <div class="field"><label for="loginName">Nome</label><input id="loginName" autocomplete="name" required value="${escapeHtml(previous?.name || '')}"></div>
-    <div class="field"><label for="loginShift">Turno</label><select id="loginShift"><option value="1" ${shift === '1' ? 'selected' : ''}>1º turno</option><option value="2" ${shift === '2' ? 'selected' : ''}>2º turno</option><option value="3" ${shift === '3' ? 'selected' : ''}>3º turno</option></select></div>
-    <p class="field-hint">Seus dados ficarão salvos neste aparelho.</p>
+    <p class="field-hint">O turno será identificado automaticamente pelo horário da fábrica.</p>
     <div class="field-error" id="loginError" role="alert"></div>
   </form>`;
   openLayer(sheet({
@@ -398,7 +401,6 @@ function loginSheet() {
 async function submitLogin(form) {
   const registration = form.querySelector('#loginRegistration').value.trim();
   const name = form.querySelector('#loginName').value.trim();
-  const shift = form.querySelector('#loginShift').value;
   if (!registration || !name) {
     form.querySelector('#loginError').textContent = 'Informe matrícula e nome.';
     return;
@@ -406,7 +408,7 @@ async function submitLogin(form) {
   const button = layers.querySelector('[type="submit"]');
   button.disabled = true;
   button.textContent = 'Entrando…';
-  await loginOperator({ registration, name, shift });
+  await loginOperator({ registration, name });
   closeLayer(false);
   render();
   if (!store.state.assignments.length) openAssignments();
@@ -417,61 +419,41 @@ function menuSheet() {
   const body = `<div class="ops-menu-user"><strong>${escapeHtml(session?.name || 'Sem operador')}</strong><span>${session ? `Matrícula ${escapeHtml(session.registration)} · ${escapeHtml(session.shift)}º turno` : ''}</span></div>
     <div class="action-list">
       <button class="action-row" type="button" data-action="assign-machines"><div><strong>Máquinas do turno</strong><span>Consultar ou alterar a seleção</span></div>${icon('chevron')}</button>
-      <button class="action-row" type="button" data-action="change-shift"><div><strong>Alterar turno</strong><span>Trocar o turno ativo</span></div>${icon('chevron')}</button>
       <button class="action-row" type="button" data-action="sync"><div><strong>Sincronizar agora</strong><span>${store.state.syncQueue.length ? `${store.state.syncQueue.length} pendências` : 'Sem pendências'}</span></div>${icon('sync')}</button>
       <button class="action-row" type="button" data-action="logout"><div><strong class="ops-danger">Sair</strong><span>Trocar operador neste aparelho</span></div>${icon('logout')}</button>
     </div>`;
   openLayer(sheet({ title: 'Menu', eyebrow: 'NEODENT MES', body }), 'menuLayer');
 }
 
-function shiftSheet() {
-  const current = String(store.state.session?.shift || detectShift());
-  const body = `<p class="ops-help">Escolha o turno desta sessão.</p>
-    <div class="ops-option-grid">${['1', '2', '3'].map(value => `<button class="ops-option" type="button" data-shift-choice="${value}" aria-pressed="${value === current}"><strong>${value}º turno</strong><span>${value === '1' ? '06:30–14:30' : value === '2' ? '14:30–22:30' : '22:30–06:30'}</span></button>`).join('')}</div>`;
-  openLayer(sheet({
-    title: 'Alterar turno',
-    eyebrow: 'Sessão do operador',
-    body,
-    actions: `<button class="ops-btn ops-btn--ghost" type="button" data-close-layer>Cancelar</button><button class="ops-btn ops-btn--primary" type="button" data-action="confirm-shift" data-value="${current}">Confirmar turno</button>`
-  }), 'shiftLayer');
-}
-
 function openAssignments() {
   if (!store.state.session) return loginSheet();
   assignmentDraft = store.state.assignments.map(item => ({ lineId: item.lineId, machineId: item.machineId }));
-  assignmentStage = assignmentDraft.length ? 'review' : 'lines';
-  assignmentLineId = '';
+  assignmentLineId = 'all';
   renderAssignments();
 }
 
 function assignmentBody() {
-  if (assignmentStage === 'review') {
-    const selected = assignmentDraft.map((item, index) => {
-      const machine = getMachine(item.machineId);
-      return `<div class="ops-selected-machine"><span>${index + 1}</span><div><strong>${escapeHtml(machine?.name || item.machineId)}</strong><small>${escapeHtml(machine?.lineName || '')}</small></div><button type="button" data-remove-assignment="${index}" aria-label="Remover ${escapeHtml(machine?.name || 'máquina')}">×</button></div>`;
-    }).join('');
-    return `<p class="ops-help">Confirme as máquinas do turno. O padrão operacional é três máquinas, com opção de adicionar outras.</p>
-      <div class="ops-selected-list">${selected || '<p class="ops-help">Nenhuma máquina selecionada.</p>'}</div>
-      <button class="ops-btn ops-btn--soft ops-btn--full" type="button" data-assignment-add>＋ Adicionar máquina</button>`;
-  }
-  if (assignmentStage === 'lines') return `<p class="ops-help">Escolha a linha.</p><div class="ops-select-grid">${store.state.catalog.map(line => `<button class="ops-select-card" type="button" data-assignment-line="${escapeHtml(line.id)}"><strong>${escapeHtml(line.name)}</strong><span>${line.machines.length} equipamentos</span></button>`).join('')}</div>`;
-
-  const line = getLine(assignmentLineId);
-  const used = new Set(assignmentDraft.map(item => item.machineId));
-  return `<p class="ops-help">${escapeHtml(line?.name || '')} · toque na máquina para adicionar.</p>
-    <label class="ops-search">${icon('search')}<input id="assignmentSearch" type="search" placeholder="Buscar TNL" aria-label="Buscar máquina"></label>
-    <div class="ops-select-grid" id="assignmentMachineGrid">${(line?.machines || []).map(machine => `<button class="ops-select-card" type="button" data-assignment-machine="${escapeHtml(machine.id)}" ${used.has(machine.id) ? 'disabled' : ''}><strong>${escapeHtml(machine.name)}</strong><span>${escapeHtml(machine.equipmentType || 'TNL')}</span></button>`).join('')}</div>`;
+  const selected = new Set(assignmentDraft.map(item => item.machineId));
+  const groups = store.state.catalog.map(line => `<section class="ops-assignment-group" data-assignment-group="${escapeHtml(line.id)}" ${assignmentLineId!=='all'&&assignmentLineId!==line.id?'hidden':''}>
+    <header><strong>${escapeHtml(line.name)}</strong><span>${line.machines.length} equipamentos</span></header>
+    <div class="ops-assignment-machine-grid">${line.machines.map(machine => {
+      const active=selected.has(machine.id);
+      return `<button class="ops-assignment-machine${active?' is-selected':''}" type="button" data-assignment-machine="${escapeHtml(machine.id)}" data-assignment-line-id="${escapeHtml(line.id)}" aria-pressed="${active}"><span aria-hidden="true">${active?'✓':'+'}</span><strong>${escapeHtml(machine.name)}</strong><small>${escapeHtml(machine.equipmentType || 'TNL')}</small></button>`;
+    }).join('')}</div>
+  </section>`).join('');
+  return `<section class="ops-assignment-summary"><div><strong>${assignmentDraft.length}</strong><span>máquina${assignmentDraft.length===1?'':'s'} selecionada${assignmentDraft.length===1?'':'s'}</span></div><p>Toque em todas as máquinas que você vai operar e confirme uma única vez.</p></section>
+    <div class="ops-assignment-filters"><button type="button" data-assignment-filter="all" aria-pressed="${assignmentLineId==='all'}">Todas</button>${store.state.catalog.map(line=>`<button type="button" data-assignment-filter="${escapeHtml(line.id)}" aria-pressed="${assignmentLineId===line.id}">${escapeHtml(line.name)}</button>`).join('')}</div>
+    <label class="ops-search">${icon('search')}<input id="assignmentSearch" type="search" placeholder="Buscar máquina" aria-label="Buscar máquina"></label>
+    <div class="ops-assignment-groups" id="assignmentMachineGrid">${groups}</div>`;
 }
 
 function renderAssignments() {
-  const review = assignmentStage === 'review';
   openLayer(sheet({
     title: 'Máquinas do turno',
-    eyebrow: review ? 'Revisão' : assignmentStage === 'lines' ? 'Escolha a linha' : 'Escolha a máquina',
+    eyebrow: 'SELEÇÃO MÚLTIPLA',
     body: assignmentBody(),
-    actions: review
-      ? `<button class="ops-btn ops-btn--ghost" type="button" data-close-layer>Cancelar</button><button class="ops-btn ops-btn--primary" type="button" data-assignment-save ${assignmentDraft.length >= 3 ? '' : 'disabled'}>Confirmar máquinas</button>`
-      : `<button class="ops-btn ops-btn--ghost" type="button" data-assignment-back>Voltar</button>`
+    actions:`<button class="ops-btn ops-btn--ghost" type="button" data-close-layer>Cancelar</button><button class="ops-btn ops-btn--primary" type="button" data-assignment-save ${assignmentDraft.length ? '' : 'disabled'}>Confirmar ${assignmentDraft.length || ''} máquina${assignmentDraft.length===1?'':'s'}</button>`,
+    size:'wide'
   }), 'assignmentLayer');
   const search = document.getElementById('assignmentSearch');
   search?.addEventListener('input', event => {
@@ -479,13 +461,19 @@ function renderAssignments() {
     layers.querySelectorAll('[data-assignment-machine]').forEach(button => {
       button.hidden = !button.textContent.toLowerCase().includes(query);
     });
+    layers.querySelectorAll('[data-assignment-group]').forEach(group => {
+      const allowed=assignmentLineId==='all'||group.dataset.assignmentGroup===assignmentLineId;
+      const visible=[...group.querySelectorAll('[data-assignment-machine]')].some(button=>!button.hidden);
+      group.hidden=!allowed||!visible;
+    });
   });
 }
 
 async function finishAssignments() {
-  if (assignmentDraft.length < 3) return;
+  if (!assignmentDraft.length) return;
+  const productionDate=store.state.session?.productionDate || detectOperationalContext().productionDate;
   const assignments = assignmentDraft.map((item, index) => ({
-    id: `assignment-${localDateKey()}-${index + 1}`,
+    id: `assignment-${productionDate}-${index + 1}`,
     slotOrder: index + 1,
     ...item
   }));
@@ -505,7 +493,7 @@ function conferenceDefaults(machineId, preset = {}) {
     machineName: machine?.name || '',
     lineName: machine?.lineName || '',
     op: '', item: '', description: '', cycleSeconds: null, frequency1: null, frequency2: null,
-    producedSoFar: 0, availableMinutes: minutesRemaining(store.state.session?.shift || detectShift()),
+    producedSoFar: 0, availableMinutes: 480,
     status: 'producing', statusNote: '', notes: '',
     checkedAt: null, updatedAt: new Date().toISOString(),
     ...(saved || {}),
@@ -600,7 +588,7 @@ async function submitConference(form) {
     form.querySelector('#conferenceError').textContent = 'Informe OP, item e tempo de ciclo válido.';
     return;
   }
-  const availableMinutes = minutesRemaining(store.state.session.shift);
+  const availableMinutes = Number(conferenceDraft.availableMinutes || 480);
   const now = new Date().toISOString();
   const session = {
     ...conferenceDraft,
@@ -624,8 +612,8 @@ async function submitConference(form) {
   if (API_BASE) {
     try {
       await api.post('/api/v1/shift-sessions', {
-        id: `shift-${localDateKey()}-${store.state.session.shift}-${store.state.session.registration}-${session.machineId}-${session.op}`.replace(/[^a-zA-Z0-9-_]/g, '-'),
-        productionDate: localDateKey(), shift: store.state.session.shift, registration: store.state.session.registration, operatorName: store.state.session.name,
+        id: `shift-${operationalDateKey()}-${store.state.session.shift}-${store.state.session.registration}-${session.machineId}-${session.op}`.replace(/[^a-zA-Z0-9-_]/g, '-'),
+        productionDate: operationalDateKey(), shift: store.state.session.shift, registration: store.state.session.registration, operatorName: store.state.session.name,
         lineId: session.lineId, lineName: session.lineName, machineId: session.machineId, machineName: session.machineName,
         opNumber: session.op, itemNumber: session.item, cycleTimeSeconds: session.cycleSeconds, frequency1: session.frequency1, frequency2: session.frequency2,
         openingProduction: session.producedSoFar, availableMinutes, target: session.target,
@@ -746,7 +734,7 @@ async function savePointing(machineId, pieces, notes, mode = 'shift') {
   const now = new Date().toISOString();
   const eventType = mode === 'close' ? 'order-close' : 'shift-pointing';
   const record = {
-    id: uid('record'), schemaVersion: 3, createdAt: now, updatedAt: now, productionDate: localDateKey(), source: 'neodent-mes-manual',
+    id: uid('record'), schemaVersion: 3, createdAt: now, updatedAt: now, productionDate: operationalDateKey(), source: 'neodent-mes-manual',
     operatorName: store.state.session.name, operatorRegistration: store.state.session.registration, shift: store.state.session.shift,
     lineId: machine.lineId, lineName: machine.lineName, machineId: machine.id, machineName: machine.name,
     op: session.op, item: session.item, itemDescription: session.description || '', cycleTimeSeconds: session.cycleSeconds,
@@ -775,8 +763,8 @@ async function savePointing(machineId, pieces, notes, mode = 'shift') {
     try { await api.post('/api/v1/records', record); } catch {}
     try {
       await api.post('/api/v1/shift-sessions', {
-        id: `shift-${localDateKey()}-${store.state.session.shift}-${store.state.session.registration}-${machine.id}-${session.op}`.replace(/[^a-zA-Z0-9-_]/g, '-'),
-        productionDate: localDateKey(), shift: store.state.session.shift, registration: store.state.session.registration, operatorName: store.state.session.name,
+        id: `shift-${operationalDateKey()}-${store.state.session.shift}-${store.state.session.registration}-${machine.id}-${session.op}`.replace(/[^a-zA-Z0-9-_]/g, '-'),
+        productionDate: operationalDateKey(), shift: store.state.session.shift, registration: store.state.session.registration, operatorName: store.state.session.name,
         lineId: machine.lineId, lineName: machine.lineName, machineId: machine.id, machineName: machine.name,
         opNumber: session.op, itemNumber: session.item, cycleTimeSeconds: session.cycleSeconds, frequency1: session.frequency1, frequency2: session.frequency2,
         openingProduction: Number(session.producedSoFar || 0), availableMinutes: session.availableMinutes, target: calc.target,
@@ -896,7 +884,7 @@ function exportCsv() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `neodent-mes-${localDateKey()}.csv`;
+  link.download = `neodent-mes-${operationalDateKey()}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
@@ -945,20 +933,6 @@ document.addEventListener('click', event => {
   const actionElement = event.target.closest('[data-action]');
   const action = actionElement?.dataset.action;
   if (action === 'menu') return menuSheet();
-  if (action === 'change-shift') return shiftSheet();
-  if (action === 'confirm-shift') {
-    const value = actionElement.dataset.value;
-    store.update(state => {
-      state.session.shift = value;
-      state.session.productionDate = localDateKey();
-      state.assignments = [];
-      state.activeMachineId = '';
-      state.machineSessions = {};
-    }, 'shift-change');
-    closeLayer(false);
-    render();
-    return openAssignments();
-  }
   if (action === 'sync') return synchronize();
   if (action === 'assign-machines') return openAssignments();
   if (action === 'open-first-conference') {
@@ -986,14 +960,6 @@ document.addEventListener('click', event => {
   if (action === 'install-app') return installApp();
   if (action === 'logout') return logout();
 
-  const shiftChoice = event.target.closest('[data-shift-choice]');
-  if (shiftChoice) {
-    layers.querySelectorAll('[data-shift-choice]').forEach(button => button.setAttribute('aria-pressed', 'false'));
-    shiftChoice.setAttribute('aria-pressed', 'true');
-    layers.querySelector('[data-action="confirm-shift"]').dataset.value = shiftChoice.dataset.shiftChoice;
-    return;
-  }
-
   const statusChoice = event.target.closest('[data-status-choice]');
   if (statusChoice) {
     layers.querySelectorAll('[data-status-choice]').forEach(button => button.setAttribute('aria-pressed', 'false'));
@@ -1002,29 +968,17 @@ document.addEventListener('click', event => {
     return;
   }
 
-  const line = event.target.closest('[data-assignment-line]');
-  if (line) {
-    assignmentLineId = line.dataset.assignmentLine;
-    assignmentStage = 'machines';
+  const filter = event.target.closest('[data-assignment-filter]');
+  if (filter) {
+    assignmentLineId = filter.dataset.assignmentFilter;
     return renderAssignments();
   }
   const machine = event.target.closest('[data-assignment-machine]');
   if (machine) {
-    assignmentDraft.push({ lineId: assignmentLineId, machineId: machine.dataset.assignmentMachine });
-    assignmentStage = 'review';
-    return renderAssignments();
-  }
-  if (event.target.closest('[data-assignment-add]')) {
-    assignmentStage = 'lines';
-    return renderAssignments();
-  }
-  const remove = event.target.closest('[data-remove-assignment]');
-  if (remove) {
-    assignmentDraft.splice(Number(remove.dataset.removeAssignment), 1);
-    return renderAssignments();
-  }
-  if (event.target.closest('[data-assignment-back]')) {
-    assignmentStage = assignmentStage === 'machines' ? 'lines' : 'review';
+    const machineId=machine.dataset.assignmentMachine;
+    const existing=assignmentDraft.findIndex(item=>item.machineId===machineId);
+    if(existing>=0)assignmentDraft.splice(existing,1);
+    else assignmentDraft.push({ lineId:machine.dataset.assignmentLineId,machineId });
     return renderAssignments();
   }
   if (event.target.closest('[data-assignment-save]')) return finishAssignments();

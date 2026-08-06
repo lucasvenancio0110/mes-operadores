@@ -87,6 +87,7 @@ jobs:
             node --check tests/turn-assistant.test.mjs
             node --check tests/turn-flow-v6.test.mjs
             node --check tests/turn-assistant-worker-v6.test.mjs
+            node --check tests/operator-flow-v6.test.mjs
             node tests/static-check.mjs
             node tests/password-migration.test.mjs
             node tests/measurement-plan.test.mjs
@@ -96,6 +97,7 @@ jobs:
             node tests/turn-assistant.test.mjs
             node tests/turn-flow-v6.test.mjs
             node tests/turn-assistant-worker-v6.test.mjs
+            node tests/operator-flow-v6.test.mjs
             node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest JSON passed.')"
             test -f offline.html
             test -f assets/brand/neomes-logo-horizontal.svg
@@ -131,6 +133,7 @@ jobs:
             test -f tests/password-migration.test.mjs
             test -f tests/shift-time.test.mjs
             test -f tests/turn-assistant.test.mjs
+            test -f tests/operator-flow-v6.test.mjs
             test -f worker/settings.js
             test -f wrangler.jsonc
             test -f .assetsignore
@@ -182,7 +185,10 @@ jobs:
               'cycle-decimal-minute-conversion',
               'turn-v6-automatic-shift',
               'turn-v6-logical-clock',
-              'turn-v6-independent-states'
+              'turn-v6-independent-states',
+              'operator-v6-login-auto-shift',
+              'operator-v6-machine-multiselect',
+              'operator-v6-advisory-pointing'
             ]
           };
           fs.writeFileSync('validation/latest.json', JSON.stringify(result, null, 2) + '\n');

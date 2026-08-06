@@ -5,7 +5,7 @@ const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 const [
   html, manifestText, wranglerText, serviceWorker, deployWorkflow, smokeDeployment,
   authWorker, secureMain, authShell, adminUi, authCss, adminCss,
-  worker, operatorMain, core, planningRuntime, measurementEngine,
+  worker, operatorMain, core, turnAssistant, turnAssistantEngine, planningRuntime, measurementEngine,
   measurementFrequencyParser, measurementFrequencyFix, shiftPerformance,
   shiftTimeEngine, shiftTimeFix, exportsModule, settingsWorker,
   officialLogo, officialSymbol, offline
@@ -15,7 +15,7 @@ const [
   read('worker/auth.js'), read('worker/secure-main.js'),
   read('app/auth-shell.js'), read('app/admin-ui.js'), read('app/auth.css'), read('app/admin.css'),
   read('worker/main.js'), read('app/operator-main.js'), read('app/core.js'),
-  read('app/production-planning.js'), read('app/measurement-engine.js'),
+  read('app/turn-assistant.js'), read('app/turn-assistant-engine.js'), read('app/production-planning.js'), read('app/measurement-engine.js'),
   read('app/measurement-frequency-parser.js'), read('app/measurement-frequency-fix.js'),
   read('app/shift-performance.js'), read('app/shift-time-engine.js'), read('app/shift-time-fix.js'),
   read('app/exports.js'), read('worker/settings.js'), read('assets/brand/neomes-logo-horizontal.svg'),
@@ -29,14 +29,14 @@ const wrangler = JSON.parse(wranglerText);
 assert(!html.includes('maximum-scale=1'), 'O zoom do navegador não pode ser bloqueado.');
 assert(html.includes('viewport-fit=cover'), 'O layout deve respeitar safe areas.');
 assert(html.includes('<title>NEOMES — Gestão Operacional</title>'), 'Título oficial NEOMES ausente.');
-assert(html.includes('app/auth-shell.js?v=4.0.0'), 'Entrada segura 4.0.0 não foi publicada.');
-assert(html.includes('app/auth.css?v=4.0.0') && html.includes('app/admin.css?v=4.0.0'), 'Estilos de autenticação ou administração ausentes.');
+assert(html.includes('app/auth-shell.js?v=6.0.0'), 'Entrada segura 6.0.0 não foi publicada.');
+assert(html.includes('app/auth.css?v=6.0.0') && html.includes('app/admin.css?v=4.0.0'), 'Estilos de autenticação ou administração ausentes.');
 assert(!html.includes('NEODENT MES'), 'Identidade antiga permanece no ponto de entrada.');
 assert.equal(manifest.name, 'NEOMES');
 assert.equal(manifest.short_name, 'NEOMES');
 assert.equal(manifest.display, 'standalone');
-assert(manifest.start_url.includes('v=4.0.0'), 'Manifesto não aponta para a versão segura 4.0.0.');
-assert(serviceWorker.includes('neomes-v4.0.0-secure-auth-admin'), 'Cache PWA seguro não foi ativado.');
+assert(manifest.start_url.includes('v=6.0.0'), 'Manifesto não aponta para o fluxo operacional 6.0.0.');
+assert(serviceWorker.includes('neomes-v6.0.0-operator-flow'), 'Cache PWA 6.0.0 não foi ativado.');
 for (const asset of ['./app/auth-shell.js','./app/auth.css','./app/admin-ui.js','./app/admin.css','./app/operator-main.js','./app/shift-performance.js']) {
   assert(serviceWorker.includes(asset), `Service Worker não inclui ${asset}.`);
 }
@@ -53,7 +53,7 @@ assert(deployWorkflow.includes('CLOUDFLARE_API_TOKEN') && deployWorkflow.include
 assert(deployWorkflow.includes('scripts/smoke-deployment.mjs'), 'Workflow não executa o smoke test publicado.');
 assert(deployWorkflow.includes('tests/password-migration.test.mjs'), 'Workflow não testa a migração de hashes legados.');
 assert(smokeDeployment.includes("waitForJson('/health'") && smokeDeployment.includes('payload.database'), 'Deploy não valida Worker e D1.');
-assert(smokeDeployment.includes('/api/v1/auth/turn-assistant-health') && smokeDeployment.includes('shiftMinutes'), 'Deploy não valida o assistente de turno.');
+assert(smokeDeployment.includes('/api/v1/auth/turn-assistant-health') && smokeDeployment.includes('minuteLedger') && smokeDeployment.includes('stateAxes'), 'Deploy não valida o assistente de turno v6.');
 
 // Senhas, sessões e autenticação.
 for (const required of [
@@ -74,6 +74,8 @@ assert(secureMain.includes('recordBelongsToUser') && secureMain.includes('canAcc
 
 // Front-end seguro e administração.
 assert(authShell.includes('/api/v1/auth/login') && authShell.includes('/api/v1/auth/me'), 'Cliente não valida a sessão no servidor.');
+assert(authShell.includes('JSON.stringify({ registration,password })') && authShell.includes('operationalContext'), 'Login não usa matrícula, senha e turno automático.');
+assert(!authShell.includes('id="secureShift"'), 'Login ainda permite escolher o turno manualmente.');
 assert(authShell.includes('current-password') && authShell.includes('new-password'), 'Autocompletes seguros de senha ausentes.');
 assert(authShell.includes('offlineUntil') && authShell.includes("!navigator.onLine"), 'Credencial offline limitada ausente.');
 assert(!/localStorage\.setItem\([^\n]*password/i.test(authShell), 'Senha não pode ser gravada no localStorage.');
@@ -86,7 +88,13 @@ assert(adminCss.includes('@media(min-width:760px)') && adminCss.includes('@media
 // Fluxos operacionais preservados.
 for (const route of ['turn','history','more']) assert(operatorMain.includes(`'${route}'`), `Rota operacional ausente: ${route}`);
 for (const flow of ['openConference','openBatchClose','openCloseOrder','renderHistory','renderCellView']) assert(operatorMain.includes(flow), `Fluxo operacional ausente: ${flow}`);
-assert(operatorMain.includes('Fechamento manual do turno'), 'O fechamento deve continuar manual.');
+assert(operatorMain.includes('Encerrar meu turno'), 'O fechamento do turno deve continuar explícito e manual.');
+assert(operatorMain.includes('data-assignment-machine') && operatorMain.includes('aria-pressed'), 'Seleção múltipla de máquinas ausente.');
+assert(!operatorMain.includes('assignmentStage'), 'Fluxo antigo de seleção máquina por máquina permanece ativo.');
+assert(core.includes('detectFactoryOperationalContext') && core.includes('session.productionDate'), 'Turno e data operacional automáticos ausentes.');
+assert(turnAssistant.includes('taPointingForm') && turnAssistant.includes('pointedGoodPieces'), 'Apontamento consultivo v6 ausente.');
+assert(turnAssistant.includes('A quantidade digitada será salva normalmente.'), 'Quantidade ainda pode ser tratada como bloqueio.');
+assert(turnAssistantEngine.includes('calculatePointingAccounting') && turnAssistantEngine.includes('advisory:overrunMinutes > 0'), 'Cálculo consultivo do apontamento ausente.');
 assert(operatorMain.includes('Última situação informada'), 'A situação deve continuar identificada como informação manual.');
 assert(core.includes('syncQueue') && core.includes('mes-operadores:v2'), 'Fila offline ou migração anterior foi removida.');
 
@@ -104,4 +112,4 @@ for (const feature of ['exportPdf','exportImage','shareSummary']) assert(exports
 assert(settingsWorker.includes('CREATE TABLE IF NOT EXISTS app_settings'), 'Ajustes globais ausentes.');
 for (const route of ['/api/v1/machine-states','/api/v1/events','/api/v1/records','/api/v1/assignments','/api/v1/settings']) assert(worker.includes(route), `Rota operacional ausente: ${route}`);
 
-console.log('NEOMES 4.0.0: autenticação segura, administração e fluxos operacionais validados.');
+console.log('NEOMES 6.0.0: autenticação segura, turno automático e fluxo consultivo validados.');

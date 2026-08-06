@@ -23,3 +23,4 @@
 .ta-conference-callout{display:grid;gap:5px;margin:0 16px 16px;padding:16px;border:1px solid rgba(175,36,157,.35);border-radius:16px;background:rgba(175,36,157,.08)}
 .ta-conference-callout p{margin:0;color:#a6b1c0;line-height:1.45}
 @media(max-width:759px){.ta-submit-feedback{margin-bottom:8px;padding:10px 12px;font-size:.8rem}}
+@media(min-width:760px){.ta-close-fields{grid-template-columns:1fr 180px 180px}.ta-time-preview{grid-template-columns:repeat(3,minmax(0,1fr))}.ta-card-actions:not(.ta-card-actions--single){grid-template-columns:1.25fr 1fr 1fr}}

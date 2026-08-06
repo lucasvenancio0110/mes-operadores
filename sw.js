@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v4.0.0-secure-auth-admin-v5.0.8-clear-release-copy';
+const VERSION = 'neomes-v6.0.0-operator-flow';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
