@@ -142,10 +142,21 @@ requireIncludes(engine, [
   'DEFAULT_SHIFT_MINUTES = 480',
   'detectOperationalContext',
   'calculatePointingAccounting',
-  "workflowStatus:'conference_pending'",
+  'nextFlowAxes',
   'calculateFullShiftTarget',
   'listMeasurementReleases'
 ], 'Motor do assistente');
+const engineModule = await import(`data:text/javascript;base64,${Buffer.from(engine).toString('base64')}`);
+assert.deepEqual(
+  engineModule.nextFlowAxes({ physicalStatus:'producing' }),
+  { physicalStatus:'producing', opStatus:'active', workflowStatus:'conference_pending' },
+  'O apontamento normal não exige uma nova conferência.'
+);
+assert.equal(
+  engineModule.operatorCardState({ physicalStatus:'producing', opStatus:'active', workflowStatus:'conference_pending' }),
+  'conference-pending',
+  'O cartão da máquina não mostra a conferência pendente após o apontamento.'
+);
 console.log('✓ Motor do assistente publicado');
 
 for (const [path, label] of [
