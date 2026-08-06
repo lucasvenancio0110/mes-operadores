@@ -43,7 +43,7 @@ assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envi
 assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
 assert(serviceWorker.includes('v5.0.8-clear-release-copy'),'Versão do cache móvel não foi renovada.');
 assert(workerAssistant.includes("rolloverMinutes===1375"),'O Worker não valida períodos que atravessam a madrugada.');
-assert(workerAssistant.includes("started_at=?,ended_at=?"),'O Worker não repara o início incorreto do período.');
+assert(workerAssistant.includes('const endedAt=now;'),'O Worker não fecha o apontamento no instante real do registro.');
 assert(workerAssistant.includes("T${clock}:00-03:00"),'Os turnos do Worker não usam o horário de Curitiba.');
 assert(assistant.includes('O apontamento será salvo normalmente.'),'A divergência calculada não é apresentada como aviso consultivo.');
 assert(!assistant.includes('if(result.inconsistent)return showError'),'O frontend ainda bloqueia quantidades pela estimativa de tempo.');
