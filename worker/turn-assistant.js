@@ -346,8 +346,19 @@ async function requireAuth(request, env, machineId = '', lineId = '') {
   const auth = await authenticateRequest(request,env);
   if (!auth) return { response:json({ error:'Sua sessão expirou. Entre novamente.',code:'UNAUTHENTICATED' },401) };
   if (auth.user?.mustChangePassword) return { response:json({ error:'Troque sua senha antes de continuar.',code:'PASSWORD_CHANGE_REQUIRED' },403) };
-  if (machineId && !canAccessMachine(auth,lineId,machineId)) return { response:json({ error:'Máquina ou linha não autorizada.',code:'MACHINE_FORBIDDEN' },403) };
-  return { auth };
+  if (machineId) {
+    const machine=await env.DB.prepare('SELECT id,line_id AS lineId FROM machines WHERE id=? AND active=1 LIMIT 1').bind(machineId).first();
+    if(!machine)return { response:json({ error:'Máquina não encontrada ou inativa.',code:'MACHINE_NOT_FOUND' },404) };
+    if(lineId&&lineId!==machine.lineId)return { response:json({ error:'A linha informada não pertence a esta máquina.',code:'MACHINE_LINE_MISMATCH' },403) };
+    if(!canAccessMachine(auth,machine.lineId,machineId))return { response:json({ error:'Máquina ou linha não autorizada.',code:'MACHINE_FORBIDDEN' },403) };
+    return { auth,machine };
+  }
+  return { auth,machine:null };
+}
+
+function requireCapability(auth, permissions = []) {
+  if(auth?.user?.roleCode==='admin'||permissions.some(permission=>auth?.permissions?.includes(permission)))return null;
+  return json({ error:'Seu perfil não pode alterar este fluxo.',code:'FORBIDDEN' },403);
 }
 
 function validShiftPayload(body) {
@@ -366,13 +377,15 @@ async function writeEvent(env, request, auth, body, type, payload) {
 
 async function contextRoute(request, env, url) {
   const machineId = text(url.searchParams.get('machineId'));
-  const lineId = text(url.searchParams.get('lineId'));
+  const requestedLineId = text(url.searchParams.get('lineId'));
   const productionDate = text(url.searchParams.get('productionDate'));
   const shift = text(url.searchParams.get('shift'));
   if (!machineId || !productionDate || !['1','2','3'].includes(shift)) {
     return json({ error:'Máquina, data e turno são obrigatórios.',code:'INVALID_CONTEXT' },400);
   }
-  const access = await requireAuth(request,env,machineId,lineId); if (access.response) return access.response;
+  const access = await requireAuth(request,env,machineId,requestedLineId); if (access.response) return access.response;
+  const denied=requireCapability(access.auth,['machines.view']);if(denied)return denied;
+  const lineId=access.machine.lineId;
   const [order,turnSegments,handoff,state] = await Promise.all([
     activeOrder(env,machineId),
     segments(env,machineId,productionDate,shift),
@@ -397,8 +410,10 @@ async function contextRoute(request, env, url) {
 async function handoffRoute(request, env) {
   const body = await request.json().catch(() => null);
   if (!body || !validShiftPayload(body)) return json({ error:'Dados do turno inválidos.',code:'INVALID_BODY' },400);
-  const machineId = text(body.machineId); const lineId = text(body.lineId);
-  const access = await requireAuth(request,env,machineId,lineId); if (access.response) return access.response;
+  const machineId = text(body.machineId); const requestedLineId = text(body.lineId);
+  const access = await requireAuth(request,env,machineId,requestedLineId); if (access.response) return access.response;
+  const denied=requireCapability(access.auth,['conference.create','conference.edit']);if(denied)return denied;
+  const lineId=access.machine.lineId;
   const productionConfirmed = number(body.productionConfirmed);
   const currentBarPieces = integer(body.currentBarPieces);
   const feederBars = integer(body.feederBars);
@@ -516,8 +531,10 @@ function performance({ availableMinutes,goodPieces,rejects,cycleSeconds }) {
 async function closePeriodRoute(request, env) {
   const body = await request.json().catch(() => null);
   if (!body || !validShiftPayload(body)) return json({ error:'Dados do fechamento inválidos.',code:'INVALID_BODY' },400);
-  const machineId=text(body.machineId); const lineId=text(body.lineId);
-  const access=await requireAuth(request,env,machineId,lineId); if(access.response)return access.response;
+  const machineId=text(body.machineId); const requestedLineId=text(body.lineId);
+  const access=await requireAuth(request,env,machineId,requestedLineId); if(access.response)return access.response;
+  const denied=requireCapability(access.auth,['production.create']);if(denied)return denied;
+  const lineId=access.machine.lineId;
   const goodPieces=integer(body.goodPieces); const rejects=integer(body.rejects);
   const stopMinutes=number(body.stopMinutes) ?? 0;
   if(goodPieces===null)return json({ error:'Informe as peças boas produzidas.',code:'GOOD_PIECES_REQUIRED' },400);
@@ -530,7 +547,7 @@ async function closePeriodRoute(request, env) {
     ORDER BY started_at DESC LIMIT 1`).bind(machineId,text(body.productionDate),text(body.shift)).first();
   if(!segment)return json({ error:'Confirme os dados da máquina antes de apontar.',code:'OPEN_SEGMENT_NOT_FOUND' },409);
   const mode=text(body.mode)==='order'?'order':'pointing';
-  const finalShift=Boolean(body.finalShift);
+  const finalShift=body.finalShift===true;
   const now=nowIso();
   const endedAt=now;
   const stateBefore=await turnState(env,machineId,text(body.productionDate),text(body.shift),lineId || order.lineId);
@@ -598,8 +615,10 @@ async function closePeriodRoute(request, env) {
 async function startOrderRoute(request, env) {
   const body=await request.json().catch(()=>null);
   if(!body||!validShiftPayload(body))return json({ error:'Dados da nova OP inválidos.',code:'INVALID_BODY' },400);
-  const machineId=text(body.machineId);const lineId=text(body.lineId);
-  const access=await requireAuth(request,env,machineId,lineId);if(access.response)return access.response;
+  const machineId=text(body.machineId);const requestedLineId=text(body.lineId);
+  const access=await requireAuth(request,env,machineId,requestedLineId);if(access.response)return access.response;
+  const denied=requireCapability(access.auth,['production.create']);if(denied)return denied;
+  const lineId=access.machine.lineId;
   const previous=await activeOrder(env,machineId,true);
   const sameItem=text(body.orderType)==='same-item';
   const op=text(body.op);const item=sameItem?text(previous?.item):text(body.item);
@@ -689,8 +708,10 @@ async function startOrderRoute(request, env) {
 async function stoppedRoute(request, env) {
   const body=await request.json().catch(()=>null);
   if(!body||!validShiftPayload(body))return json({ error:'Dados inválidos.',code:'INVALID_BODY' },400);
-  const machineId=text(body.machineId);const lineId=text(body.lineId);
-  const access=await requireAuth(request,env,machineId,lineId);if(access.response)return access.response;
+  const machineId=text(body.machineId);const requestedLineId=text(body.lineId);
+  const access=await requireAuth(request,env,machineId,requestedLineId);if(access.response)return access.response;
+  const denied=requireCapability(access.auth,['machines.update_status']);if(denied)return denied;
+  const lineId=access.machine.lineId;
   const now=nowIso();
   const segmentId=uid('segment');
   const stateBefore=await turnState(env,machineId,text(body.productionDate),text(body.shift),lineId);
@@ -765,7 +786,7 @@ function dashboardRisk(order, state, runtime, forecast) {
 async function lineDashboardRoute(request, env, url) {
   const access=await requireAuth(request,env);if(access.response)return access.response;
   const auth=access.auth;
-  const allowed=['admin','leadership','preparator'].includes(auth.user.roleCode)||auth.permissions.includes('production.view_all');
+  const allowed=['admin','leadership','preparator'].includes(auth.user.roleCode);
   if(!allowed)return json({ error:'Acesso restrito ao preparador e à liderança.',code:'FORBIDDEN' },403);
   const detected=detectOperationalContext();
   const productionDate=text(url.searchParams.get('productionDate'))||detected.productionDate;

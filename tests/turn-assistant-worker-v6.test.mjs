@@ -21,7 +21,12 @@ assert(worker.includes('stopMinutes'),'Minutos de parada informados pelo operado
 assert(worker.includes("workflowStatus=finalShift?'shift_closed':'conference_pending'"),'Estado pós-apontamento não exige reconferência.');
 assert(worker.includes("line-dashboard"),'Cockpit por linha não possui endpoint protegido.');
 assert(worker.includes("['admin','leadership','preparator']"),'Endpoint da linha não restringe os papéis permitidos.');
+assert(!worker.includes("||auth.permissions.includes('production.view_all')"),'Perfil técnico não deve herdar o cockpit por uma permissão genérica.');
 assert(worker.includes('auth.lineAccess'),'Cockpit não respeita as linhas autorizadas do preparador.');
+assert(worker.includes("SELECT id,line_id AS lineId FROM machines WHERE id=? AND active=1"),'API confia na linha enviada pelo cliente sem consultar a máquina real.');
+assert(worker.includes("code:'MACHINE_LINE_MISMATCH'"),'API não rejeita máquina associada a outra linha.');
+for(const permission of ['machines.view','conference.create','production.create','machines.update_status'])assert(worker.includes(`'${permission}'`),`Permissão operacional não é verificada: ${permission}`);
+assert(worker.includes('function requireCapability'),'Rotas de escrita não possuem bloqueio por capacidade.');
 assert(worker.includes("pointingValidation:'advisory-only'"),'Contrato consultivo foi removido.');
 assert(worker.includes("minuteLedger:'logical-accounted-per-machine-shift'"),'Health check não declara o relógio lógico.');
 assert(worker.includes("stateAxes:['physicalStatus','opStatus','workflowStatus']"),'Health check não declara os três estados.');
