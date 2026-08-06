@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { calculatePreparerMetrics, closureCopy, closureUrgency, preparerMachineState } from '../app/preparer-dashboard-engine.js';
-import { FACTORY_MAP_ZONES, factoryMapMachineIds, mapMachineMetadata } from '../app/preparer-map-layout.js';
+import { FACTORY_MAP_GEOMETRY, FACTORY_MAP_POSITIONS, factoryMapBounds, factoryMapMachineIds, mapMachineMetadata } from '../app/preparer-map-layout.js';
 
 const read=path=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
 const [dashboard,authShell,css,index,serviceWorker,backend]=await Promise.all([
@@ -34,11 +34,21 @@ assert.equal(closureUrgency({ forecast:{ estimatedAt:'2026-08-06T15:59:00.000Z' 
 assert.equal(closureUrgency({ forecast:{ estimatedAt:'2026-08-07T00:01:00.000Z' } },reference).code,'stable','Acima de 16 horas não deve gerar alerta.');
 
 const mapped=factoryMapMachineIds();
-assert.equal(FACTORY_MAP_ZONES.length,5,'Mapa deve ser dividido em cinco blocos navegáveis, sem uma geometria gigante.');
 assert.equal(mapped.length,136,'Mapa deve cobrir 134 TNL, MILLTAP e DISCOVERY.');
 assert.equal(new Set(mapped).size,mapped.length,'Nenhuma máquina pode aparecer duas vezes no mapa.');
+assert.equal(FACTORY_MAP_POSITIONS.filter(position=>position.provisional).length,3,'Somente TNL 006, 144 e 145 devem permanecer provisórias.');
 for(const machineId of ['tnl-006','tnl-144','tnl-145'])assert.equal(mapMachineMetadata(machineId).provisional,true,`${machineId} deve permanecer sinalizada como posição provisória.`);
+assert.equal(mapMachineMetadata('tnl-024').placement.cell,'B2','A TNL 024 deve conservar a âncora da planilha.');
+assert.equal(mapMachineMetadata('tnl-091').placement.cell,'L17','A TNL 091 deve conservar a âncora da planilha.');
 assert.equal(mapMachineMetadata('tnl-091').workcenter,'TNL_A3','Work center deve permanecer como observação técnica da máquina.');
+const bounds=factoryMapBounds();
+assert(bounds.width>2000&&bounds.height>2500,'O mapa geral deve preservar a proporção espacial completa da planilha.');
+const overlaps=[];
+for(let first=0;first<FACTORY_MAP_POSITIONS.length;first+=1)for(let second=first+1;second<FACTORY_MAP_POSITIONS.length;second+=1){
+  const a=FACTORY_MAP_POSITIONS[first];const b=FACTORY_MAP_POSITIONS[second];
+  if(a.x<b.x+FACTORY_MAP_GEOMETRY.cardWidth&&a.x+FACTORY_MAP_GEOMETRY.cardWidth>b.x&&a.y<b.y+FACTORY_MAP_GEOMETRY.cardHeight&&a.y+FACTORY_MAP_GEOMETRY.cardHeight>b.y)overlaps.push([a.machineId,b.machineId]);
+}
+assert.deepEqual(overlaps,[],'Os cards uniformes não podem se sobrepor nas posições da planilha.');
 
 assert(authShell.includes("['preparator','leadership'].includes(user.roleCode)")&&authShell.includes("import('./preparer-dashboard.js')"),'Preparador e liderança não são roteados ao cockpit visual.');
 assert(dashboard.includes('/api/v1/turn-assistant/line-dashboard'),'Cockpit não consulta a linha autorizada.');
@@ -46,13 +56,16 @@ assert(dashboard.includes('REFRESH_INTERVAL_MS = 15000')&&dashboard.includes("vi
 assert(dashboard.includes('detectOperationalContext()')&&dashboard.includes('prepShiftLabel'),'Cockpit não troca automaticamente de contexto na virada do turno.');
 assert(!/fetch\([^\n]+method:\s*['\"](?:POST|PUT|PATCH|DELETE)/.test(dashboard),'Cockpit do preparador deve ser somente leitura.');
 for(const text of ['Operador responsável','Meta no saldo do turno','Relógio lógico usado','Risco de material','Liberações do turno','Último apontamento'])assert(dashboard.includes(text),`Informação ausente no cockpit: ${text}`);
-for(const text of ['Mapa de cards','VISÃO ESPACIAL EM CARDS','FECHAMENTO','POSIÇÃO PROVISÓRIA','REGISTRO TÉCNICO · WORK CENTER'])assert(dashboard.includes(text),`Informação ausente no mapa: ${text}`);
+for(const text of ['Mapa da fábrica','PLANTA DA FÁBRICA','Mapa geral','Deslize para navegar','POSIÇÃO PROVISÓRIA','REGISTRO TÉCNICO · WORK CENTER'])assert(dashboard.includes(text),`Informação ausente no mapa: ${text}`);
+for(const forbidden of ['BLOCO OPERACIONAL','Bloco principal','Bloco frontal','Bloco intermediário','Bloco inferior','Bloco especial'])assert(!dashboard.includes(forbidden),`O mapa ainda contém uma divisão inventada: ${forbidden}`);
 assert(dashboard.includes("let viewMode = 'map'")&&dashboard.includes('data-view-mode')&&dashboard.includes('data-map-machine'),'Navegação entre mapa e detalhes não foi criada.');
+assert(dashboard.includes('data-map-zoom="fit"')&&dashboard.includes('factoryMapBounds'),'Zoom e recorte espacial por linha não foram criados.');
 assert(dashboard.includes('prepDetailLayer')&&dashboard.includes('role="dialog"'),'Detalhe acessível da máquina não foi criado.');
 assert(css.includes('@media(max-width:760px)')&&css.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),'Cockpit não cobre desktop e celular.');
-assert(css.includes('grid-auto-rows:220px')&&css.includes('height:220px'),'Cards do mapa não possuem tamanho horizontal uniforme.');
+assert(css.includes('width:142px;height:78px')&&css.includes('position:absolute'),'Cards do mapa não possuem tamanho compacto, uniforme e espacial.');
+assert(css.includes('touch-action:pan-x pan-y')&&css.includes('transform-origin:top left'),'Mapa não permite navegação espacial no celular.');
 assert(css.includes('.prep-map-status[data-tone="critical"]')&&css.includes('footer[data-urgency="critical"]'),'Status e risco de fechamento não possuem linguagens visuais independentes.');
-assert(index.includes('app/preparer-dashboard.css?v=6.1.0'),'CSS do mapa não está versionado no index.');
+assert(index.includes('app/preparer-dashboard.css?v=6.2.0'),'CSS do mapa não está versionado no index.');
 for(const asset of ['./app/preparer-dashboard.css','./app/preparer-dashboard.js','./app/preparer-dashboard-engine.js','./app/preparer-map-layout.js'])assert(serviceWorker.includes(asset),`Service Worker não inclui ${asset}.`);
 assert(backend.includes("auth.lineAccess")&&backend.includes("/api/v1/turn-assistant/line-dashboard")&&backend.includes("Acesso restrito ao preparador"),'Backend não protege o cockpit por perfil e linha.');
 

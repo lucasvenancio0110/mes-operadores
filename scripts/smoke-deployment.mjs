@@ -124,12 +124,16 @@ const operatorMain = await fetchText('/app/operator-main.js', 'Fluxo do operador
 requireIncludes(operatorMain, ['data-assignment-machine', 'aria-pressed', 'Confirmar ${assignmentDraft.length', 'operationalDateKey', 'Encerrar meu turno'], 'Fluxo do operador');
 assert(!operatorMain.includes('assignmentStage'), 'Fluxo do operador: seleção antiga de uma máquina por vez ainda está ativa.');
 const preparerDashboard = await fetchText('/app/preparer-dashboard.js', 'Cockpit do preparador');
-requireIncludes(preparerDashboard, ['/api/v1/turn-assistant/line-dashboard', 'REFRESH_INTERVAL_MS = 15000', 'visibilitychange', 'Operador responsável', 'Meta no saldo do turno', 'Liberações do turno', 'Último apontamento', 'Mapa de cards', 'VISÃO ESPACIAL EM CARDS', 'prepDetailLayer'], 'Cockpit do preparador');
+requireIncludes(preparerDashboard, ['/api/v1/turn-assistant/line-dashboard', 'REFRESH_INTERVAL_MS = 15000', 'visibilitychange', 'Operador responsável', 'Meta no saldo do turno', 'Liberações do turno', 'Último apontamento', 'Mapa da fábrica', 'PLANTA DA FÁBRICA', 'Mapa geral', 'Deslize para navegar', 'data-map-zoom="fit"', 'prepDetailLayer'], 'Cockpit do preparador');
+for (const forbidden of ['BLOCO OPERACIONAL','Bloco principal','Bloco frontal','Bloco intermediário','Bloco inferior','Bloco especial']) {
+  assert(!preparerDashboard.includes(forbidden), `Cockpit do preparador: divisão inventada ainda publicada: ${forbidden}`);
+}
 assert(!/fetch\([^\n]+method:\s*['"](?:POST|PUT|PATCH|DELETE)/.test(preparerDashboard), 'Cockpit do preparador não pode alterar dados.');
 const preparerEngine = await fetchText('/app/preparer-dashboard-engine.js', 'Cálculos do cockpit do preparador');
 requireIncludes(preparerEngine, ['calculatePreparerMetrics', 'listMeasurementReleases', 'closureUrgency', '16*60', '8*60', 'Vai fechar neste horário por falta de matéria-prima.', 'A matéria-prima consegue produzir até este horário.'], 'Cálculos do cockpit do preparador');
 const preparerMap = await fetchText('/app/preparer-map-layout.js', 'Mapa físico em cards');
-requireIncludes(preparerMap, ['FACTORY_MAP_ZONES', "id:'main-bank'", "id:'line-ten-bank'", 'tnl(144)', 'tnl(145)', 'WORKCENTER_GROUPS', 'factoryMapCoverage'], 'Mapa físico em cards');
+requireIncludes(preparerMap, ['FACTORY_MAP_POSITIONS', 'FACTORY_MAP_GEOMETRY', 'B2:24', 'L17:91', 'S80:145', 'S83:144', 'V89:6', 'WORKCENTER_GROUPS', 'factoryMapBounds', 'factoryMapCoverage'], 'Mapa físico em cards');
+assert(!preparerMap.includes('FACTORY_MAP_ZONES'), 'Mapa físico ainda usa blocos artificiais.');
 const submitBridge = await fetchText('/app/turn-assistant-submit.js', 'Ponte de salvamento móvel');
 requireIncludes(submitBridge, ['data-ta-submit-form', 'onSubmit(form,button)'], 'Ponte de salvamento móvel');
 assert(!submitBridge.includes('SubmitEvent'), 'A versão publicada ainda sintetiza eventos de submit.');

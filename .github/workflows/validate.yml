@@ -206,7 +206,7 @@ jobs:
               'preparator-v6-authorized-lines',
               'preparator-v6-live-readonly-cockpit',
               'preparator-v6-closure-and-releases',
-              'preparator-v6-factory-card-map',
+              'preparator-v6-factory-floor-layout',
               'preparator-v6-closure-urgency',
               'ci-v6-validate-before-deploy',
               'ci-v6-same-commit-deploy'
