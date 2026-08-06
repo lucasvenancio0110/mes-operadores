@@ -9,6 +9,9 @@ const [validate,deploy,smoke]=await Promise.all([
 ]);
 
 assert(validate.includes('pull_request:')&&validate.includes('branches: [main]'),'Validação deve cobrir PR e main.');
+assert(validate.includes('(\\n            set -euo pipefail'),'Suíte principal não falha imediatamente quando um teste quebra.');
+assert(validate.includes(') > validation/log.txt 2>&1\\n          STATUS=$?'),'Resultado real da suíte não é preservado para o artefato.');
+assert(!validate.includes('set +e\\n          {'),'Validação ainda pode ignorar uma falha intermediária e ficar verde falsamente.');
 assert(deploy.includes('workflow_run:')&&deploy.includes("workflows: ['Validate MES']")&&deploy.includes('types: [completed]'),'Deploy não aguarda o Validate MES.');
 assert(!/^  push:\s*$/m.test(deploy),'Deploy ainda dispara em paralelo no push da main.');
 assert(deploy.includes("github.event.workflow_run.conclusion == 'success'"),'Deploy não bloqueia validação reprovada.');
