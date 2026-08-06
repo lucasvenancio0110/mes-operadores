@@ -9,10 +9,10 @@ import {
   shiftWindow, calculateOrderForecast, calculatePointingAccounting,
   operatorCardState, formatDuration, predictionMessage
 } from './turn-assistant-engine.js?v=6.0.0';
-import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=6.0.0';
+import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=6.0.1';
 
 const layers = document.getElementById('layers');
-const VERSION = '6.0.0';
+const VERSION = '6.0.1';
 const BAR_LENGTH_MM = 3600;
 const KERF_MM = 1;
 let contextCache = new Map();
