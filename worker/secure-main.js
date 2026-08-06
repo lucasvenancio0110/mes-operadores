@@ -181,8 +181,11 @@ export default {
       } catch (error) {
         return json({
           ok:false,
+          version:'6.0.0',
           schemaReady:false,
           periodCalculationReady:false,
+          minuteLedger:'logical-accounted-per-machine-shift',
+          stateAxes:['physicalStatus','opStatus','workflowStatus'],
           shiftMinutes:480,
           error:error instanceof Error ? error.message : String(error)
         },500);
