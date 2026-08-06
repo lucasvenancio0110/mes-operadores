@@ -1,6 +1,6 @@
 import { detectOperationalContext, formatCycle, formatNumber } from './core.js';
 import { calculatePreparerMetrics, closureCopy, closureUrgency, preparerMachineState } from './preparer-dashboard-engine.js';
-import { FACTORY_MAP_ZONES, mapMachineMetadata, normalizeMapMachineId } from './preparer-map-layout.js';
+import { FACTORY_MAP_GEOMETRY, factoryMapBounds, mapMachineMetadata, normalizeMapMachineId } from './preparer-map-layout.js';
 
 const app = document.getElementById('app');
 const REFRESH_INTERVAL_MS = 15000;
@@ -11,6 +11,8 @@ let selectedLine = 'all';
 let search = '';
 let viewMode = 'map';
 let attentionFilter = 'all';
+let mapScale = .72;
+let mapScaleMode = 'fit';
 let loading = false;
 let refreshTimer = 0;
 
@@ -81,13 +83,13 @@ function renderSummary() {
 function renderFilters() {
   const lines=snapshot?.lines || [];
   if(selectedLine!=='all'&&!lines.some(line=>line.id===selectedLine))selectedLine='all';
-  document.getElementById('prepLineFilters').innerHTML=[{ id:'all',name:'Todas as linhas' },...lines].map(line=>`<button type="button" data-line-filter="${escapeHtml(line.id)}" aria-pressed="${selectedLine===line.id}">${escapeHtml(line.name)}</button>`).join('');
+  document.getElementById('prepLineFilters').innerHTML=[{ id:'all',name:'Mapa geral' },...lines].map(line=>`<button type="button" data-line-filter="${escapeHtml(line.id)}" aria-pressed="${selectedLine===line.id}">${escapeHtml(line.name)}</button>`).join('');
 }
 
 function renderViewControls() {
   document.getElementById('prepViewMode').innerHTML=[
-    { id:'map',label:'Mapa de cards' },
-    { id:'cards',label:'Cards detalhados' }
+    { id:'map',label:'Mapa da fábrica' },
+    { id:'cards',label:'Lista detalhada' }
   ].map(item=>`<button type="button" data-view-mode="${item.id}" aria-pressed="${viewMode===item.id}">${item.label}</button>`).join('');
   const machines=snapshot?.machines || [];
   const urgencies=machines.map(machine=>closureUrgency(machine,snapshot?.serverTime || new Date()));
@@ -148,38 +150,61 @@ function visibleMachines({ ignoreLine=false } = {}) {
   return (snapshot?.machines || []).filter(machine=>(ignoreLine||selectedLine==='all'||machine.lineId===selectedLine)&&matchesSecondaryFilters(machine));
 }
 
-function mapMachineCard(machine,neighbor=false) {
+function mapMachineCard(machine,position=null) {
   const order=machine.activeOrder;const state=preparerMachineState(machine);const urgency=closureUrgency(machine,snapshot?.serverTime || new Date());const metadata=mapMachineMetadata(machine.machineId);
   const produced=Math.max(0,Number(order?.producedSoFar)||0);const target=Math.max(0,Number(order?.opTarget)||0);const progress=target?Math.min(100,Math.max(0,produced/target*100)):0;
-  return `<button type="button" class="prep-map-machine${neighbor?' is-neighbor':''}" data-map-machine="${escapeHtml(machine.machineId)}" data-status="${state.code}" data-urgency="${urgency.code}" aria-label="Abrir detalhes da ${escapeHtml(machine.machineName)}">
-    <header><div><small>${escapeHtml(machine.lineName)}</small><strong>${escapeHtml(machine.machineName)}</strong></div><span class="prep-map-status" data-tone="${state.tone}"><i></i>${escapeHtml(state.label)}</span></header>
-    <div class="prep-map-operator"><span>Operador</span><strong>${escapeHtml(machine.assignedOperator?.name || 'Não atribuído')}</strong></div>
-    ${order?`<div class="prep-map-order"><span><small>OP</small><strong>${escapeHtml(order.op)}</strong></span><span><small>ITEM</small><strong>${escapeHtml(order.item || '—')}</strong></span></div><div class="prep-map-progress"><div><i style="width:${progress.toFixed(2)}%"></i></div><span><strong>${integer(produced)}</strong> de ${integer(target)} peças</span></div>`:'<div class="prep-map-no-order"><strong>Sem OP ativa</strong><span>Aguardando programação</span></div>'}
-    <footer data-urgency="${urgency.code}"><div><span aria-hidden="true">◷</span><small>FECHAMENTO</small></div><time>${escapeHtml(urgency.estimatedAt?dateTime(urgency.estimatedAt):'Sem previsão')}</time><strong>${escapeHtml(closureRemainingLabel(urgency.remainingMinutes))}</strong></footer>
+  const style=position?` style="left:${position.left}px;top:${position.top}px"`:'';
+  const aria=[machine.machineName,state.label,`operador ${machine.assignedOperator?.name || 'não atribuído'}`,order?`OP ${order.op}, item ${order.item || 'não informado'}, ${integer(produced)} de ${integer(target)} peças`:'sem OP ativa',closureRemainingLabel(urgency.remainingMinutes)].join(', ');
+  return `<button type="button" class="prep-map-machine${position?'':' is-unplaced'}"${style} data-map-machine="${escapeHtml(machine.machineId)}" data-status="${state.code}" data-urgency="${urgency.code}" aria-label="${escapeHtml(aria)}">
+    <header><div><small>${escapeHtml(machine.lineName)}</small><strong>${escapeHtml(machine.machineName)}</strong></div><span class="prep-map-status" data-tone="${state.tone}" title="${escapeHtml(state.label)}"><i></i><b>${escapeHtml(state.label)}</b></span></header>
+    ${order?`<div class="prep-map-order"><span><small>OP</small><strong>${escapeHtml(order.op)}</strong></span><span><small>ITEM</small><strong>${escapeHtml(order.item || '—')}</strong></span></div><div class="prep-map-progress"><div><i style="width:${progress.toFixed(2)}%"></i></div><span><strong>${integer(produced)}</strong> / ${integer(target)}</span></div>`:'<div class="prep-map-no-order"><strong>Sem OP ativa</strong></div>'}
+    <footer data-urgency="${urgency.code}" title="${escapeHtml(urgency.estimatedAt?`Fechamento previsto: ${dateTime(urgency.estimatedAt)}`:'Sem previsão de fechamento')}"><span aria-hidden="true">◷</span><strong>${escapeHtml(closureRemainingLabel(urgency.remainingMinutes))}</strong></footer>
     ${metadata.provisional?'<em class="prep-map-provisional">POSIÇÃO PROVISÓRIA</em>':''}
   </button>`;
+}
+
+function setMapScale(value,mode='manual') {
+  const surface=document.querySelector('[data-map-surface]');const stage=document.querySelector('[data-map-stage]');
+  if(!surface||!stage)return;
+  const baseWidth=Number(surface.dataset.baseWidth)||0;const baseHeight=Number(surface.dataset.baseHeight)||0;
+  mapScale=Math.min(1.35,Math.max(.3,Number(value)||.72));mapScaleMode=mode;
+  surface.style.transform=`scale(${mapScale})`;
+  stage.style.width=`${Math.ceil(baseWidth*mapScale)}px`;
+  stage.style.height=`${Math.ceil(baseHeight*mapScale)}px`;
+  const label=document.querySelector('[data-map-zoom-label]');if(label)label.textContent=`${Math.round(mapScale*100)}%`;
+  const fit=document.querySelector('[data-map-zoom="fit"]');if(fit)fit.setAttribute('aria-pressed',String(mapScaleMode==='fit'));
+}
+
+function fitMapToViewport() {
+  const viewport=document.querySelector('[data-map-viewport]');const surface=document.querySelector('[data-map-surface]');
+  if(!viewport||!surface)return;
+  const baseWidth=Number(surface.dataset.baseWidth)||1;
+  const available=Math.max(280,viewport.clientWidth-24);
+  const minimum=window.matchMedia&&window.matchMedia('(max-width:760px)').matches ? .42 : .3;
+  setMapScale(Math.min(1,Math.max(minimum,available/baseWidth)),'fit');
+  viewport.scrollTo({ left:0,top:0,behavior:'auto' });
+}
+
+function scheduleMapFit() {
+  requestAnimationFrame(()=>{if(mapScaleMode==='fit')fitMapToViewport();else setMapScale(mapScale,'manual');});
 }
 
 function renderMap(content) {
   const selectedMachines=visibleMachines();
   if(!selectedMachines.length){content.innerHTML='<div class="prep-empty"><strong>Nenhuma máquina encontrada</strong><p>Altere a linha, o filtro de atenção ou a busca.</p></div>';return;}
-  const selectedZoneIds=new Set(selectedMachines.map(machine=>mapMachineMetadata(machine.machineId).placement?.zoneId).filter(Boolean));
-  const pool=selectedLine==='all'?selectedMachines:visibleMachines({ ignoreLine:true }).filter(machine=>selectedZoneIds.has(mapMachineMetadata(machine.machineId).placement?.zoneId));
-  const byId=new Map(pool.map(machine=>[normalizeMapMachineId(machine.machineId),machine]));
-  const zones=FACTORY_MAP_ZONES.filter(zone=>selectedLine==='all'||selectedZoneIds.has(zone.id)).map(zone=>{
-    const cards=zone.rows.flat().map(machineId=>{
-      if(!machineId)return '<span class="prep-map-slot-empty" aria-hidden="true"></span>';
-      const machine=byId.get(machineId);
-      if(!machine)return '<span class="prep-map-slot-empty" aria-hidden="true"></span>';
-      return mapMachineCard(machine,selectedLine!=='all'&&machine.lineId!==selectedLine);
-    }).join('');
-    const count=zone.rows.flat().filter(machineId=>machineId&&byId.has(machineId)).length;
-    if(!count)return '';
-    return `<section class="prep-map-zone"><header><div><p>BLOCO OPERACIONAL</p><h1>${escapeHtml(zone.title)}</h1><span>${escapeHtml(zone.description)}</span></div><b>${integer(count)} visíveis</b></header><div class="prep-map-grid" style="--map-columns:${zone.columns}">${cards}</div></section>`;
-  }).join('');
+  const placed=selectedMachines.map(machine=>({ machine,placement:mapMachineMetadata(machine.machineId).placement })).filter(item=>item.placement);
   const unplaced=selectedMachines.filter(machine=>!mapMachineMetadata(machine.machineId).placement);
+  const bounds=factoryMapBounds(placed.map(item=>item.machine.machineId));
+  const cards=bounds?placed.map(({ machine,placement })=>mapMachineCard(machine,{
+    left:placement.x-bounds.minX+FACTORY_MAP_GEOMETRY.padding,
+    top:placement.y-bounds.minY+FACTORY_MAP_GEOMETRY.padding
+  })).join(''):'';
   const lineName=selectedLine==='all'?'Mapa geral':snapshot?.lines?.find(line=>line.id===selectedLine)?.name || 'Linha selecionada';
-  content.innerHTML=`<section class="prep-map-shell"><header class="prep-map-intro"><div><p>VISÃO ESPACIAL EM CARDS</p><h1>${escapeHtml(lineName)}</h1><span>${selectedLine==='all'?'Todos os blocos autorizados em posição relativa.':'A linha está em destaque; máquinas vizinhas aparecem apagadas como referência física.'}</span></div><div class="prep-map-legend"><span><i data-kind="status"></i>Status da máquina</span><span data-urgency="attention">◷ Até 16h</span><span data-urgency="critical">◷ Menos de 8h</span></div></header>${zones}${unplaced.length?`<section class="prep-map-zone prep-map-zone--unplaced"><header><div><p>CADASTRO PENDENTE</p><h1>Sem posição definida</h1><span>Continuam disponíveis sem comprometer o mapa.</span></div></header><div class="prep-map-unplaced">${unplaced.map(machine=>mapMachineCard(machine)).join('')}</div></section>`:''}</section>`;
+  content.innerHTML=`<section class="prep-map-shell"><header class="prep-map-intro"><div><p>PLANTA DA FÁBRICA</p><h1>${escapeHtml(lineName)}</h1><span>${selectedLine==='all'?'Todas as linhas nas mesmas posições da planilha.':'Somente esta linha, mantendo o alinhamento e os espaços físicos do mapa geral.'}</span></div><div class="prep-map-legend"><span><i data-kind="status"></i>Cor do ponto: status</span><span data-urgency="attention">◷ Até 16h</span><span data-urgency="critical">◷ Menos de 8h</span></div></header>
+    <section class="prep-floor"><header><div><strong>${integer(placed.length)} máquinas visíveis</strong><span>Toque em uma máquina para abrir operador, OP, item, meta, produção e fechamento.</span></div><div class="prep-map-zoom" aria-label="Zoom do mapa"><button type="button" data-map-zoom="out" aria-label="Diminuir mapa">−</button><button type="button" data-map-zoom="fit" aria-pressed="${mapScaleMode==='fit'}">Ajustar</button><b data-map-zoom-label>${Math.round(mapScale*100)}%</b><button type="button" data-map-zoom="in" aria-label="Aumentar mapa">+</button></div></header>
+      ${bounds?`<div class="prep-map-viewport" data-map-viewport tabindex="0" aria-label="Mapa navegável da fábrica. Deslize em qualquer direção."><div class="prep-map-stage" data-map-stage><div class="prep-map-surface" data-map-surface data-base-width="${bounds.width}" data-base-height="${bounds.height}" style="width:${bounds.width}px;height:${bounds.height}px">${cards}</div></div><span class="prep-map-pan-hint">Deslize para navegar</span></div>`:'<div class="prep-empty"><strong>Nenhuma posição disponível</strong></div>'}
+    </section>${unplaced.length?`<section class="prep-map-unplaced-section"><header><strong>Sem posição na planilha</strong><span>${integer(unplaced.length)} máquina${unplaced.length===1?'':'s'}</span></header><div class="prep-map-unplaced">${unplaced.map(machine=>mapMachineCard(machine)).join('')}</div></section>`:''}</section>`;
+  scheduleMapFit();
 }
 
 function renderDetailedMachines(content) {
@@ -235,17 +260,19 @@ async function refreshDashboard() {
 
 function bindEvents() {
   app.addEventListener('click',event=>{
-    const line=event.target.closest('[data-line-filter]');if(line){selectedLine=line.dataset.lineFilter;closeMachineDetail();renderFilters();renderMachines();return;}
+    const line=event.target.closest('[data-line-filter]');if(line){selectedLine=line.dataset.lineFilter;mapScaleMode='fit';closeMachineDetail();renderFilters();renderMachines();return;}
     const mode=event.target.closest('[data-view-mode]');if(mode){viewMode=mode.dataset.viewMode;closeMachineDetail();renderViewControls();renderMachines();return;}
-    const attention=event.target.closest('[data-attention-filter]');if(attention){attentionFilter=attention.dataset.attentionFilter;closeMachineDetail();renderViewControls();renderMachines();return;}
+    const attention=event.target.closest('[data-attention-filter]');if(attention){attentionFilter=attention.dataset.attentionFilter;mapScaleMode='fit';closeMachineDetail();renderViewControls();renderMachines();return;}
+    const zoom=event.target.closest('[data-map-zoom]');if(zoom){const action=zoom.dataset.mapZoom;if(action==='fit')fitMapToViewport();else setMapScale(mapScale+(action === 'in' ? .1 : -.1));return;}
     const machine=event.target.closest('[data-map-machine]');if(machine){openMachineDetail(machine.dataset.mapMachine);return;}
     if(event.target.closest('[data-detail-close]')){closeMachineDetail();return;}
     if(event.target.closest('#prepRefresh'))refreshDashboard();
   });
-  app.addEventListener('input',event=>{if(event.target.id==='prepSearch'){search=event.target.value;renderMachines();}});
+  app.addEventListener('input',event=>{if(event.target.id==='prepSearch'){search=event.target.value;mapScaleMode='fit';renderMachines();}});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')closeMachineDetail();});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshDashboard();});
   window.addEventListener('online',refreshDashboard);
+  window.addEventListener('resize',()=>{if(mapScaleMode==='fit')fitMapToViewport();});
   refreshTimer=window.setInterval(refreshDashboard,REFRESH_INTERVAL_MS);
 }
 

@@ -29,15 +29,15 @@ const wrangler = JSON.parse(wranglerText);
 assert(!html.includes('maximum-scale=1'), 'O zoom do navegador não pode ser bloqueado.');
 assert(html.includes('viewport-fit=cover'), 'O layout deve respeitar safe areas.');
 assert(html.includes('<title>NEOMES — Gestão Operacional</title>'), 'Título oficial NEOMES ausente.');
-assert(html.includes('app/auth-shell.js?v=6.1.0'), 'Entrada segura 6.1.0 não foi publicada.');
+assert(html.includes('app/auth-shell.js?v=6.2.0'), 'Entrada segura 6.2.0 não foi publicada.');
 assert(html.includes('app/turn-assistant.js?v=6.0.1'), 'Hotfix do apontamento 6.0.1 não foi publicado.');
 assert(html.includes('app/auth.css?v=6.0.0') && html.includes('app/admin.css?v=4.0.0'), 'Estilos de autenticação ou administração ausentes.');
 assert(!html.includes('NEODENT MES'), 'Identidade antiga permanece no ponto de entrada.');
 assert.equal(manifest.name, 'NEOMES');
 assert.equal(manifest.short_name, 'NEOMES');
 assert.equal(manifest.display, 'standalone');
-assert(manifest.start_url.includes('v=6.1.0'), 'Manifesto não aponta para o mapa operacional 6.1.0.');
-assert(serviceWorker.includes('neomes-v6.1.0-factory-card-map'), 'Cache PWA do mapa operacional 6.1.0 não foi ativado.');
+assert(manifest.start_url.includes('v=6.2.0'), 'Manifesto não aponta para o mapa operacional 6.2.0.');
+assert(serviceWorker.includes('neomes-v6.2.0-factory-floor-layout'), 'Cache PWA do mapa operacional 6.2.0 não foi ativado.');
 for (const asset of ['./app/auth-shell.js','./app/auth.css','./app/admin-ui.js','./app/admin.css','./app/operator-main.js','./app/shift-performance.js','./app/preparer-dashboard.css','./app/preparer-dashboard.js','./app/preparer-dashboard-engine.js','./app/preparer-map-layout.js']) {
   assert(serviceWorker.includes(asset), `Service Worker não inclui ${asset}.`);
 }
@@ -103,13 +103,15 @@ assert(turnAssistant.includes('A quantidade digitada será salva normalmente.'),
 assert(turnAssistantEngine.includes('calculatePointingAccounting') && turnAssistantEngine.includes('advisory:overrunMinutes > 0'), 'Cálculo consultivo do apontamento ausente.');
 assert(preparerDashboard.includes('/api/v1/turn-assistant/line-dashboard') && preparerDashboard.includes('REFRESH_INTERVAL_MS = 15000'), 'Cockpit ao vivo do preparador ausente.');
 assert(preparerDashboard.includes('Operador responsável') && preparerDashboard.includes('Liberações do turno'), 'Cockpit não mostra operador ou liberações.');
-assert(preparerDashboard.includes('Mapa de cards') && preparerDashboard.includes('VISÃO ESPACIAL EM CARDS') && preparerDashboard.includes('prepDetailLayer'), 'Mapa navegável ou detalhe da máquina ausente.');
+assert(preparerDashboard.includes('Mapa da fábrica') && preparerDashboard.includes('PLANTA DA FÁBRICA') && preparerDashboard.includes('Mapa geral') && preparerDashboard.includes('Deslize para navegar') && preparerDashboard.includes('data-map-zoom="fit"') && preparerDashboard.includes('prepDetailLayer'), 'Planta navegável ou detalhe da máquina ausente.');
+for (const forbidden of ['BLOCO OPERACIONAL','Bloco principal','Bloco frontal','Bloco intermediário','Bloco inferior','Bloco especial']) assert(!preparerDashboard.includes(forbidden), `Divisão inventada ainda presente no mapa: ${forbidden}`);
 assert(!/fetch\([^\n]+method:\s*['\"](?:POST|PUT|PATCH|DELETE)/.test(preparerDashboard), 'Cockpit do preparador deve ser somente leitura.');
 assert(preparerEngine.includes('calculatePreparerMetrics') && preparerEngine.includes('closureCopy') && preparerEngine.includes('closureUrgency'), 'Cálculos ou alertas do cockpit ausentes.');
-assert(preparerMap.includes('FACTORY_MAP_ZONES') && preparerMap.includes('WORKCENTER_GROUPS') && preparerMap.includes('tnl(144)') && preparerMap.includes('tnl(145)'), 'Mapa físico, work center ou posições provisórias ausentes.');
+assert(preparerMap.includes('FACTORY_MAP_POSITIONS') && preparerMap.includes('FACTORY_MAP_GEOMETRY') && preparerMap.includes('B2:24') && preparerMap.includes('L17:91') && preparerMap.includes('S80:145') && preparerMap.includes('S83:144') && preparerMap.includes('V89:6') && preparerMap.includes('WORKCENTER_GROUPS') && preparerMap.includes('factoryMapBounds'), 'Planta física, work center ou posições provisórias ausentes.');
+assert(!preparerMap.includes('FACTORY_MAP_ZONES'), 'Mapa físico ainda usa blocos artificiais.');
 assert(preparerCss.includes('@media(max-width:760px)') && preparerCss.includes('repeat(3,minmax(0,1fr))'), 'Cockpit não é responsivo para celular e desktop.');
-assert(preparerCss.includes('grid-auto-rows:220px') && preparerCss.includes('height:220px'), 'Cards do mapa não têm tamanho horizontal uniforme.');
-assert(html.includes('app/preparer-dashboard.css?v=6.1.0'), 'CSS do mapa 6.1.0 não foi publicado.');
+assert(preparerCss.includes('width:142px;height:78px') && preparerCss.includes('position:absolute') && preparerCss.includes('touch-action:pan-x pan-y'), 'Cards do mapa não estão compactos, uniformes e navegáveis.');
+assert(html.includes('app/preparer-dashboard.css?v=6.2.0'), 'CSS do mapa 6.2.0 não foi publicado.');
 assert(operatorMain.includes('Última situação informada'), 'A situação deve continuar identificada como informação manual.');
 assert(core.includes('syncQueue') && core.includes('mes-operadores:v2'), 'Fila offline ou migração anterior foi removida.');
 
@@ -127,4 +129,5 @@ for (const feature of ['exportPdf','exportImage','shareSummary']) assert(exports
 assert(settingsWorker.includes('CREATE TABLE IF NOT EXISTS app_settings'), 'Ajustes globais ausentes.');
 for (const route of ['/api/v1/machine-states','/api/v1/events','/api/v1/records','/api/v1/assignments','/api/v1/settings']) assert(worker.includes(route), `Rota operacional ausente: ${route}`);
 
-console.log('NEOMES 6.1.0: autenticação segura, apontamento móvel e mapa operacional validados.');
+console.log('NEOMES 6.2.0: autenticação segura, apontamento móvel e mapa operacional validados.');
+

@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v6.1.0-factory-card-map';
+const VERSION = 'neomes-v6.2.0-factory-floor-layout';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;

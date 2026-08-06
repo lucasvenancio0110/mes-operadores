@@ -3,7 +3,7 @@
   "short_name": "NEOMES",
   "description": "Aplicativo seguro de gestão operacional para conferência de máquinas CNC, planejamento manual, medições, matéria-prima e fechamento da produção do turno.",
   "id": "./",
-  "start_url": "./?source=pwa&v=6.1.0",
+  "start_url": "./?source=pwa&v=6.2.0",
   "scope": "./",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
