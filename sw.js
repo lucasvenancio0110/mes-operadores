@@ -27,6 +27,7 @@ const APP_SHELL = [
   './app/shift-performance.css',
   './app/turn-assistant.css',
   './app/preparer-dashboard.css',
+  './app/factory-map-workspace.css',
   './app/auth.css',
   './app/admin.css',
   './app/bootstrap-admin.css',
@@ -59,7 +60,9 @@ const APP_SHELL = [
   './app/turn-assistant-autostart.js',
   './app/preparer-dashboard-engine.js',
   './app/preparer-map-layout.js',
-  './app/preparer-dashboard.js'
+  './app/preparer-dashboard.js',
+  './app/factory-map-spatial.js',
+  './app/factory-map-workspace.js'
 ].map(asset);
 
 self.addEventListener('install', event => {
