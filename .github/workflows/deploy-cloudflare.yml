@@ -67,6 +67,8 @@ jobs:
           node --check app/admin-password-reset-fix.js
           node --check app/admin-user-create.js
           node --check app/desktop-workspace.js
+          node --check app/preparer-dashboard-engine.js
+          node --check app/preparer-dashboard.js
           node --check app/turn-assistant-engine.js
           node --check app/turn-assistant.js
           node --check app/turn-assistant-submit.js
@@ -75,11 +77,15 @@ jobs:
           node --check tests/turn-flow-v6.test.mjs
           node --check tests/turn-assistant-worker-v6.test.mjs
           node --check tests/operator-flow-v6.test.mjs
+          node --check tests/preparer-dashboard-v6.test.mjs
           node --check sw.js
           test -f app/desktop-workspace.css
           test -f app/desktop-workspace-fix.css
           test -f app/turn-assistant.css
           test -f app/turn-assistant-submit.js
+          test -f app/preparer-dashboard.css
+          test -f app/preparer-dashboard-engine.js
+          test -f app/preparer-dashboard.js
           test -f .assetsignore
           node --check app/measurement-engine.js
           node --check app/measurement-frequency-parser.js
@@ -97,6 +103,7 @@ jobs:
           node tests/turn-flow-v6.test.mjs
           node tests/turn-assistant-worker-v6.test.mjs
           node tests/operator-flow-v6.test.mjs
+          node tests/preparer-dashboard-v6.test.mjs
 
       - name: Verificar Cloudflare e D1
         id: preflight

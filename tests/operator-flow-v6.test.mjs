@@ -35,6 +35,6 @@ assert(assistant.includes('release.turnPiece'),'Liberações após reconferênci
 
 assert(index.includes('app/auth-shell.js?v=6.0.0'));
 assert(index.includes('app/turn-assistant.js?v=6.0.0'));
-assert(serviceWorker.includes('neomes-v6.0.0-operator-flow'));
+assert(serviceWorker.includes('neomes-v6.0.0-preparer-cockpit'));
 
 console.log('NEOMES v6 operador: login, multisseleção, apontamento e continuidade validados.');

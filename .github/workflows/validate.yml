@@ -48,6 +48,8 @@ jobs:
             node --check app/operator-main.js
             node --check app/auth-shell.js
             node --check app/desktop-workspace.js
+            node --check app/preparer-dashboard-engine.js
+            node --check app/preparer-dashboard.js
             node --check app/cloud-state.js
             node --check app/exports.js
             node --check app/premium-runtime.js
@@ -88,6 +90,7 @@ jobs:
             node --check tests/turn-flow-v6.test.mjs
             node --check tests/turn-assistant-worker-v6.test.mjs
             node --check tests/operator-flow-v6.test.mjs
+            node --check tests/preparer-dashboard-v6.test.mjs
             node tests/static-check.mjs
             node tests/password-migration.test.mjs
             node tests/measurement-plan.test.mjs
@@ -98,6 +101,7 @@ jobs:
             node tests/turn-flow-v6.test.mjs
             node tests/turn-assistant-worker-v6.test.mjs
             node tests/operator-flow-v6.test.mjs
+            node tests/preparer-dashboard-v6.test.mjs
             node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest JSON passed.')"
             test -f offline.html
             test -f assets/brand/neomes-logo-horizontal.svg
@@ -130,10 +134,14 @@ jobs:
             test -f app/turn-assistant.css
             test -f app/turn-assistant-submit.js
             test -f app/turn-assistant.js
+            test -f app/preparer-dashboard.css
+            test -f app/preparer-dashboard-engine.js
+            test -f app/preparer-dashboard.js
             test -f tests/password-migration.test.mjs
             test -f tests/shift-time.test.mjs
             test -f tests/turn-assistant.test.mjs
             test -f tests/operator-flow-v6.test.mjs
+            test -f tests/preparer-dashboard-v6.test.mjs
             test -f worker/settings.js
             test -f wrangler.jsonc
             test -f .assetsignore
@@ -188,7 +196,10 @@ jobs:
               'turn-v6-independent-states',
               'operator-v6-login-auto-shift',
               'operator-v6-machine-multiselect',
-              'operator-v6-advisory-pointing'
+              'operator-v6-advisory-pointing',
+              'preparator-v6-authorized-lines',
+              'preparator-v6-live-readonly-cockpit',
+              'preparator-v6-closure-and-releases'
             ]
           };
           fs.writeFileSync('validation/latest.json', JSON.stringify(result, null, 2) + '\n');

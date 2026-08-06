@@ -128,6 +128,10 @@ async function loadOperationalApp(user, offline = false) {
   currentAuth = { user, offline };
   window.NEOMES_AUTH = currentAuth;
   await setOperationalSession(user,offline);
+  if (user.roleCode === 'preparator') {
+    await import('./preparer-dashboard.js');
+    return;
+  }
   await import('./operator-main.js');
   await import('./cloud-state.js');
   await import('./exports.js');

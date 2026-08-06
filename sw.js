@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v6.0.0-operator-flow';
+const VERSION = 'neomes-v6.0.0-preparer-cockpit';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -26,6 +26,7 @@ const APP_SHELL = [
   './app/desktop-workspace-fix.css',
   './app/shift-performance.css',
   './app/turn-assistant.css',
+  './app/preparer-dashboard.css',
   './app/auth.css',
   './app/admin.css',
   './app/bootstrap-admin.css',
@@ -55,7 +56,9 @@ const APP_SHELL = [
   './app/turn-assistant-engine.js',
   './app/turn-assistant.js',
   './app/turn-assistant-submit.js',
-  './app/turn-assistant-autostart.js'
+  './app/turn-assistant-autostart.js',
+  './app/preparer-dashboard-engine.js',
+  './app/preparer-dashboard.js'
 ].map(asset);
 
 self.addEventListener('install', event => {
