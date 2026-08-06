@@ -35,13 +35,23 @@ requireIncludes(index,[
 ],'Página inicial');
 assert(index.indexOf('app/factory-map-stability.js?v=6.3.1')<index.indexOf('app/factory-map-workspace.js?v=6.3.0'),'A camada de estabilidade deve carregar antes do workspace.');
 
-const [workspace,stability,spatial,workspaceCss,stabilityCss]=await Promise.all([
+const [dashboard,workspace,stability,spatial,workspaceCss,stabilityCss]=await Promise.all([
+  fetchText('/app/preparer-dashboard.js','Cockpit do preparador'),
   fetchText('/app/factory-map-workspace.js','Workspace industrial'),
   fetchText('/app/factory-map-stability.js','Estabilidade do mapa'),
   fetchText('/app/factory-map-spatial.js','Motor espacial'),
   fetchText('/app/factory-map-workspace.css','CSS do workspace'),
   fetchText('/app/factory-map-stability.css','CSS de estabilidade')
 ]);
+
+requireIncludes(dashboard,[
+  'REFRESH_INTERVAL_MS = 15000',
+  'visibilitychange',
+  '/api/v1/turn-assistant/line-dashboard',
+  'data-map-machine',
+  'prepDetailLayer'
+],'Cockpit do preparador');
+assert(!/fetch\([^\n]+method:\s*['"](?:POST|PUT|PATCH|DELETE)/.test(dashboard),'Cockpit publicado não pode alterar dados operacionais.');
 
 requireIncludes(workspace,[
   'calculateCorridors',
@@ -52,9 +62,8 @@ requireIncludes(workspace,[
   'sessionStorage',
   'factory-minimap',
   'data-factory-action="fullscreen"',
-  'semanticZoomLevel',
-  'REFRESH_INTERVAL_MS'
-].filter(token=>token!=='REFRESH_INTERVAL_MS'),'Workspace industrial');
+  'semanticZoomLevel'
+],'Workspace industrial');
 assert(!/fetch\([^\n]+method:\s*['"](?:POST|PUT|PATCH|DELETE)/.test(workspace),'Workspace publicado não pode alterar dados operacionais.');
 
 requireIncludes(stability,[
