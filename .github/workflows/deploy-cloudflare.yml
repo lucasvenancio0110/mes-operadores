@@ -72,6 +72,7 @@ jobs:
           node --check app/turn-assistant-submit.js
           node --check app/turn-assistant-autostart.js
           node --check scripts/smoke-deployment.mjs
+          node --check tests/turn-flow-v6.test.mjs
           node --check sw.js
           test -f app/desktop-workspace.css
           test -f app/desktop-workspace-fix.css
@@ -91,6 +92,7 @@ jobs:
           node tests/shift-performance.test.mjs
           node tests/shift-time.test.mjs
           node tests/turn-assistant.test.mjs
+          node tests/turn-flow-v6.test.mjs
 
       - name: Verificar Cloudflare e D1
         id: preflight
