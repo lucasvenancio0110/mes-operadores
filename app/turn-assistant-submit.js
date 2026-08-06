@@ -1,6 +1,7 @@
 const ASSISTANT_FORM_IDS = new Set([
   'taHandoffForm',
   'taFirstOrderForm',
+  'taPointingForm',
   'taShiftCloseForm',
   'taOrderCloseForm',
   'taNewOrderForm',
