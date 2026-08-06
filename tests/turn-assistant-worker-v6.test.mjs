@@ -36,5 +36,9 @@ assert(!loginSection.includes('body?.shift'),'Login seguro ainda aceita turno es
 assert(loginSection.includes("UPDATE users SET last_login_at=?"),'Login não atualiza o acesso sem alterar o turno padrão.');
 assert(auth.includes('operationalContext:detectOperationalContext()'),'Autenticação não devolve o turno operacional automático.');
 assert(secure.includes("minuteLedger:'logical-accounted-per-machine-shift'"),'Contrato de falha do health check v6 incompleto.');
+assert(secure.includes('validateOperationalMutation(request,env,auth)'),'Proteção geral não recebe o banco para validar a linha real.');
+assert(secure.includes("code:'MACHINE_LINE_MISMATCH'")&&secure.includes("SELECT id,line_id AS lineId FROM machines"),'Rotas legadas ainda confiam na linha enviada pelo cliente.');
+for(const permission of ['machines.assign','machines.update_status','production.create'])assert(secure.includes(`'${permission}'`),`Rota legada não exige ${permission}.`);
+assert(worker.includes('ORDER BY latest.updated_at DESC,latest.id DESC LIMIT 1'),'Cockpit pode duplicar máquina quando duas atribuições têm o mesmo horário.');
 
 console.log('NEOMES v6 Worker: migração, estados, apontamento e cockpit protegidos validados.');

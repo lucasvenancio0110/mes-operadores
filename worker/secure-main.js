@@ -48,7 +48,16 @@ async function filterJsonResponse(response, filter) {
   return new Response(JSON.stringify(filtered), { status:response.status, headers });
 }
 
-async function validateOperationalMutation(request, auth) {
+async function validateMachineReference(env, auth, lineId = '', machineId = '') {
+  if(!machineId)return json({ error:'Informe a máquina.',code:'MACHINE_REQUIRED' },400);
+  const machine=await env.DB.prepare('SELECT id,line_id AS lineId FROM machines WHERE id=? AND active=1 LIMIT 1').bind(String(machineId)).first();
+  if(!machine)return json({ error:'Máquina não encontrada ou inativa.',code:'MACHINE_NOT_FOUND' },404);
+  if(lineId&&String(lineId)!==String(machine.lineId))return json({ error:'A linha informada não pertence a esta máquina.',code:'MACHINE_LINE_MISMATCH' },403);
+  if(!canAccessMachine(auth,machine.lineId,String(machineId)))return json({ error:'Máquina ou linha não autorizada.',code:'MACHINE_FORBIDDEN' },403);
+  return null;
+}
+
+async function validateOperationalMutation(request, env, auth) {
   const url = new URL(request.url);
   if (!['POST','PUT','PATCH','DELETE'].includes(request.method)) return null;
   if (!sameOriginAllowed(request)) return json({ error:'Origem da requisição não autorizada.', code:'INVALID_ORIGIN' },403);
@@ -61,20 +70,23 @@ async function validateOperationalMutation(request, auth) {
   }
 
   if (url.pathname === '/api/v1/assignments') {
-    if (!isElevated(auth) && String(body.registration || '') !== String(auth.user.registration)) {
+    if(!hasPermission(auth,'machines.assign'))return json({ error:'Seu perfil não pode alterar atribuições.',code:'FORBIDDEN' },403);
+    if (!['admin','leadership','preparator'].includes(auth.user.roleCode) && String(body.registration || '') !== String(auth.user.registration)) {
       return json({ error:'Você só pode alterar as máquinas da própria sessão.', code:'FORBIDDEN' },403);
     }
     for (const assignment of body.assignments || []) {
-      if (!canAccessMachine(auth,assignment.lineId,assignment.machineId)) return json({ error:'Máquina ou linha não autorizada.', code:'MACHINE_FORBIDDEN' },403);
+      const machineError=await validateMachineReference(env,auth,assignment.lineId,assignment.machineId);if(machineError)return machineError;
     }
   }
 
   if (['/api/v1/machine-states','/api/v1/events','/api/v1/records','/api/v1/shift-sessions'].includes(url.pathname)) {
+    const requiredPermission=['/api/v1/records','/api/v1/shift-sessions'].includes(url.pathname)?'production.create':'machines.update_status';
+    if(!hasPermission(auth,requiredPermission))return json({ error:'Seu perfil não pode registrar esta operação.',code:'FORBIDDEN' },403);
     const registration = String(body.registration || body.operatorRegistration || '');
-    if (!isElevated(auth) && registration && registration !== String(auth.user.registration)) {
+    if (!['admin','leadership','preparator'].includes(auth.user.roleCode) && registration && registration !== String(auth.user.registration)) {
       return json({ error:'Não é permitido registrar dados em nome de outro usuário.', code:'FORBIDDEN' },403);
     }
-    if (!canAccessMachine(auth,body.lineId,body.machineId)) return json({ error:'Máquina ou linha não autorizada.', code:'MACHINE_FORBIDDEN' },403);
+    const machineError=await validateMachineReference(env,auth,body.lineId,body.machineId);if(machineError)return machineError;
   }
 
   return null;
@@ -82,7 +94,7 @@ async function validateOperationalMutation(request, auth) {
 
 async function delegateProtected(request, env, context, auth) {
   const url = new URL(request.url);
-  const mutationError = await validateOperationalMutation(request,auth);
+  const mutationError = await validateOperationalMutation(request,env,auth);
   if (mutationError) return mutationError;
 
   if (url.pathname === '/api/v1/operators' && !hasPermission(auth,'users.view')) return json({ error:'Acesso não autorizado.', code:'FORBIDDEN' },403);

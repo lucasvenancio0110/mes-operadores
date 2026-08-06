@@ -820,14 +820,11 @@ async function lineDashboardRoute(request, env, url) {
     LEFT JOIN machine_active_orders ao ON ao.machine_id=m.id AND ao.status='active'
     LEFT JOIN machine_turn_states ts ON ts.machine_id=m.id AND ts.production_date=? AND ts.shift=?
     LEFT JOIN machine_runtime_states rs ON rs.machine_id=m.id
-    LEFT JOIN (
-      SELECT a.machine_id,a.operator_registration,a.operator_name
-      FROM operator_machine_assignments a
-      JOIN (
-        SELECT machine_id,MAX(updated_at) AS maxUpdated
-        FROM operator_machine_assignments WHERE production_date=? AND shift=? GROUP BY machine_id
-      ) latest ON latest.machine_id=a.machine_id AND latest.maxUpdated=a.updated_at
-    ) assignment ON assignment.machine_id=m.id
+    LEFT JOIN operator_machine_assignments assignment ON assignment.id=(
+      SELECT latest.id FROM operator_machine_assignments latest
+      WHERE latest.machine_id=m.id AND latest.production_date=? AND latest.shift=?
+      ORDER BY latest.updated_at DESC,latest.id DESC LIMIT 1
+    )
     WHERE ${conditions.join(' AND ')}
     ORDER BY pl.sort_order,m.sort_order,m.name`).bind(...bindings).all();
   const machines=(result.results||[]).map(row=>{
