@@ -10,6 +10,7 @@ import {
 } from '../app/factory-map-spatial.js';
 
 await import('./factory-map-stability-v6.test.mjs');
+await import('./factory-map-release-gate-v6.test.mjs');
 
 const cards=[
   { line:'Linha 1',x:0,y:0,width:142,height:78 },
