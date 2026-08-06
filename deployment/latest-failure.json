@@ -1,0 +1,20 @@
+{
+  "status": "failure",
+  "commit": "b96d27b70801f3dd8b41c412eabe2b3caef7991a",
+  "validationWorkflowRun": "31074934484",
+  "validationConclusion": "success",
+  "workflowRun": "31074944718",
+  "failedAt": "2026-08-06T05:43:29.393Z",
+  "failureStage": "smoke",
+  "workerPublished": true,
+  "applicationUrl": "https://mes-operadores.lucassantanals0110.workers.dev",
+  "cloudflareVersionId": "a25ebf50-8fb7-4396-96a0-c58fdbc0607b",
+  "steps": {
+    "patch": "success",
+    "validate": "success",
+    "preflight": "success",
+    "pepper": "success",
+    "publish": "success",
+    "smoke": "failure"
+  }
+}
