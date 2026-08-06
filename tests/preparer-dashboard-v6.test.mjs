@@ -3,10 +3,13 @@ import { readFile } from 'node:fs/promises';
 import { calculatePreparerMetrics, closureCopy, closureUrgency, preparerMachineState } from '../app/preparer-dashboard-engine.js';
 import { FACTORY_MAP_GEOMETRY, FACTORY_MAP_POSITIONS, factoryMapBounds, factoryMapMachineIds, mapMachineMetadata } from '../app/preparer-map-layout.js';
 
+await import('./factory-map-workspace-v6.test.mjs');
+
 const read=path=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
-const [dashboard,authShell,css,index,serviceWorker,backend]=await Promise.all([
+const [dashboard,authShell,css,index,serviceWorker,backend,workspace,workspaceCss,spatial]=await Promise.all([
   read('app/preparer-dashboard.js'),read('app/auth-shell.js'),read('app/preparer-dashboard.css'),
-  read('index.html'),read('sw.js'),read('worker/turn-assistant.js')
+  read('index.html'),read('sw.js'),read('worker/turn-assistant.js'),
+  read('app/factory-map-workspace.js'),read('app/factory-map-workspace.css'),read('app/factory-map-spatial.js')
 ]);
 
 const machine={
@@ -67,6 +70,14 @@ assert(css.includes('touch-action:pan-x pan-y')&&css.includes('transform-origin:
 assert(css.includes('.prep-map-status[data-tone="critical"]')&&css.includes('footer[data-urgency="critical"]'),'Status e risco de fechamento não possuem linguagens visuais independentes.');
 assert(index.includes('app/preparer-dashboard.css?v=6.2.0'),'CSS do mapa não está versionado no index.');
 for(const asset of ['./app/preparer-dashboard.css','./app/preparer-dashboard.js','./app/preparer-dashboard-engine.js','./app/preparer-map-layout.js'])assert(serviceWorker.includes(asset),`Service Worker não inclui ${asset}.`);
+
+assert(index.includes('app/factory-map-workspace.css?v=6.3.0')&&index.includes('app/factory-map-workspace.js?v=6.3.0'),'Workspace industrial 6.3.0 não está carregado.');
+for(const asset of ['./app/factory-map-workspace.css','./app/factory-map-spatial.js','./app/factory-map-workspace.js'])assert(serviceWorker.includes(asset),`Service Worker não inclui ${asset}.`);
+for(const capability of ['MutationObserver','pointerdown','pointermove','requestAnimationFrame','sessionStorage','data-factory-action="fullscreen"','factory-minimap','calculateCorridors','semanticZoomLevel'])assert(workspace.includes(capability),`Workspace industrial sem capacidade: ${capability}`);
+for(const capability of ['calculateCorridors','fitCamera','clampCamera','semanticZoomLevel','rectIntersects'])assert(spatial.includes(capability),`Motor espacial sem capacidade: ${capability}`);
+assert(workspaceCss.includes('touch-action:none')&&workspaceCss.includes('height:100dvh')&&workspaceCss.includes('data-semantic-zoom="distant"')&&workspaceCss.includes('.factory-corridor'),'CSS não cobre gesto, tela cheia, semantic zoom e corredores.');
+assert(!/fetch\([^\n]+method:\s*['\"](?:POST|PUT|PATCH|DELETE)/.test(workspace),'Workspace do mapa deve permanecer somente leitura.');
+
 assert(backend.includes("auth.lineAccess")&&backend.includes("/api/v1/turn-assistant/line-dashboard")&&backend.includes("Acesso restrito ao preparador"),'Backend não protege o cockpit por perfil e linha.');
 
-console.log('NEOMES v6 preparador: linha autorizada, cockpit ao vivo e leitura operacional validados.');
+console.log('NEOMES v6 preparador: linha autorizada, cockpit ao vivo e workspace industrial validados.');
