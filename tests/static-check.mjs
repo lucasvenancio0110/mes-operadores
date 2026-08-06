@@ -30,13 +30,14 @@ assert(!html.includes('maximum-scale=1'), 'O zoom do navegador não pode ser blo
 assert(html.includes('viewport-fit=cover'), 'O layout deve respeitar safe areas.');
 assert(html.includes('<title>NEOMES — Gestão Operacional</title>'), 'Título oficial NEOMES ausente.');
 assert(html.includes('app/auth-shell.js?v=6.0.0'), 'Entrada segura 6.0.0 não foi publicada.');
+assert(html.includes('app/turn-assistant.js?v=6.0.1'), 'Hotfix do apontamento 6.0.1 não foi publicado.');
 assert(html.includes('app/auth.css?v=6.0.0') && html.includes('app/admin.css?v=4.0.0'), 'Estilos de autenticação ou administração ausentes.');
 assert(!html.includes('NEODENT MES'), 'Identidade antiga permanece no ponto de entrada.');
 assert.equal(manifest.name, 'NEOMES');
 assert.equal(manifest.short_name, 'NEOMES');
 assert.equal(manifest.display, 'standalone');
-assert(manifest.start_url.includes('v=6.0.0'), 'Manifesto não aponta para o fluxo operacional 6.0.0.');
-assert(serviceWorker.includes('neomes-v6.0.0-preparer-cockpit'), 'Cache PWA 6.0.0 não foi ativado.');
+assert(manifest.start_url.includes('v=6.0.1'), 'Manifesto não aponta para o hotfix operacional 6.0.1.');
+assert(serviceWorker.includes('neomes-v6.0.1-pointing-submit'), 'Cache PWA do apontamento 6.0.1 não foi ativado.');
 for (const asset of ['./app/auth-shell.js','./app/auth.css','./app/admin-ui.js','./app/admin.css','./app/operator-main.js','./app/shift-performance.js','./app/preparer-dashboard.css','./app/preparer-dashboard.js','./app/preparer-dashboard-engine.js']) {
   assert(serviceWorker.includes(asset), `Service Worker não inclui ${asset}.`);
 }
@@ -122,4 +123,4 @@ for (const feature of ['exportPdf','exportImage','shareSummary']) assert(exports
 assert(settingsWorker.includes('CREATE TABLE IF NOT EXISTS app_settings'), 'Ajustes globais ausentes.');
 for (const route of ['/api/v1/machine-states','/api/v1/events','/api/v1/records','/api/v1/assignments','/api/v1/settings']) assert(worker.includes(route), `Rota operacional ausente: ${route}`);
 
-console.log('NEOMES 6.0.0: autenticação segura, turno automático e fluxo consultivo validados.');
+console.log('NEOMES 6.0.1: autenticação segura, turno automático e apontamento móvel validados.');
