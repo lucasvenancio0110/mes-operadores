@@ -1,0 +1,86 @@
+name: Verify Factory Map Production
+
+on:
+  workflow_run:
+    workflows: ['Deploy NEOMES to Cloudflare']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: neomes-factory-map-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    if: github.event.workflow_run.conclusion == 'success'
+    name: Validar mapa industrial publicado
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar main implantada
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validar script
+        run: node --check scripts/smoke-factory-map.mjs
+
+      - name: Executar smoke do mapa
+        id: factory_smoke
+        continue-on-error: true
+        run: node scripts/smoke-factory-map.mjs https://mes-operadores.lucassantanals0110.workers.dev
+
+      - name: Registrar evidência
+        if: always()
+        env:
+          SMOKE_OUTCOME: ${{ steps.factory_smoke.outcome }}
+          DEPLOY_WORKFLOW_RUN: ${{ github.event.workflow_run.id }}
+          SMOKE_WORKFLOW_RUN: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+          mkdir -p deployment/history
+          node - <<'NODE'
+          const fs=require('fs');
+          const deployment=JSON.parse(fs.readFileSync('deployment/latest.json','utf8'));
+          const success=process.env.SMOKE_OUTCOME==='success';
+          const record={
+            status:success?'success':'failure',
+            commit:deployment.commit,
+            deployWorkflowRun:process.env.DEPLOY_WORKFLOW_RUN,
+            smokeWorkflowRun:process.env.SMOKE_WORKFLOW_RUN,
+            verifiedAt:new Date().toISOString(),
+            applicationUrl:deployment.applicationUrl,
+            cloudflareVersionId:deployment.cloudflareVersionId,
+            checks:[
+              'factory-map-assets',
+              'factory-map-load-order',
+              'factory-map-readonly',
+              'factory-map-corridors',
+              'factory-map-semantic-zoom',
+              'factory-map-responsive-matrix',
+              'worker-d1-health'
+            ]
+          };
+          const serialized=JSON.stringify(record,null,2)+'\n';
+          fs.writeFileSync('deployment/factory-map-smoke-latest.json',serialized);
+          fs.writeFileSync(`deployment/history/${process.env.SMOKE_WORKFLOW_RUN}-factory-map-${record.status}.json`,serialized);
+          NODE
+          git add deployment/factory-map-smoke-latest.json deployment/history
+          git diff --cached --quiet || git commit -m "chore: registra smoke do mapa industrial [skip ci]"
+          git push origin HEAD:main
+
+      - name: Bloquear conclusão quando o smoke falhar
+        if: steps.factory_smoke.outcome != 'success'
+        run: exit 1
