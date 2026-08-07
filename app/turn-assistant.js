@@ -12,7 +12,7 @@ import {
 import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=6.0.1';
 
 const layers = document.getElementById('layers');
-const VERSION = '6.0.1';
+const VERSION = '6.0.2';
 const BAR_LENGTH_MM = 3600;
 const KERF_MM = 1;
 let contextCache = new Map();
@@ -291,6 +291,10 @@ function handoffForm(machineId, order, mode = 'handoff') {
   const body = `<form id="taHandoffForm" data-machine-id="${escapeHtml(machineId)}" novalidate>
     ${orderSummary(order,machine)}
     <div class="ta-flow-copy"><strong>${mode === 'update' ? 'Atualize somente o que mudou' : 'Assuma esta máquina em poucos passos'}</strong><span>A OP e os dados técnicos já estão carregados. Você só confirma a produção e informa o material.</span></div>
+    ${mode === 'update' ? `<section class="ta-confirm-block ta-cycle-edit">
+      <div class="ta-block-heading"><span>↻</span><div><strong>Tempo de ciclo da peça</strong><small>Edite quando o ciclo real da máquina mudar.</small></div></div>
+      <label class="ta-large-field"><span>Tempo atual</span><input name="cycle" required value="${escapeHtml(formatCycle(order.cycleSeconds))}" placeholder="Ex.: 1:38"><small>Aceita 1:38, 98 ou 1m38s. Ao salvar, o NEOMES recalcula meta e previsão.</small></label>
+    </section>` : ''}
     ${productionConfirmation(order)}
     ${materialRequiredFields(mode === 'update' ? { currentBarPieces:order.currentBarPieces,feederBars:order.feederBars } : {})}
     <div class="field-error ta-error" data-ta-error role="alert"></div>
@@ -365,14 +369,16 @@ async function submitHandoff(form) {
     : asInteger(order.producedSoFar);
   const currentBarPieces=asInteger(form.elements.currentBarPieces?.value);
   const feederBars=asInteger(form.elements.feederBars?.value);
+  const cycleSeconds=flow?.mode==='update'?parseCycle(form.elements.cycle?.value):Number(order.cycleSeconds);
   if(!Number.isFinite(productionConfirmed))return showError(form,'Confirme ou corrija a quantidade produzida.');
+  if(!(cycleSeconds>0))return showError(form,'Informe um tempo de ciclo válido.');
   if(!Number.isFinite(currentBarPieces))return showError(form,'Informe quantas peças a barra atual ainda fará.');
   if(!Number.isFinite(feederBars))return showError(form,'Informe quantas barras inteiras estão no alimentador.');
   const machine=machineInfo(machineId);const operator=store.state.session;
   const body={
     productionDate:operator.productionDate || localDateKey(),shift:String(operator.shift),machineId,lineId:machine.lineId,
     lineName:machine.lineName,machineName:machine.name,op:order.op,item:order.item,description:order.description || '',
-    opTarget:order.opTarget,cycleSeconds:order.cycleSeconds,frequency1:order.frequency1,frequency2:order.frequency2,
+    opTarget:order.opTarget,cycleSeconds,frequency1:order.frequency1,frequency2:order.frequency2,
     pieceLengthMm:order.pieceLengthMm,barLengthMm:order.barLengthMm || BAR_LENGTH_MM,kerfMm:order.kerfMm ?? KERF_MM,
     productionConfirmed,currentBarPieces,feederBars,correctionNote:form.elements.correctionNote?.value?.trim() || ''
   };

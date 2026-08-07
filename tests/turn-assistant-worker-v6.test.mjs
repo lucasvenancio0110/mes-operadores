@@ -15,6 +15,10 @@ for(const table of ['machine_turn_states','machine_runtime_states']){
 assert(worker.includes("SET status=CASE WHEN closed_at IS NULL THEN 'active' ELSE 'closed' END"),'Migração segura dos estados parados antigos ausente.');
 assert(worker.includes("physical_status='stopped'"),'Estado físico parado não está separado da OP.');
 assert(worker.includes('calculatePointingAccounting'),'API não usa a mesma contabilidade lógica validada no frontend.');
+assert(worker.includes('requestedCycleSeconds'),'Worker não aceita edição do ciclo em OP ativa.');
+assert(worker.includes('cycleChanged = Boolean(previous'),'Worker não detecta alteração real do ciclo.');
+assert(worker.includes('SET cycle_time_seconds=?,updated_at=? WHERE id=?'),'Segmento aberto não recebe o novo ciclo.');
+assert(worker.includes('previousCycleSeconds:previous?.cycleSeconds ?? null,cycleChanged'),'Alteração do ciclo não fica auditável no evento da conferência.');
 assert(worker.includes('const endedAt=now;'),'Apontamento deve fechar no instante real do registro.');
 assert(!worker.includes("const endedAt=mode==='shift'?bounds.end:now"),'API ainda projeta o apontamento até o fim programado do turno.');
 assert(worker.includes('stopMinutes'),'Minutos de parada informados pelo operador não chegam à API.');

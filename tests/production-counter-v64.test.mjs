@@ -11,7 +11,7 @@ const [index,sw,worker,secureMain,workerIndex,wrangler]=await Promise.all([
 ]);
 
 for(const required of [
-  'app/turn-assistant.js?v=6.0.1',
+  'app/turn-assistant.js?v=6.0.2',
   'app/turn-assistant-autostart.js?v=6.0.0',
   'app/factory-map-stability.js?v=6.3.1',
   'app/factory-map-workspace.js?v=6.3.0',

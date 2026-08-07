@@ -417,19 +417,23 @@ async function handoffRoute(request, env) {
   const productionConfirmed = number(body.productionConfirmed);
   const currentBarPieces = integer(body.currentBarPieces);
   const feederBars = integer(body.feederBars);
+  const requestedCycleSeconds = body.cycleSeconds === undefined ? null : number(body.cycleSeconds);
   if (productionConfirmed === null || productionConfirmed < 0) return json({ error:'Confirme a quantidade produzida.',code:'PRODUCTION_REQUIRED' },400);
+  if (body.cycleSeconds !== undefined && !(requestedCycleSeconds > 0)) return json({ error:'Informe um tempo de ciclo válido.',code:'CYCLE_REQUIRED' },400);
   if (currentBarPieces === null) return json({ error:'Informe quantas peças a barra atual ainda fará.',code:'CURRENT_BAR_REQUIRED' },400);
   if (feederBars === null) return json({ error:'Informe quantas barras inteiras estão no alimentador.',code:'FEEDER_BARS_REQUIRED' },400);
 
   const previous = await activeOrder(env,machineId);
-  const order = previous || {
+  const effectiveCycleSeconds = requestedCycleSeconds > 0 ? requestedCycleSeconds : number(previous?.cycleSeconds);
+  const order = previous ? { ...previous,cycleSeconds:effectiveCycleSeconds } : {
     machineId,lineId,lineName:text(body.lineName),machineName:text(body.machineName),
     op:text(body.op),item:text(body.item),description:text(body.description),opTarget:number(body.opTarget),
-    cycleSeconds:number(body.cycleSeconds),frequency1:number(body.frequency1),frequency2:number(body.frequency2),
+    cycleSeconds:effectiveCycleSeconds,frequency1:number(body.frequency1),frequency2:number(body.frequency2),
     pieceLengthMm:number(body.pieceLengthMm),producedSoFar:productionConfirmed,
     currentBarPieces,feederBars,barLengthMm:number(body.barLengthMm) || DEFAULT_BAR_LENGTH_MM,
     kerfMm:number(body.kerfMm) ?? DEFAULT_KERF_MM,status:'active',openedAt:nowIso()
   };
+  const cycleChanged = Boolean(previous && requestedCycleSeconds > 0 && Math.abs(Number(previous.cycleSeconds)-requestedCycleSeconds) > 0.0001);
   if (!order.op || !order.item || !(order.opTarget > 0) || !(order.cycleSeconds > 0) || !(order.pieceLengthMm > 0)) {
     return json({ error:'Cadastre OP, item, meta, ciclo e comprimento da peça antes de iniciar.',code:'ORDER_DATA_REQUIRED' },400);
   }
@@ -494,6 +498,10 @@ async function handoffRoute(request, env) {
       machineId,order.lineId || lineId,now,access.auth.user.registration,access.auth.user.name
     )
   ];
+  if (existingOpen && cycleChanged) {
+    statements.push(env.DB.prepare(`UPDATE machine_turn_segments
+      SET cycle_time_seconds=?,updated_at=? WHERE id=?`).bind(order.cycleSeconds,now,existingOpen.id));
+  }
   if (!existingOpen) {
     statements.push(env.DB.prepare(`INSERT INTO machine_turn_segments (
       id,production_date,shift,machine_id,line_id,op_number,item_number,segment_type,
@@ -504,7 +512,10 @@ async function handoffRoute(request, env) {
     ));
   }
   await env.DB.batch(statements);
-  await writeEvent(env,request,access.auth,body,'turn.handoff_confirmed',{ productionConfirmed,currentBarPieces,feederBars,segmentId });
+  await writeEvent(env,request,access.auth,body,'turn.handoff_confirmed',{
+    productionConfirmed,currentBarPieces,feederBars,segmentId,cycleSeconds:order.cycleSeconds,
+    previousCycleSeconds:previous?.cycleSeconds ?? null,cycleChanged
+  });
   const saved = await activeOrder(env,machineId);
   const turnSegments = await segments(env,machineId,text(body.productionDate),text(body.shift));
   const savedState=await savedTurnState(env,machineId,text(body.productionDate),text(body.shift));
