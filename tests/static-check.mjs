@@ -30,7 +30,7 @@ assert(!html.includes('maximum-scale=1'), 'O zoom do navegador não pode ser blo
 assert(html.includes('viewport-fit=cover'), 'O layout deve respeitar safe areas.');
 assert(html.includes('<title>NEOMES — Gestão Operacional</title>'), 'Título oficial NEOMES ausente.');
 assert(html.includes('app/auth-shell.js?v=6.2.0'), 'Entrada segura 6.2.0 não foi publicada.');
-assert(html.includes('app/turn-assistant.js?v=6.0.1'), 'Hotfix do apontamento 6.0.1 não foi publicado.');
+assert(html.includes('app/turn-assistant.js?v=6.0.2'), 'Correção de estabilidade do assistente 6.0.2 não foi publicada.');
 assert(html.includes('app/auth.css?v=6.0.0') && html.includes('app/admin.css?v=4.0.0'), 'Estilos de autenticação ou administração ausentes.');
 assert(!html.includes('NEODENT MES'), 'Identidade antiga permanece no ponto de entrada.');
 assert.equal(manifest.name, 'NEOMES');
