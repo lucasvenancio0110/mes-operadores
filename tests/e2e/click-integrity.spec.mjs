@@ -9,17 +9,18 @@ async function waitForCard(page){
 async function hitInfo(locator){
   return locator.evaluate(element=>{
     const rect=element.getBoundingClientRect();
-    const x=Math.max(0,Math.min(window.innerWidth-1,rect.left+rect.width/2));
-    const y=Math.max(0,Math.min(window.innerHeight-1,rect.top+rect.height/2));
-    const hit=document.elementFromPoint(x,y);
-    const stack=document.elementsFromPoint(x,y).slice(0,8).map(node=>({
+    const x=rect.left+rect.width/2;
+    const y=rect.top+rect.height/2;
+    const inViewport=x>=0&&x<window.innerWidth&&y>=0&&y<window.innerHeight;
+    const hit=inViewport?document.elementFromPoint(x,y):null;
+    const stack=inViewport?document.elementsFromPoint(x,y).slice(0,8).map(node=>({
       tag:node.tagName,id:node.id,className:typeof node.className==='string'?node.className:'',
       pointerEvents:getComputedStyle(node).pointerEvents,zIndex:getComputedStyle(node).zIndex
-    }));
+    })):[];
     const style=getComputedStyle(element);
     return {
-      rect:{ x:rect.x,y:rect.y,width:rect.width,height:rect.height },x,y,
-      hitInside:hit===element||element.contains(hit),
+      rect:{ x:rect.x,y:rect.y,width:rect.width,height:rect.height },x,y,inViewport,
+      hitInside:inViewport&&(hit===element||element.contains(hit)),
       hit:hit?{ tag:hit.tagName,id:hit.id,className:typeof hit.className==='string'?hit.className:'' }:null,
       stack,display:style.display,visibility:style.visibility,opacity:style.opacity,pointerEvents:style.pointerEvents
     };
@@ -32,6 +33,7 @@ async function expectTouchable(locator,label){
   const info=await hitInfo(locator);
   expect(info.rect.width,`${label}: largura inválida`).toBeGreaterThan(0);
   expect(info.rect.height,`${label}: altura inválida`).toBeGreaterThan(0);
+  expect(info.inViewport,`${label}: centro fora da viewport após scroll`).toBeTruthy();
   expect(info.visibility,`${label}: visibility`).not.toBe('hidden');
   expect(info.pointerEvents,`${label}: pointer-events`).not.toBe('none');
   expect(Number(info.opacity),`${label}: opacity`).toBeGreaterThan(0.05);
@@ -93,7 +95,7 @@ async function establishReadyState(page){
   await expectPanelClear(page,'após conferência');
 }
 
-test('nenhuma camada fantasma cobre os controles do painel',async({ page })=>{
+test('nenhuma camada fantasma cobre os controles visíveis do painel',async({ page })=>{
   const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await installForensicApi(page);
@@ -109,15 +111,17 @@ test('nenhuma camada fantasma cobre os controles do painel',async({ page })=>{
   ];
   for(const [label,selector] of controls)await expectTouchable(page.locator(selector).first(),label);
 
+  await page.evaluate(()=>window.scrollTo(0,0));
   const generic=await page.evaluate(()=>[...document.querySelectorAll('button,a[href],input,select,textarea,[role="button"]')]
     .filter(element=>{
       const r=element.getBoundingClientRect();const s=getComputedStyle(element);
-      return r.width>0&&r.height>0&&s.display!=='none'&&s.visibility!=='hidden'&&!element.disabled;
+      const x=r.left+r.width/2;const y=r.top+r.height/2;
+      return r.width>0&&r.height>0&&x>=0&&x<innerWidth&&y>=0&&y<innerHeight&&s.display!=='none'&&s.visibility!=='hidden'&&!element.disabled;
     }).map(element=>{
-      const r=element.getBoundingClientRect();const x=Math.max(0,Math.min(innerWidth-1,r.left+r.width/2));const y=Math.max(0,Math.min(innerHeight-1,r.top+r.height/2));const hit=document.elementFromPoint(x,y);
+      const r=element.getBoundingClientRect();const x=r.left+r.width/2;const y=r.top+r.height/2;const hit=document.elementFromPoint(x,y);
       return { label:(element.getAttribute('aria-label')||element.textContent||element.name||element.id||element.tagName).trim().slice(0,80),ok:hit===element||element.contains(hit),hit:hit?.outerHTML?.slice(0,180)||'' };
     }).filter(item=>!item.ok));
-  expect(generic,`controles cobertos no painel: ${JSON.stringify(generic)}`).toEqual([]);
+  expect(generic,`controles realmente visíveis cobertos no painel: ${JSON.stringify(generic)}`).toEqual([]);
   expect(errors).toEqual([]);
 });
 
@@ -183,5 +187,22 @@ test('toque físico no centro dos botões chega ao elemento correto',async({ pag
     await expect(page.locator(opened)).toBeVisible();
     const closer=page.locator('[data-runtime-close],[data-ta-close]').first();await closer.tap();
     await expectPanelClear(page,`depois de ${label}`);
+  }
+});
+
+test('botões críticos mantêm identidade DOM estável quando o usuário vai tocar',async({ page })=>{
+  await installForensicApi(page);
+  await establishReadyState(page);
+  const selectors=['[data-runtime-open]','[data-runtime-history-open]','[data-ta-point]','[data-ta-update]','[data-ta-close-order]'];
+  for(const selector of selectors){
+    const locator=page.locator(selector).first();
+    await locator.scrollIntoViewIfNeeded();
+    const marker=`stable-${Math.random().toString(36).slice(2)}`;
+    await locator.evaluate((element,value)=>element.dataset.forensicIdentity=value,marker);
+    await page.waitForTimeout(600);
+    const state=await page.locator(`[data-forensic-identity="${marker}"]`).evaluateAll((nodes,value)=>({
+      count:nodes.length,connected:nodes[0]?.isConnected||false,selectorStillMatches:nodes[0]?.matches(value)||false
+    }),selector);
+    expect(state,`${selector} foi substituído durante janela de toque`).toEqual({ count:1,connected:true,selectorStillMatches:true });
   }
 });
