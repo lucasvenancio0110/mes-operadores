@@ -30,6 +30,9 @@ assert(!submitBridge.includes('form.dispatchEvent'),'A ponte não deve reenviar 
 assert(assistant.includes("bindAssistantSubmit(document,submitAssistantForm)"),'A ponte móvel não está conectada ao assistente.');
 assert(assistant.includes('taPointingForm:submitPointing'),'O formulário de apontamento não está ligado à rotina de persistência.');
 assert(assistant.includes("post('/api/v1/turn-assistant/handoff',body)"),'Persistência da passagem de turno não está conectada.');
+assert(assistant.includes('Tempo de ciclo da peça'),'Atualizar dados não oferece edição do tempo de ciclo.');
+assert(assistant.includes("flow?.mode==='update'?parseCycle(form.elements.cycle?.value)"),'O ciclo editado não é validado pelo parser oficial.');
+assert(assistant.includes('opTarget:order.opTarget,cycleSeconds,frequency1'),'O ciclo editado não entra no payload da OP ativa.');
 assert(assistant.includes("formControlValue(form,'item')"),'O campo Item não usa leitura segura para Safari.');
 assert(!assistant.includes('form.elements.item.value'),'A colisão com HTMLFormControlsCollection.item ainda existe.');
 assert(assistant.includes('A matéria-prima consegue produzir até'),'Autonomia do material após a meta ausente.');
@@ -38,7 +41,7 @@ assert(!assistant.includes('Faltarão cerca de'),'A quantidade faltante ainda es
 for(const formId of ['taHandoffForm','taFirstOrderForm','taPointingForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
 }
-assert(index.includes('turn-assistant.js?v=6.0.1'),'Hotfix 6.0.1 do apontamento não está carregado no HTML.');
+assert(index.includes('turn-assistant.js?v=6.0.2'),'Hotfix 6.0.1 do apontamento não está carregado no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
 assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
 assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
@@ -190,4 +193,4 @@ assert.equal(tnl092.inconsistent,true,'A estimativa da TNL 092 deve continuar al
 assert.equal(Math.round(tnl092.runningMinutes),478);
 assert.equal(Math.round(tnl092.overrunMinutes),320);
 
-console.log('NEOMES 6.0.1: apontamento móvel, fluxo consultivo e instruções operacionais validados.');
+console.log('NEOMES 6.0.2: apontamento móvel, fluxo consultivo e instruções operacionais validados.');
