@@ -69,7 +69,13 @@ const auth=await readFile(join(root,'app/auth-shell.js'),'utf8');
 assert.match(operator,/document\.addEventListener\(['"]click['"]/,'operator-main precisa ter delegação de clique');
 assert.match(operator,/if \(event\.__NEOMES_ASSISTANT_HANDLED \|\| event\.__NEOMES_AUTH_HANDLED\) return;/,'operator-main deve respeitar ownership do assistente e autenticação');
 assert.match(operator,/const handler = handlers\[event\.target\?\.id\];\s*if \(!handler\) return;\s*event\.preventDefault\(\);/s,'submit global deve bloquear apenas formulários do operator-main');
-assert.match(operator,/NON_RENDERING_STORE_REASONS = new Set\(\['conference-draft','sync','sync-error','queue','queue-flush'\]\)/,'sync/queue não podem recriar toda a interface');
+assert.match(operator,/const NON_RENDERING_STORE_REASONS = new Set\(\[/,'lista explícita de motivos sem rerender deve existir');
+for(const reason of ['conference-draft','sync','sync-error','queue','queue-flush','ui-normalize','cloud-events','cloud-machine-states','machine-runtime-status']) {
+  assert(operator.includes(`'${reason}'`),`motivo ${reason} precisa preservar identidade do DOM`);
+}
+assert.match(operator,/function storeReasonOwnsRendering\(reason\)/,'ownership de renderização deve ser centralizado');
+assert.match(operator,/value\.startsWith\('ta-'\) \|\| value\.startsWith\('turn-assistant-'\)/,'eventos do assistente não podem recriar toda a interface');
+assert.match(operator,/if \(!storeReasonOwnsRendering\(reason\)\) render\(\);/,'subscriber deve respeitar ownership antes de renderizar');
 
 assert.match(assistant,/document\.addEventListener\(['"]click['"],intercept,true\)/,'captura do assistente permanece explícita e deve usar ownership cooperativo');
 assert.match(assistant,/function claimAssistantEvent\(event\)/,'assistente deve marcar eventos que possui');
