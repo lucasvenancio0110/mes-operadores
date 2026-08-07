@@ -11,6 +11,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: neomes-recovery-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   behavior-regression:
     runs-on: ubuntu-latest
