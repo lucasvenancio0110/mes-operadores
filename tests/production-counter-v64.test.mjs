@@ -1,45 +1,34 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { calculateEstimatedCounter, auditDiff, isCounterRunning } from '../app/production-counter-engine.js';
 
-const base={conferenceAt:'2026-08-06T18:00:00.000Z',cycleSeconds:120,initialShiftPieces:5,officialProduced:100,currentBarPieces:50,feederBars:2,piecesPerFullBar:50};
-const running=calculateEstimatedCounter({...base,now:'2026-08-06T18:10:00.000Z',physicalStatus:'producing'});
-assert.equal(running.estimatedShiftPieces,10);
-assert.equal(running.estimatedOrderProduced,105);
-assert.equal(running.estimatedRemainingPieces,145);
-assert.equal(running.estimatedFinishAt,'2026-08-06T23:00:00.000Z');
-
-const paused=calculateEstimatedCounter({...base,now:'2026-08-06T18:40:00.000Z',physicalStatus:'maintenance',runningIntervals:[{startedAt:'2026-08-06T18:00:00.000Z',endedAt:'2026-08-06T18:10:00.000Z'}]});
-assert.equal(paused.estimatedShiftPieces,10);
-assert.equal(paused.estimatedFinishAt,'2026-08-06T23:30:00.000Z');
-assert.equal(isCounterRunning('setup'),false);
-assert.equal(isCounterRunning('ajuste'),false);
-assert.equal(isCounterRunning('producing'),true);
-
-const resumed=calculateEstimatedCounter({...base,now:'2026-08-06T18:50:00.000Z',physicalStatus:'producing',runningIntervals:[{startedAt:'2026-08-06T18:00:00.000Z',endedAt:'2026-08-06T18:10:00.000Z'},{startedAt:'2026-08-06T18:40:00.000Z',endedAt:null}]});
-assert.equal(resumed.estimatedShiftPieces,15);
-assert.equal(resumed.estimatedFinishAt,'2026-08-06T23:30:00.000Z');
-
-assert.deepEqual(auditDiff({cycleSeconds:90,op:'1'},{cycleSeconds:95,op:'1'},['cycleSeconds','op']),[{field:'cycleSeconds',before:90,after:95}]);
-
-const [index,sw,worker,secureMain,ui,wrangler]=await Promise.all([
+const [index,sw,worker,secureMain,wrangler]=await Promise.all([
   readFile(new URL('../index.html',import.meta.url),'utf8'),
   readFile(new URL('../sw.js',import.meta.url),'utf8'),
   readFile(new URL('../worker/production-counter.js',import.meta.url),'utf8'),
   readFile(new URL('../worker/secure-main.js',import.meta.url),'utf8'),
-  readFile(new URL('../app/production-counter.js',import.meta.url),'utf8'),
   readFile(new URL('../wrangler.jsonc',import.meta.url),'utf8')
 ]);
 
-for(const token of ['production-counter.js?v=6.4.0'])assert(index.includes(token),`Index sem ${token}`);
-for(const token of ['./app/production-counter-engine.js','./app/production-counter.js'])assert(sw.includes(token),`PWA sem ${token}`);
-for(const token of ['machine_counter_sessions','machine_counter_intervals','conference.counter_started'])assert(worker.includes(token),`Backend sem ${token}`);
-for(const token of ['handleProductionCounter','productionCounterHealth','/api/v1/auth/production-counter-health'])assert(secureMain.includes(token),`Worker seguro sem integração: ${token}`);
+for(const required of [
+  'app/turn-assistant.js?v=6.0.1',
+  'app/turn-assistant-autostart.js?v=6.0.0',
+  'app/factory-map-stability.js?v=6.3.1',
+  'app/factory-map-workspace.js?v=6.3.0',
+  'app/auth-shell.js?v=6.2.0'
+])assert(index.includes(required),`Rollback removeu módulo operacional obrigatório: ${required}`);
 
-assert(ui.includes('PRODUCTION_COUNTER_UI_ENABLED = false'),'Rollback deve manter a UI do contador desativada.');
-for(const forbidden of ['MutationObserver','querySelector','addEventListener','setInterval(','fetch(','ops-machine-card','taHandoffForm']){
-  assert(!ui.includes(forbidden),`Rollback não pode interferir no DOM/eventos operacionais: ${forbidden}`);
+for(const forbidden of ['production-counter.js','production-counter.css']){
+  assert(!index.includes(forbidden),`Frontend de recuperação não pode carregar ${forbidden}.`);
+  assert(!sw.includes(`./app/${forbidden}`),`Service Worker de recuperação não pode armazenar ${forbidden}.`);
 }
+
+assert(sw.includes("const VERSION = 'neomes-recovery-pre-counter-20260807-v1'"),'Cache de recuperação deve possuir identidade nova.');
+assert(sw.includes('keys.filter(key => ![STATIC_CACHE, RUNTIME_CACHE].includes(key)).map(key => caches.delete(key))'),'Ativação deve apagar caches antigos da PWA.');
+assert(sw.includes('self.skipWaiting()')&&sw.includes('self.clients.claim()'),'Service Worker de recuperação deve assumir o controle sem aguardar versão antiga.');
+for(const asset of ['./app/turn-assistant.js','./app/preparer-dashboard.js','./app/factory-map-workspace.js','./app/auth-shell.js'])assert(sw.includes(asset),`PWA de recuperação sem asset operacional: ${asset}`);
+
+for(const token of ['machine_counter_sessions','machine_counter_intervals','conference.counter_started'])assert(worker.includes(token),`Rollback não deve apagar dados/backend existentes: ${token}`);
+for(const token of ['handleProductionCounter','productionCounterHealth'])assert(secureMain.includes(token),`Backend dormente do contador deve permanecer íntegro: ${token}`);
 assert(wrangler.includes('worker/secure-main.js'),'Wrangler deve preservar o entrypoint seguro oficial.');
 
-console.log('NEOMES: rollback do contador visual validado; backend preservado e nenhuma interferência em DOM/eventos operacionais.');
+console.log('NEOMES recovery: frontend pré-contador restaurado, caches 6.4 invalidados e backend preservado.');
