@@ -137,6 +137,10 @@ async function expectReadyForTurn(page){
   await expect(page.getByText('Pronta para o turno',{ exact:true })).toBeVisible();
 }
 
+async function returnToPanel(page){
+  await page.getByRole('button',{ name:'Voltar ao painel',exact:true }).click();
+}
+
 async function confirmMachine(page){
   await page.locator('[data-action="open-conference"],[data-ta-reconfirm]').first().click();
   const form=page.locator('#taHandoffForm');
@@ -145,7 +149,7 @@ async function confirmMachine(page){
   await form.locator('[name="feederBars"]').fill('2');
   await page.locator('[data-ta-submit-form="taHandoffForm"]').click();
   await expectReadyForTurn(page);
-  await page.locator('[data-ta-close]').click();
+  await returnToPanel(page);
   await expect(page.locator('[data-ta-point]')).toBeVisible();
 }
 
@@ -199,7 +203,7 @@ test('fluxo completo do operador funciona por consequência real no WebKit mobil
   await page.locator('#taHandoffForm [name="feederBars"]').fill('3');
   await page.locator('[data-ta-submit-form="taHandoffForm"]').click();
   await expectReadyForTurn(page);
-  await page.locator('[data-ta-close]').click();
+  await returnToPanel(page);
   await expect(page.locator('.ta-material-line')).toContainText('3 barras');
 
   await page.locator('[data-ta-point]').click();
@@ -219,7 +223,7 @@ test('fluxo completo do operador funciona por consequência real no WebKit mobil
   await page.locator('#taHandoffForm [name="feederBars"]').fill('2');
   await page.locator('[data-ta-submit-form="taHandoffForm"]').click();
   await expectReadyForTurn(page);
-  await page.locator('[data-ta-close]').click();
+  await returnToPanel(page);
 
   await page.locator('[data-ta-close-order]').click();
   await expect(page.locator('#taOrderCloseForm')).toBeVisible();
