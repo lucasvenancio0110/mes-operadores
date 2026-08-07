@@ -39,7 +39,7 @@ assert(!assistant.includes('Faltarão cerca de'),'A quantidade faltante ainda es
 for(const formId of ['taHandoffForm','taFirstOrderForm','taPointingForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
 }
-assert(index.includes('turn-assistant.js?v=6.0.1'),'Hotfix 6.0.1 do apontamento não está carregado no HTML.');
+assert(index.includes('turn-assistant.js?v=6.0.2'),'Correção de estabilidade 6.0.2 do assistente não está carregada no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
 assert(workerAssistant.includes("rolloverMinutes===1375"),'O Worker não valida períodos que atravessam a madrugada.');
 assert(workerAssistant.includes('const endedAt=now;'),'O Worker não fecha o apontamento no instante real do registro.');
@@ -189,4 +189,4 @@ assert.equal(tnl092.inconsistent,true,'A estimativa da TNL 092 deve continuar al
 assert.equal(Math.round(tnl092.runningMinutes),478);
 assert.equal(Math.round(tnl092.overrunMinutes),320);
 
-console.log('NEOMES 6.0.1: apontamento móvel, fluxo consultivo e instruções operacionais validados.');
+console.log('NEOMES 6.0.2: apontamento móvel, fluxo consultivo e estabilidade de DOM validados.');
