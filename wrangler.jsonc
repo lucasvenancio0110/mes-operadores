@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "mes-operadores",
-  "main": "worker/secure-main-v64.js",
+  "main": "worker/secure-main.js",
   "compatibility_date": "2026-08-01",
   "compatibility_flags": [
     "nodejs_compat"
