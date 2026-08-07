@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v6.4.0-estimated-counter';
+const VERSION = 'neomes-v6.2.0-factory-floor-layout-v6.4-counter';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
