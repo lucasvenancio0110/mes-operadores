@@ -79,7 +79,7 @@ assert(!/fetch\([^\n]+method:\s*['\"](?:POST|PUT|PATCH|DELETE)/.test(workspace),
 
 assert(backend.includes("auth.lineAccess")&&backend.includes("/api/v1/turn-assistant/line-dashboard")&&backend.includes("Acesso restrito ao preparador"),'Backend não protege o cockpit por perfil e linha.');
 
-assert(index.includes('app/machine-runtime.js?v=1.0.0')&&index.includes('app/machine-runtime.css?v=1.0.0'),'Domínio de situação física não está carregado.');
+assert(index.includes('app/machine-runtime.js?v=1.0.1')&&index.includes('app/machine-runtime.css?v=1.0.0'),'Domínio de situação física não está carregado.');
 for(const status of ['producing','setup','adjustment','maintenance','stopped'])assert(runtime.includes(status),`Situação física ausente: ${status}`);
 assert(runtimeBackend.includes('machine_runtime_states')&&runtimeBackend.includes('machine.status_changed'),'Situação física não está persistida/auditada no domínio correto.');
 assert(!index.includes('production-counter.js')&&!index.includes('production-counter.css'),'Contador não pode participar do frontend de recuperação.');
