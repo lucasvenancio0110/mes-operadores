@@ -1,0 +1,22 @@
+/* NEOMES — planta física v6.4
+   Esta camada altera apenas a área útil do mapa. A geometria das máquinas fica
+   em preparer-map-layout.js; nenhuma regra operacional é modificada aqui. */
+
+@media (min-width:761px){
+  .factory-workspace:not(.is-factory-fullscreen)>.prep-map-viewport{
+    height:clamp(1080px,155dvh,1500px)!important;
+    min-height:1080px!important;
+  }
+  .factory-workspace{
+    margin-bottom:24px;
+  }
+}
+
+/* No celular permanece uma janela navegável por gesto: não reduzimos a planta
+   inteira a uma miniatura só para fazê-la caber verticalmente. */
+@media (max-width:760px){
+  .factory-workspace:not(.is-factory-fullscreen)>.prep-map-viewport{
+    height:68dvh!important;
+    min-height:430px!important;
+  }
+}
