@@ -39,7 +39,7 @@ export function calculateEstimatedCounter(input={}){
     return {
       status:'missing',estimatedShiftPieces:initialShiftPieces,estimatedOrderProduced:officialProduced,
       productiveSeconds:0,nextPieceAt:null,estimatedRemainingPieces:0,estimatedFinishAt:null,
-      estimatedRemainingSeconds:0
+      estimatedRemainingSeconds:0,partialCycleSeconds:0
     };
   }
 
@@ -59,26 +59,26 @@ export function calculateEstimatedCounter(input={}){
   }
 
   const completedAfterConference=Math.max(0,Math.floor(productiveSeconds/cycleSeconds));
+  const partialCycleSeconds=Math.max(0,productiveSeconds%cycleSeconds);
   const estimatedShiftPieces=initialShiftPieces+completedAfterConference;
   const estimatedOrderProduced=officialProduced+completedAfterConference;
   const materialPieces=Math.max(0,currentBarPieces+feederBars*piecesPerFullBar);
   const estimatedRemainingPieces=Math.max(0,materialPieces-completedAfterConference);
-  const estimatedRemainingSeconds=estimatedRemainingPieces*cycleSeconds;
+  const estimatedRemainingSeconds=Math.max(0,estimatedRemainingPieces*cycleSeconds-partialCycleSeconds);
 
   let nextPieceAt=null;
-  if(status===RUNNING_STATUS&&openIntervalStart){
-    const elapsedCurrent=Math.max(0,(now-openIntervalStart)/1000);
-    const remainder=elapsedCurrent%cycleSeconds;
-    nextPieceAt=new Date(now.getTime()+(remainder===0?cycleSeconds:cycleSeconds-remainder)*1000).toISOString();
+  if(status===RUNNING_STATUS&&estimatedRemainingPieces>0){
+    const secondsToNext=partialCycleSeconds===0?cycleSeconds:cycleSeconds-partialCycleSeconds;
+    nextPieceAt=new Date(now.getTime()+secondsToNext*1000).toISOString();
   }
 
-  // Mesmo pausada, a previsão continua sendo deslocada para frente pelo relógio.
-  // A quantidade estimada congela; quando voltar a produzir, os novos ciclos voltam a abatê-la.
+  // Durante setup/ajuste/manutenção/parada a quantidade congela, mas o ETA
+  // continua avançando com o relógio. Ao retomar, o progresso parcial do ciclo é preservado.
   const estimatedFinishAt=new Date(now.getTime()+estimatedRemainingSeconds*1000).toISOString();
 
   return {
     status:'ready',physicalStatus:status,cycleSeconds,initialShiftPieces,officialProduced,
-    completedAfterConference,estimatedShiftPieces,estimatedOrderProduced,productiveSeconds,
+    completedAfterConference,estimatedShiftPieces,estimatedOrderProduced,productiveSeconds,partialCycleSeconds,
     estimatedRemainingPieces,estimatedRemainingSeconds,nextPieceAt,estimatedFinishAt
   };
 }
