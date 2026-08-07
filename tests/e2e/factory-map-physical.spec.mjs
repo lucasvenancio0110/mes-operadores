@@ -141,12 +141,17 @@ test('interações do mapa continuam funcionando depois da geometria nova',async
   await expect(page.locator('[data-factory-filter="producing"]')).toHaveAttribute('aria-pressed','true');
 
   const minimapButton=page.locator('[data-factory-action="minimap"]');
+  const workspace=page.locator('.factory-workspace');
   await expect(minimapButton).toHaveAttribute('aria-pressed','true');
+  await expect(workspace).toHaveClass(/show-minimap/);
   await minimapButton.click();
   await expect(minimapButton).toHaveAttribute('aria-pressed','false');
-  await expect(page.locator('.factory-minimap')).toBeHidden();
+  await expect(workspace).not.toHaveClass(/show-minimap/);
+  await expect.poll(()=>page.locator('.factory-minimap').evaluate(element=>getComputedStyle(element).pointerEvents)).toBe('none');
   await minimapButton.click();
-  await expect(page.locator('.factory-minimap')).toBeVisible();
+  await expect(minimapButton).toHaveAttribute('aria-pressed','true');
+  await expect(workspace).toHaveClass(/show-minimap/);
+  await expect.poll(()=>page.locator('.factory-minimap').evaluate(element=>getComputedStyle(element).pointerEvents)).not.toBe('none');
 
   const fullscreen=page.locator('[data-factory-action="fullscreen"]');
   await fullscreen.click();
