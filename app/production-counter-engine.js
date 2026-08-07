@@ -5,6 +5,7 @@ const finite=value=>Number.isFinite(Number(value));
 const nonNegative=value=>finite(value)?Math.max(0,Number(value)):0;
 const integer=value=>Math.max(0,Math.floor(nonNegative(value)));
 const instant=value=>{
+  if(value===null||value===undefined||value==='')return null;
   const date=value instanceof Date?value:new Date(value);
   return Number.isNaN(date.getTime())?null:date;
 };
