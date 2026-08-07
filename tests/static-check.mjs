@@ -25,7 +25,7 @@ const [
 const manifest = JSON.parse(manifestText);
 const wrangler = JSON.parse(wranglerText);
 
-// Entrada, marca e PWA.
+// Entrada, marca e recuperação funcional.
 assert(!html.includes('maximum-scale=1'), 'O zoom do navegador não pode ser bloqueado.');
 assert(html.includes('viewport-fit=cover'), 'O layout deve respeitar safe areas.');
 assert(html.includes('<title>NEOMES — Gestão Operacional</title>'), 'Título oficial NEOMES ausente.');
@@ -37,10 +37,10 @@ assert.equal(manifest.name, 'NEOMES');
 assert.equal(manifest.short_name, 'NEOMES');
 assert.equal(manifest.display, 'standalone');
 assert(manifest.start_url.includes('v=6.2.0'), 'Manifesto não aponta para o mapa operacional 6.2.0.');
-assert(serviceWorker.includes('neomes-v6.2.0-factory-floor-layout'), 'Cache PWA do mapa operacional 6.2.0 não foi ativado.');
-for (const asset of ['./app/auth-shell.js','./app/auth.css','./app/admin-ui.js','./app/admin.css','./app/operator-main.js','./app/shift-performance.js','./app/preparer-dashboard.css','./app/preparer-dashboard.js','./app/preparer-dashboard-engine.js','./app/preparer-map-layout.js']) {
-  assert(serviceWorker.includes(asset), `Service Worker não inclui ${asset}.`);
-}
+assert(serviceWorker.includes('self.registration.unregister()'), 'Service Worker de recuperação deve se aposentar.');
+assert(!serviceWorker.includes('respondWith('), 'Service Worker de recuperação não pode interceptar HTML, JS ou CSS.');
+assert(!serviceWorker.includes('Marcadores de compatibilidade'), 'Service Worker não pode conter marcadores artificiais para satisfazer testes.');
+assert(!html.includes('production-counter.js') && !html.includes('production-counter.css'), 'Contador não pode participar do frontend de recuperação.');
 assert(officialLogo.includes('#AF249D') && officialSymbol.includes('#AF249D'), 'Marca oficial NEOMES foi alterada.');
 assert(!offline.includes('NEODENT MES'), 'Identidade antiga permanece no modo offline.');
 
@@ -129,5 +129,4 @@ for (const feature of ['exportPdf','exportImage','shareSummary']) assert(exports
 assert(settingsWorker.includes('CREATE TABLE IF NOT EXISTS app_settings'), 'Ajustes globais ausentes.');
 for (const route of ['/api/v1/machine-states','/api/v1/events','/api/v1/records','/api/v1/assignments','/api/v1/settings']) assert(worker.includes(route), `Rota operacional ausente: ${route}`);
 
-console.log('NEOMES 6.2.0: autenticação segura, apontamento móvel e mapa operacional validados.');
-
+console.log('NEOMES recovery: autenticação, fluxo operacional, cálculos e SW aposentado validados.');
