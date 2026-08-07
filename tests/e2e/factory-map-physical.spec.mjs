@@ -120,8 +120,6 @@ test('geometria física, corredores e posições especiais',async({page},testInf
     const pageHeight=await page.evaluate(()=>document.documentElement.scrollHeight);
     expect(pageHeight).toBeGreaterThan(testInfo.project.use.viewport.height);
 
-    // Depois do Ajustar inicial, a planta inteira precisa caber dentro da área
-    // rolável do mapa no desktop. Isso impede que a região da 130/139 suma abaixo.
     const renderedMachines=await page.locator('.prep-map-machine').evaluateAll(elements=>elements.map(element=>{
       const rect=element.getBoundingClientRect();
       return { id:element.dataset.mapMachine,left:rect.left,top:rect.top,right:rect.right,bottom:rect.bottom };
@@ -157,17 +155,15 @@ test('interações do mapa continuam funcionando depois da geometria nova',async
   await expect(page.locator('[data-factory-filter="producing"]')).toHaveAttribute('aria-pressed','true');
 
   const minimapButton=page.locator('[data-factory-action="minimap"]');
-  const workspace=page.locator('.factory-workspace');
+  const minimap=page.locator('.factory-minimap');
   await expect(minimapButton).toHaveAttribute('aria-pressed','true');
-  await expect(workspace).toHaveClass(/show-minimap/);
+  await expect(minimap).toBeVisible();
   await minimapButton.click();
   await expect(minimapButton).toHaveAttribute('aria-pressed','false');
-  await expect(workspace).not.toHaveClass(/show-minimap/);
-  await expect.poll(()=>page.locator('.factory-minimap').evaluate(element=>getComputedStyle(element).pointerEvents)).toBe('none');
+  await expect(minimap).toBeHidden();
   await minimapButton.click();
   await expect(minimapButton).toHaveAttribute('aria-pressed','true');
-  await expect(workspace).toHaveClass(/show-minimap/);
-  await expect.poll(()=>page.locator('.factory-minimap').evaluate(element=>getComputedStyle(element).pointerEvents)).not.toBe('none');
+  await expect(minimap).toBeVisible();
 
   const fullscreen=page.locator('[data-factory-action="fullscreen"]');
   await fullscreen.click();
