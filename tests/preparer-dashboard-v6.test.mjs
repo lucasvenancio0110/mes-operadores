@@ -4,6 +4,7 @@ import { calculatePreparerMetrics, closureCopy, closureUrgency, preparerMachineS
 import { FACTORY_MAP_GEOMETRY, FACTORY_MAP_POSITIONS, factoryMapBounds, factoryMapMachineIds, mapMachineMetadata } from '../app/preparer-map-layout.js';
 
 await import('./factory-map-workspace-v6.test.mjs');
+await import('./production-counter-v64.test.mjs');
 
 const read=path=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
 const [dashboard,authShell,css,index,serviceWorker,backend,workspace,workspaceCss,spatial]=await Promise.all([
