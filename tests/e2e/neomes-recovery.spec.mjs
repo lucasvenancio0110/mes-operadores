@@ -133,6 +133,10 @@ async function waitForOperatorCard(page){
   await expect(page.locator('.ops-machine-card').first()).toBeVisible();
 }
 
+async function expectReadyForTurn(page){
+  await expect(page.getByText('Pronta para o turno',{ exact:true })).toBeVisible();
+}
+
 async function confirmMachine(page){
   await page.locator('[data-action="open-conference"],[data-ta-reconfirm]').first().click();
   const form=page.locator('#taHandoffForm');
@@ -140,7 +144,7 @@ async function confirmMachine(page){
   await form.locator('[name="currentBarPieces"]').fill('20');
   await form.locator('[name="feederBars"]').fill('2');
   await page.locator('[data-ta-submit-form="taHandoffForm"]').click();
-  await expect(page.getByText('pronta para o turno')).toBeVisible();
+  await expectReadyForTurn(page);
   await page.locator('[data-ta-close]').click();
   await expect(page.locator('[data-ta-point]')).toBeVisible();
 }
@@ -194,7 +198,7 @@ test('fluxo completo do operador funciona por consequência real no WebKit mobil
   await expect(page.locator('#taHandoffForm')).toBeVisible();
   await page.locator('#taHandoffForm [name="feederBars"]').fill('3');
   await page.locator('[data-ta-submit-form="taHandoffForm"]').click();
-  await expect(page.getByText('pronta para o turno')).toBeVisible();
+  await expectReadyForTurn(page);
   await page.locator('[data-ta-close]').click();
   await expect(page.locator('.ta-material-line')).toContainText('3 barras');
 
@@ -214,7 +218,7 @@ test('fluxo completo do operador funciona por consequência real no WebKit mobil
   await page.locator('#taHandoffForm [name="currentBarPieces"]').fill('12');
   await page.locator('#taHandoffForm [name="feederBars"]').fill('2');
   await page.locator('[data-ta-submit-form="taHandoffForm"]').click();
-  await expect(page.getByText('pronta para o turno')).toBeVisible();
+  await expectReadyForTurn(page);
   await page.locator('[data-ta-close]').click();
 
   await page.locator('[data-ta-close-order]').click();
@@ -256,5 +260,5 @@ test('primeiro cadastro de OP usa o campo item corretamente no WebKit',async({ p
   await form.locator('[name="currentBarPieces"]').fill('10');
   await form.locator('[name="feederBars"]').fill('1');
   await page.locator('[data-ta-submit-form="taFirstOrderForm"]').click();
-  await expect(page.getByText('pronta para o turno')).toBeVisible();
+  await expectReadyForTurn(page);
 });
