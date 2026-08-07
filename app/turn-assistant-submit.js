@@ -31,7 +31,7 @@ export function bindAssistantSubmit(root, onSubmit) {
     if (!form) return;
 
     event.preventDefault();
-    event.stopImmediatePropagation?.();
+    event.__NEOMES_ASSISTANT_HANDLED = true;
     onSubmit(form,button);
   };
 

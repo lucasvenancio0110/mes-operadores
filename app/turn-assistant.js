@@ -706,26 +706,31 @@ function selectSingle(button, selector) {
   button.parentElement?.querySelectorAll(selector).forEach(item=>item.setAttribute('aria-pressed','false'));button.setAttribute('aria-pressed','true');
 }
 
+function claimAssistantEvent(event) {
+  event.preventDefault();
+  event.__NEOMES_ASSISTANT_HANDLED = true;
+}
+
 function intercept(event) {
   const action=event.target.closest('[data-action]')?.dataset.action;
   if(action==='open-conference'||action==='edit-conference'){
-    event.preventDefault();event.stopImmediatePropagation();openHandoff(event.target.closest('[data-action]').dataset.machineId,action==='edit-conference'?'update':'handoff');return;
+    claimAssistantEvent(event);openHandoff(event.target.closest('[data-action]').dataset.machineId,action==='edit-conference'?'update':'handoff');return;
   }
   if(action==='open-first-conference'){
-    event.preventDefault();event.stopImmediatePropagation();const first=store.state.assignments.find(item=>{const session=currentMachineSession(item.machineId);return !session||session.turnAssistantShiftKey!==shiftKey();});if(first)openHandoff(first.machineId);return;
+    claimAssistantEvent(event);const first=store.state.assignments.find(item=>{const session=currentMachineSession(item.machineId);return !session||session.turnAssistantShiftKey!==shiftKey();});if(first)openHandoff(first.machineId);return;
   }
   if(action==='close-shift'){
-    event.preventDefault();event.stopImmediatePropagation();openShiftClose();return;
+    claimAssistantEvent(event);openShiftClose();return;
   }
   if(action==='close-order'){
-    event.preventDefault();event.stopImmediatePropagation();openOrderClose(event.target.closest('[data-action]').dataset.machineId);return;
+    claimAssistantEvent(event);openOrderClose(event.target.closest('[data-action]').dataset.machineId);return;
   }
-  const update=event.target.closest('[data-ta-update]');if(update){event.preventDefault();event.stopImmediatePropagation();openHandoff(update.dataset.taUpdate,'update');return;}
-  const pointing=event.target.closest('[data-ta-point]');if(pointing){event.preventDefault();event.stopImmediatePropagation();openPointing(pointing.dataset.taPoint);return;}
-  const reconfirm=event.target.closest('[data-ta-reconfirm]');if(reconfirm){event.preventDefault();event.stopImmediatePropagation();openHandoff(reconfirm.dataset.taReconfirm,'handoff');return;}
-  const closeOrder=event.target.closest('[data-ta-close-order]');if(closeOrder){event.preventDefault();event.stopImmediatePropagation();openOrderClose(closeOrder.dataset.taCloseOrder);return;}
-  if(event.target.closest('[data-ta-close]')){event.preventDefault();event.stopImmediatePropagation();closeAssistantLayer();return;}
-  const nextMachine=event.target.closest('[data-ta-next-machine]');if(nextMachine){event.preventDefault();event.stopImmediatePropagation();openHandoff(nextMachine.dataset.taNextMachine);return;}
+  const update=event.target.closest('[data-ta-update]');if(update){claimAssistantEvent(event);openHandoff(update.dataset.taUpdate,'update');return;}
+  const pointing=event.target.closest('[data-ta-point]');if(pointing){claimAssistantEvent(event);openPointing(pointing.dataset.taPoint);return;}
+  const reconfirm=event.target.closest('[data-ta-reconfirm]');if(reconfirm){claimAssistantEvent(event);openHandoff(reconfirm.dataset.taReconfirm,'handoff');return;}
+  const closeOrder=event.target.closest('[data-ta-close-order]');if(closeOrder){claimAssistantEvent(event);openOrderClose(closeOrder.dataset.taCloseOrder);return;}
+  if(event.target.closest('[data-ta-close]')){claimAssistantEvent(event);closeAssistantLayer();return;}
+  const nextMachine=event.target.closest('[data-ta-next-machine]');if(nextMachine){claimAssistantEvent(event);openHandoff(nextMachine.dataset.taNextMachine);return;}
   const feeder=event.target.closest('[data-ta-feeder-value]');if(feeder){const input=feeder.closest('form')?.elements.feederBars;if(input){input.value=feeder.dataset.taFeederValue;input.dispatchEvent(new Event('input',{ bubbles:true }));}return;}
   if(event.target.closest('[data-ta-feeder-minus]'))return handleStepper(event.target.closest('[data-ta-feeder-minus]'),-1,'[name="feederBars"]');
   if(event.target.closest('[data-ta-feeder-plus]'))return handleStepper(event.target.closest('[data-ta-feeder-plus]'),1,'[name="feederBars"]');
@@ -772,7 +777,7 @@ function submitAssistantForm(form) {
 bindAssistantSubmit(document,submitAssistantForm);
 document.addEventListener('submit',event=>{
   if(!isAssistantForm(event.target))return;
-  event.preventDefault();event.stopImmediatePropagation();submitAssistantForm(event.target);
+  claimAssistantEvent(event);submitAssistantForm(event.target);
 },true);
 
 function schedule() {
