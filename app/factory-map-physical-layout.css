@@ -2,6 +2,13 @@
    Esta camada altera apenas a área útil do mapa. A geometria das máquinas fica
    em preparer-map-layout.js; nenhuma regra operacional é modificada aqui. */
 
+/* O workspace mantém o estado do mini mapa no botão. O SVG é um elemento SVG e
+   `element.hidden` não o ocultava de forma confiável em Chromium/WebKit; esta
+   regra conecta a visibilidade ao estado acessível que o handler já atualiza. */
+.factory-workspace:has([data-factory-action="minimap"][aria-pressed="false"]) .factory-minimap{
+  display:none!important;
+}
+
 @media (min-width:761px){
   .factory-workspace:not(.is-factory-fullscreen)>.prep-map-viewport{
     /* A altura acompanha o mapa físico em vez de comprimi-lo numa miniatura.
