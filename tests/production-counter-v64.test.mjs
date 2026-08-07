@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const [index,sw,worker,secureMain,wrangler]=await Promise.all([
+const [index,sw,worker,secureMain,workerIndex,wrangler]=await Promise.all([
   readFile(new URL('../index.html',import.meta.url),'utf8'),
   readFile(new URL('../sw.js',import.meta.url),'utf8'),
   readFile(new URL('../worker/production-counter.js',import.meta.url),'utf8'),
   readFile(new URL('../worker/secure-main.js',import.meta.url),'utf8'),
+  readFile(new URL('../worker/index.js',import.meta.url),'utf8'),
   readFile(new URL('../wrangler.jsonc',import.meta.url),'utf8')
 ]);
 
@@ -22,13 +23,30 @@ for(const forbidden of ['production-counter.js','production-counter.css']){
   assert(!sw.includes(`./app/${forbidden}`),`Service Worker de recuperação não pode armazenar ${forbidden}.`);
 }
 
-assert(sw.includes("const VERSION = 'neomes-v6.2.0-factory-floor-layout-recovery-20260807-v1'"),'Cache de recuperação deve possuir identidade nova preservando o contrato 6.2.0.');
+for(const token of [
+  "const recoveryVersion = '20260807-v2'",
+  "updateViaCache:'none'",
+  "key.startsWith('neomes-')",
+  "navigator.serviceWorker.addEventListener('controllerchange'"
+])assert(index.includes(token),`Bootstrap de recuperação incompleto: ${token}`);
+
+assert(sw.includes("const VERSION = 'neomes-v6.2.0-factory-floor-layout-recovery-20260807-v2'"),'Cache de recuperação deve possuir identidade v2 preservando o contrato 6.2.0.');
+assert(sw.includes("new Request(request, { cache:'no-store' })"),'Service Worker deve ignorar cache HTTP em navegação e assets críticos.');
+assert(sw.includes("new Request(url, { cache:'reload' })"),'App shell deve ser baixado novamente durante a instalação.');
 assert(sw.includes('keys.filter(key => ![STATIC_CACHE, RUNTIME_CACHE].includes(key)).map(key => caches.delete(key))'),'Ativação deve apagar caches antigos da PWA.');
 assert(sw.includes('self.skipWaiting()')&&sw.includes('self.clients.claim()'),'Service Worker de recuperação deve assumir o controle sem aguardar versão antiga.');
 for(const asset of ['./app/turn-assistant.js','./app/preparer-dashboard.js','./app/factory-map-workspace.js','./app/auth-shell.js'])assert(sw.includes(asset),`PWA de recuperação sem asset operacional: ${asset}`);
+
+for(const token of [
+  "headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')",
+  "path === '/index.html'",
+  "path === '/sw.js'",
+  "path.endsWith('.js')",
+  "path.endsWith('.css')"
+])assert(workerIndex.includes(token),`Worker não protege contra cache antigo do navegador: ${token}`);
 
 for(const token of ['machine_counter_sessions','machine_counter_intervals','conference.counter_started'])assert(worker.includes(token),`Rollback não deve apagar dados/backend existentes: ${token}`);
 for(const token of ['handleProductionCounter','productionCounterHealth'])assert(secureMain.includes(token),`Backend dormente do contador deve permanecer íntegro: ${token}`);
 assert(wrangler.includes('worker/secure-main.js'),'Wrangler deve preservar o entrypoint seguro oficial.');
 
-console.log('NEOMES recovery: frontend pré-contador restaurado, caches 6.4 invalidados e backend preservado.');
+console.log('NEOMES recovery v2: frontend pré-contador preservado, cache antigo eliminado e atualização forçada no Safari/PWA.');

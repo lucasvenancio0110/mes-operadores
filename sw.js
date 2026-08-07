@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v6.2.0-factory-floor-layout-recovery-20260807-v1';
+const VERSION = 'neomes-v6.2.0-factory-floor-layout-recovery-20260807-v2';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -67,12 +67,16 @@ const APP_SHELL = [
   './app/factory-map-workspace.js'
 ].map(asset);
 
+const freshRequest = request => new Request(request, { cache:'no-store' });
+
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then(cache => cache.addAll(APP_SHELL))
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key.startsWith('neomes-') && ![STATIC_CACHE, RUNTIME_CACHE].includes(key)).map(key => caches.delete(key)));
+    const cache = await caches.open(STATIC_CACHE);
+    await cache.addAll(APP_SHELL.map(url => new Request(url, { cache:'reload' })));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', event => {
@@ -93,7 +97,7 @@ self.addEventListener('fetch', event => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request)
+      fetch(freshRequest(request))
         .then(response => {
           if (response.ok) caches.open(RUNTIME_CACHE).then(cache => cache.put(request,response.clone()));
           return response;
@@ -103,10 +107,10 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  const mustBeFresh = request.destination === 'script' || request.destination === 'style' || /\.(?:js|css)$/.test(url.pathname);
+  const mustBeFresh = request.destination === 'script' || request.destination === 'style' || /\.(?:js|css)$/.test(url.pathname) || url.pathname.endsWith('/sw.js');
   if (mustBeFresh) {
     event.respondWith(
-      fetch(request)
+      fetch(freshRequest(request))
         .then(response => {
           if (response.ok) caches.open(RUNTIME_CACHE).then(cache => cache.put(request,response.clone()));
           return response;

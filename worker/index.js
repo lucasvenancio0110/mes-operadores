@@ -159,6 +159,34 @@ async function upsertRecord(request, env) {
   return json({ ok: true, record: JSON.parse(payload) }, 200, corsHeaders(request));
 }
 
+function shouldDisableBrowserCache(request) {
+  if (!['GET','HEAD'].includes(request.method)) return false;
+  const path = new URL(request.url).pathname;
+  return path === '/'
+    || path === '/index.html'
+    || path === '/sw.js'
+    || path.endsWith('.html')
+    || path.endsWith('.js')
+    || path.endsWith('.css');
+}
+
+async function serveAsset(request, env) {
+  const response = await env.ASSETS.fetch(request);
+  if (!shouldDisableBrowserCache(request)) return response;
+
+  const headers = new Headers(response.headers);
+  headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  headers.set('Pragma', 'no-cache');
+  headers.set('Expires', '0');
+  if (new URL(request.url).pathname === '/sw.js') headers.set('Service-Worker-Allowed', '/');
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -180,7 +208,7 @@ export default {
         return upsertRecord(request, env);
       }
 
-      return env.ASSETS.fetch(request);
+      return serveAsset(request, env);
     } catch (error) {
       console.error(error);
       return json({ error: 'Erro interno no servidor.', detail: error.message }, 500, corsHeaders(request));
