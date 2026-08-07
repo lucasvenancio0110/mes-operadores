@@ -1,4 +1,4 @@
-const VERSION = 'neomes-v6.2.0-factory-floor-layout-v6.4-counter';
+const VERSION = 'neomes-recovery-pre-counter-20260807-v1';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
@@ -29,7 +29,6 @@ const APP_SHELL = [
   './app/preparer-dashboard.css',
   './app/factory-map-workspace.css',
   './app/factory-map-stability.css',
-  './app/production-counter.css',
   './app/auth.css',
   './app/admin.css',
   './app/bootstrap-admin.css',
@@ -65,9 +64,7 @@ const APP_SHELL = [
   './app/preparer-dashboard.js',
   './app/factory-map-spatial.js',
   './app/factory-map-stability.js',
-  './app/factory-map-workspace.js',
-  './app/production-counter-engine.js',
-  './app/production-counter.js'
+  './app/factory-map-workspace.js'
 ].map(asset);
 
 self.addEventListener('install', event => {
