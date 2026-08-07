@@ -1,0 +1,43 @@
+name: Run DOM Stability Patch
+
+on:
+  push:
+    branches:
+      - agent/neomes-architecture-recovery
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/neomes-architecture-recovery
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Executar patch definido
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          lines=Path('.github/workflows/apply-dom-stability-fix.yml').read_text().splitlines()
+          start=next(i for i,line in enumerate(lines) if line.strip()=='- name: Aplicar correção de estabilidade')
+          run=next(i for i in range(start+1,len(lines)) if lines[i].strip()=='run: |')
+          end=next(i for i in range(run+1,len(lines)) if lines[i].strip()=='- name: Commitar correção')
+          block=[]
+          for line in lines[run+1:end]:
+              block.append(line[10:] if line.startswith('          ') else line)
+          Path('/tmp/apply-dom-fix.sh').write_text('\n'.join(block)+'\n')
+          PY
+          bash /tmp/apply-dom-fix.sh
+      - name: Commitar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/operator-main.js app/turn-assistant.js app/turn-assistant-autostart.js app/machine-runtime.js index.html tests/e2e/authenticated-boot-resilience.spec.mjs tests/e2e/dom-stability-regression.spec.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: estabiliza DOM e elimina rerenders durante o toque"
+          git push origin HEAD:agent/neomes-architecture-recovery
