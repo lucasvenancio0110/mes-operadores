@@ -3,7 +3,6 @@ import { calculateEstimatedCounter } from './production-counter-engine.js?v=6.4.
 
 const API='/api/v1/production-counter';
 const cache=new Map();
-const pendingConferences=new Map();
 let observerRaf=0;
 
 const sessionContext=()=>({
@@ -40,33 +39,26 @@ function injectConferenceField(form){
   material?.after(section);
 }
 
-async function registerConference(machineId,snapshot){
-  if(!machineId||!snapshot)return;
+async function registerConference(form,snapshot){
+  const machineId=form.dataset.machineId;if(!machineId)return;
+  if(document.body.contains(form))return;
   const ctx=machineContext(machineId);
   try{
     const payload=await request('/conference',{method:'POST',body:JSON.stringify({...ctx,...snapshot})});
-    pendingConferences.delete(machineId);
     cache.set(machineId,{payload,fetchedAt:Date.now()});
     enhance();
-  }catch(error){
-    console.warn('Contador estimado não iniciado:',error);
-  }
+  }catch(error){console.warn('Contador estimado não iniciado:',error);}
 }
 
 function bindConference(form){
   if(form.dataset.counterBound)return;form.dataset.counterBound='true';injectConferenceField(form);
   form.addEventListener('submit',()=>{
-    const machineId=form.dataset.machineId;
     const initial=Number(form.elements.initialShiftPieces?.value);
     const currentBarPieces=Number(form.elements.currentBarPieces?.value);
     const feederBars=Number(form.elements.feederBars?.value);
-    if(!machineId||!Number.isFinite(initial)||initial<0)return;
-    pendingConferences.set(machineId,{
-      officialProduced:conferenceValue(form),
-      initialShiftPieces:Math.floor(initial),
-      currentBarPieces:Math.max(0,Math.floor(currentBarPieces||0)),
-      feederBars:Math.max(0,Math.floor(feederBars||0))
-    });
+    if(!Number.isFinite(initial)||initial<0)return;
+    const snapshot={officialProduced:conferenceValue(form),initialShiftPieces:Math.floor(initial),currentBarPieces:Math.max(0,Math.floor(currentBarPieces||0)),feederBars:Math.max(0,Math.floor(feederBars||0))};
+    setTimeout(()=>registerConference(form,snapshot),900);
   },true);
 }
 
@@ -104,46 +96,15 @@ async function refresh(machineId,force=false){
 
 function statusLabel(status){return ({producing:'Produzindo',setup:'Setup',adjustment:'Ajuste',maintenance:'Manutenção',stopped:'Parada'})[status]||status;}
 
-function counterMarkup(){
-  return `<header><div><small>CONTADOR ESTIMADO</small><strong data-counter-machine></strong></div><span data-counter-status>—</span></header><div class="neomes-counter-grid"><div><span>Estimado no turno</span><strong data-counter-shift>—</strong></div><div><span>Estimado na OP</span><strong data-counter-order>—</strong></div><div><span>Material estimado</span><strong data-counter-material>—</strong></div><div><span>Próxima peça</span><strong data-counter-next>—</strong></div><div><span>Previsão de encerramento</span><strong data-counter-finish>—</strong></div><div><span>Tempo produtivo restante</span><strong data-counter-remaining>—</strong></div></div><p data-counter-copy>Estimativa em tempo real. O apontamento informado pelo operador continua sendo a única produção oficial da OP.</p><div class="neomes-counter-status-actions">${[['producing','Produzindo'],['setup','Setup'],['adjustment','Ajuste'],['maintenance','Manutenção'],['stopped','Parada']].map(([value,label])=>`<button type="button" data-counter-status-set="${value}">${label}</button>`).join('')}</div><footer><button type="button" data-counter-edit>Editar dados</button><button type="button" data-counter-history>Histórico da máquina</button></footer>`;
-}
-
-function ensureCounterPanel(container,machineId,placement='sheet'){
-  let panel=container.querySelector('.neomes-live-counter');
-  if(panel&&panel.dataset.machineId!==machineId){panel.remove();panel=null;}
+function ensureCounterPanel(sheet,machineId){
+  let panel=sheet.querySelector('.neomes-live-counter');
   if(!panel){
-    panel=document.createElement('section');panel.className='neomes-live-counter';panel.dataset.machineId=machineId;panel.dataset.placement=placement;panel.innerHTML=counterMarkup();
-    if(placement==='card'){
-      const head=container.querySelector('.ta-card-head');
-      if(head)head.after(panel);else container.prepend(panel);
-    }else{
-      container.querySelector('.ta-order-received')?.after(panel);
-    }
+    panel=document.createElement('section');panel.className='neomes-live-counter';panel.dataset.machineId=machineId;
+    panel.innerHTML=`<header><div><small>CONTADOR ESTIMADO</small><strong data-counter-machine></strong></div><span data-counter-status>—</span></header><div class="neomes-counter-grid"><div><span>Estimado no turno</span><strong data-counter-shift>—</strong></div><div><span>Estimado na OP</span><strong data-counter-order>—</strong></div><div><span>Material estimado</span><strong data-counter-material>—</strong></div><div><span>Próxima peça</span><strong data-counter-next>—</strong></div><div><span>Previsão de encerramento</span><strong data-counter-finish>—</strong></div><div><span>Tempo produtivo restante</span><strong data-counter-remaining>—</strong></div></div><p data-counter-copy>Estimativa em tempo real. O apontamento informado pelo operador continua sendo a única produção oficial da OP.</p><div class="neomes-counter-status-actions">${[['producing','Produzindo'],['setup','Setup'],['adjustment','Ajuste'],['maintenance','Manutenção'],['stopped','Parada']].map(([value,label])=>`<button type="button" data-counter-status-set="${value}">${label}</button>`).join('')}</div><footer><button type="button" data-counter-edit>Editar dados</button><button type="button" data-counter-history>Histórico da máquina</button></footer>`;
+    sheet.querySelector('.ta-order-received')?.after(panel);
     panel.addEventListener('click',event=>handlePanelAction(event,machineId));
   }
-  panel.dataset.machineId=machineId;
   return panel;
-}
-
-function machineIdFromCard(card,index){
-  const control=card.querySelector('[data-ta-point],[data-ta-update],[data-ta-reconfirm],[data-ta-close-order]');
-  if(control?.dataset.taPoint)return control.dataset.taPoint;
-  if(control?.dataset.taUpdate)return control.dataset.taUpdate;
-  if(control?.dataset.taReconfirm)return control.dataset.taReconfirm;
-  if(control?.dataset.taCloseOrder)return control.dataset.taCloseOrder;
-  return store.state.assignments?.[index]?.machineId||'';
-}
-
-async function enhanceCard(card,index){
-  const machineId=machineIdFromCard(card,index);if(!machineId)return;
-  const session=currentMachineSession(machineId);
-  if(!session||session.workflowStatus==='conference_pending'||session.status==='pointed'){
-    card.querySelector('.neomes-live-counter')?.remove();
-    return;
-  }
-  const panel=ensureCounterPanel(card,machineId,'card');
-  await refresh(machineId);
-  renderPanel(panel,machineId);
 }
 
 async function handlePanelAction(event,machineId){
@@ -178,12 +139,7 @@ async function enhanceSheet(sheet){
   const form=sheet.querySelector('#taHandoffForm');if(form)bindConference(form);
   const machineId=form?.dataset.machineId||sheet.querySelector('[data-machine-id]')?.dataset.machineId||document.querySelector('#taHandoffForm')?.dataset.machineId;
   if(!machineId)return;
-  if(form){
-    const panel=sheet.querySelector('.neomes-live-counter');
-    if(panel)panel.remove();
-    return;
-  }
-  const panel=ensureCounterPanel(sheet,machineId,'sheet');await refresh(machineId);renderPanel(panel,machineId);
+  const panel=ensureCounterPanel(sheet,machineId);await refresh(machineId);renderPanel(panel,machineId);
 }
 
 function renderPanel(panel,machineId){
@@ -194,15 +150,7 @@ function renderPanel(panel,machineId){
 
 function renderPanels(){for(const panel of document.querySelectorAll('.neomes-live-counter'))renderPanel(panel,panel.dataset.machineId);}
 
-function enhance(){if(observerRaf)return;observerRaf=requestAnimationFrame(async()=>{observerRaf=0;for(const sheet of document.querySelectorAll('.ta-sheet'))await enhanceSheet(sheet);const cards=[...document.querySelectorAll('.ops-machine-card')];for(let index=0;index<cards.length;index++)await enhanceCard(cards[index],index);renderPanels();});}
-
-store.subscribe((_state,reason)=>{
-  if(!String(reason||'').startsWith('turn-assistant-'))return;
-  for(const [machineId,snapshot] of [...pendingConferences]){
-    const session=currentMachineSession(machineId);
-    if(session?.turnAssistantConfirmedAt&&session?.workflowStatus!=='conference_pending')registerConference(machineId,snapshot);
-  }
-});
+function enhance(){if(observerRaf)return;observerRaf=requestAnimationFrame(async()=>{observerRaf=0;for(const sheet of document.querySelectorAll('.ta-sheet'))await enhanceSheet(sheet);renderPanels();});}
 
 new MutationObserver(enhance).observe(document.documentElement,{childList:true,subtree:true});
 setInterval(()=>{for(const panel of document.querySelectorAll('.neomes-live-counter'))refresh(panel.dataset.machineId,true).then(renderPanels);},15000);
