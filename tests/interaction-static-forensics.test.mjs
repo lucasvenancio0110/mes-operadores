@@ -1,5 +1,5 @@
 import { readdir,readFile } from 'node:fs/promises';
-import { join,relative } from 'node:path';
+import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 
@@ -63,13 +63,22 @@ assert.doesNotMatch(index,/production-counter\.(?:js|css)/,'contador não pode e
 
 const operator=await readFile(join(root,'app/operator-main.js'),'utf8');
 const assistant=await readFile(join(root,'app/turn-assistant.js'),'utf8');
+const assistantSubmit=await readFile(join(root,'app/turn-assistant-submit.js'),'utf8');
+
 assert.match(operator,/document\.addEventListener\(['"]click['"]/,'operator-main precisa ter delegação de clique');
-assert.match(assistant,/document\.addEventListener\(['"]click['"],intercept,true\)/,'assistente usa captura global: risco conhecido precisa ficar explícito');
-assert.match(assistant,/stopImmediatePropagation\(\)/,'assistente cancela propagação em ações sobrepostas: risco conhecido precisa ficar explícito');
+assert.match(operator,/if \(event\.__NEOMES_ASSISTANT_HANDLED\) return;/,'operator-main deve respeitar propriedade do evento do assistente');
+assert.match(operator,/const handler = handlers\[event\.target\?\.id\];\s*if \(!handler\) return;\s*event\.preventDefault\(\);/s,'submit global deve bloquear apenas formulários do operator-main');
+assert.match(operator,/NON_RENDERING_STORE_REASONS = new Set\(\['conference-draft','sync','sync-error','queue','queue-flush'\]\)/,'sync/queue não podem recriar toda a interface');
+
+assert.match(assistant,/document\.addEventListener\(['"]click['"],intercept,true\)/,'captura do assistente permanece explícita e deve usar ownership cooperativo');
+assert.match(assistant,/function claimAssistantEvent\(event\)/,'assistente deve marcar eventos que possui');
+assert.doesNotMatch(assistant,/stopImmediatePropagation\s*\(/,'assistente não pode matar propagação global');
+assert.doesNotMatch(assistantSubmit,/stopImmediatePropagation\s*\(/,'ponte de submit não pode matar propagação global');
+assert.match(assistantSubmit,/event\.__NEOMES_ASSISTANT_HANDLED = true/,'ponte de submit deve marcar ownership sem cancelar outros listeners');
 
 const operatorActions=[...operator.matchAll(/data-action=\\?['"]([^'"]+)/g)].map(m=>m[1]);
 const assistantIntercept=[...assistant.matchAll(/action===['"]([^'"]+)['"]/g)].map(m=>m[1]);
 const overlap=[...new Set(assistantIntercept.filter(action=>operatorActions.includes(action)))];
 console.log('Ações sobrepostas operator-main x turn-assistant:',overlap.join(', ')||'(nenhuma)');
-assert(overlap.includes('open-conference'),'auditoria espera detectar a sobreposição de open-conference');
-assert(overlap.includes('close-order'),'auditoria espera detectar a sobreposição de close-order');
+assert(overlap.includes('open-conference'),'sobreposição open-conference existe e precisa de ownership cooperativo');
+assert(overlap.includes('close-order'),'sobreposição close-order existe e precisa de ownership cooperativo');
