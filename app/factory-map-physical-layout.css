@@ -4,8 +4,11 @@
 
 @media (min-width:761px){
   .factory-workspace:not(.is-factory-fullscreen)>.prep-map-viewport{
-    height:clamp(1080px,155dvh,1500px)!important;
-    min-height:1080px!important;
+    /* A altura acompanha o mapa físico em vez de comprimi-lo numa miniatura.
+       Em 1366x768 a página já ganha rolagem suficiente; em 1920x1080 o ajuste
+       passa a comportar a planta completa, inclusive a região inferior. */
+    height:clamp(1450px,190dvh,1900px)!important;
+    min-height:1450px!important;
   }
   .factory-workspace{
     margin-bottom:24px;
