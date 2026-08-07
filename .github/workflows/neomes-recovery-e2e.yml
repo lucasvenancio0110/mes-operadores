@@ -9,7 +9,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: neomes-recovery-${{ github.ref }}
@@ -32,6 +32,124 @@ jobs:
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+
+      - name: Apply single-hydration candidate in test workspace
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          operator=Path('app/operator-main.js')
+          text=operator.read_text()
+          old_sub="""const NON_RENDERING_STORE_REASONS = new Set([
+            'conference-draft','sync','sync-error','queue','queue-flush','ui-normalize',
+            'cloud-events','cloud-machine-states','machine-runtime-status'
+          ]);
+          function storeReasonOwnsRendering(reason) {
+            const value=String(reason || '');
+            return NON_RENDERING_STORE_REASONS.has(value) || value.startsWith('ta-') || value.startsWith('turn-assistant-');
+          }
+          store.subscribe((_state, reason) => {
+            if (!storeReasonOwnsRendering(reason)) render();
+          });"""
+          new_sub="""const NON_RENDERING_STORE_REASONS = new Set([
+            'conference-draft','sync','sync-error','queue','queue-flush','ui-normalize',
+            'cloud-events','cloud-machine-states','machine-runtime-status'
+          ]);
+          let bootHydrating = true;
+          function storeReasonOwnsRendering(reason) {
+            const value=String(reason || '');
+            return bootHydrating || NON_RENDERING_STORE_REASONS.has(value) || value.startsWith('ta-') || value.startsWith('turn-assistant-');
+          }
+          store.subscribe((_state, reason) => {
+            if (!storeReasonOwnsRendering(reason)) render();
+          });"""
+          old_start="""async function start() {
+            store.update(state => {
+              state.ui ||= {};
+              if (!ROUTES.has(state.ui.route)) state.ui.route = 'turn';
+              state.ui.historyPeriod ||= 'today';
+            }, 'ui-normalize');
+            render();
+            if (API_BASE) {
+              await Promise.allSettled([loadCloudCatalog(), loadCloudRecords()]);
+            }
+            if (!store.state.session) return loginSheet();
+            await loadAssignments();
+            render();
+            if (!store.state.assignments.length) openAssignments();
+          }
+
+          start();"""
+          new_start="""async function start() {
+            try {
+              store.update(state => {
+                state.ui ||= {};
+                if (!ROUTES.has(state.ui.route)) state.ui.route = 'turn';
+                state.ui.historyPeriod ||= 'today';
+              }, 'ui-normalize');
+              if (API_BASE) await Promise.allSettled([loadCloudCatalog(), loadCloudRecords()]);
+              if (store.state.session) await loadAssignments();
+            } finally {
+              bootHydrating = false;
+              render();
+            }
+            if (!store.state.session) return loginSheet();
+            if (!store.state.assignments.length) openAssignments();
+          }
+
+          start();"""
+          if old_sub in text:
+            text=text.replace(old_sub,new_sub,1)
+          elif 'let bootHydrating = true;' not in text:
+            raise SystemExit('subscriber de boot não corresponde ao contrato esperado')
+          if old_start in text:
+            text=text.replace(old_start,new_start,1)
+          elif 'bootHydrating = false;' not in text:
+            raise SystemExit('start() não corresponde ao contrato esperado')
+          operator.write_text(text)
+
+          auth=Path('app/auth-shell.js')
+          auth_text=auth.read_text()
+          if "await import('./operator-main.js');" in auth_text:
+            auth_text=auth_text.replace("await import('./operator-main.js');","await import('./operator-main.js?v=6.2.1');",1)
+          elif "await import('./operator-main.js?v=6.2.1');" not in auth_text:
+            raise SystemExit('import P0 do operador não corresponde ao contrato esperado')
+          auth.write_text(auth_text)
+          PY
+
+          cat > tests/e2e/single-hydration.spec.mjs <<'EOF'
+          import { test,expect } from '@playwright/test';
+          import { installForensicApi } from './support/forensic-api.mjs';
+
+          test('boot do operador hidrata D1 e monta #app uma única vez',async({ page })=>{
+            const errors=[];
+            page.on('pageerror',error=>errors.push(error.message));
+            await page.addInitScript(()=>{
+              const descriptor=Object.getOwnPropertyDescriptor(Element.prototype,'innerHTML');
+              const originalSet=descriptor?.set;
+              if(!descriptor||!originalSet)return;
+              window.__NEOMES_APP_WRITES=0;
+              Object.defineProperty(Element.prototype,'innerHTML',{
+                ...descriptor,
+                set(value){
+                  if(this.id==='app')window.__NEOMES_APP_WRITES=(window.__NEOMES_APP_WRITES||0)+1;
+                  return originalSet.call(this,value);
+                }
+              });
+            });
+            await installForensicApi(page);
+            await page.goto('/');
+            await expect(page.getByText('TNL 091',{ exact:true }).first()).toBeVisible();
+            await page.waitForFunction(()=>Boolean(window.__NEOMES_MODULE_BOOT));
+            await page.waitForTimeout(900);
+            expect(await page.evaluate(()=>window.__NEOMES_APP_WRITES)).toBe(1);
+            expect(errors).toEqual([]);
+          });
+          EOF
+
+          node --check app/operator-main.js
+          node --check app/auth-shell.js
+          node --check tests/e2e/single-hydration.spec.mjs
 
       - name: Check recovery module syntax
         run: |
@@ -102,7 +220,20 @@ jobs:
         run: npm run test:e2e
 
       - name: Stress click integrity and ownership
-        run: npx playwright test tests/e2e/click-integrity.spec.mjs tests/e2e/interaction-ownership.spec.mjs --repeat-each=3 --retries=0
+        run: npx playwright test tests/e2e/click-integrity.spec.mjs tests/e2e/interaction-ownership.spec.mjs tests/e2e/mobile-workspace.spec.mjs tests/e2e/single-hydration.spec.mjs --repeat-each=3 --retries=0
+
+      - name: Persist single hydration only after complete green gate
+        if: success() && github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/operator-main.js app/auth-shell.js tests/e2e/single-hydration.spec.mjs
+          if git diff --cached --quiet; then
+            echo 'Hidratação única já está persistida.'
+            exit 0
+          fi
+          git commit -m "fix: hidrata painel uma vez antes de renderizar"
+          git push origin HEAD:agent/neomes-architecture-recovery
 
       - name: Upload Playwright report on failure
         if: failure()
