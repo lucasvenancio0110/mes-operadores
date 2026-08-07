@@ -7,16 +7,23 @@ const running=calculateEstimatedCounter({...base,now:'2026-08-06T18:10:00.000Z',
 assert.equal(running.estimatedShiftPieces,10,'Cinco ciclos após a conferência devem somar cinco peças estimadas.');
 assert.equal(running.estimatedOrderProduced,105,'Produção estimada da OP parte do valor oficial confirmado.');
 assert.equal(running.estimatedRemainingPieces,145,'Material estimado deve descontar apenas os ciclos estimados após a conferência.');
+assert.equal(running.estimatedFinishAt,'2026-08-06T23:00:00.000Z','ETA inicial deve refletir somente o tempo produtivo restante.');
 
 const paused=calculateEstimatedCounter({...base,now:'2026-08-06T18:40:00.000Z',physicalStatus:'maintenance',runningIntervals:[{startedAt:'2026-08-06T18:00:00.000Z',endedAt:'2026-08-06T18:10:00.000Z'}]});
 assert.equal(paused.estimatedShiftPieces,10,'Contador não pode avançar durante manutenção.');
-assert.equal(paused.estimatedFinishAt,null,'ETA deve ficar suspenso enquanto a máquina não estiver produzindo.');
+assert.equal(paused.estimatedFinishAt,'2026-08-06T23:30:00.000Z','Trinta minutos parado devem empurrar o ETA em trinta minutos.');
 assert.equal(isCounterRunning('setup'),false);
 assert.equal(isCounterRunning('ajuste'),false);
 assert.equal(isCounterRunning('producing'),true);
 
 const resumed=calculateEstimatedCounter({...base,now:'2026-08-06T18:50:00.000Z',physicalStatus:'producing',runningIntervals:[{startedAt:'2026-08-06T18:00:00.000Z',endedAt:'2026-08-06T18:10:00.000Z'},{startedAt:'2026-08-06T18:40:00.000Z',endedAt:null}]});
 assert.equal(resumed.estimatedShiftPieces,15,'Após 30 min parado, o contador deve retomar do ponto anterior e somar apenas tempo produzindo.');
+assert.equal(resumed.estimatedFinishAt,'2026-08-06T23:30:00.000Z','Ao retomar, o ETA deve incorporar a parada sem criar atraso adicional indevido.');
+
+const halfCycle=calculateEstimatedCounter({...base,now:'2026-08-06T18:01:00.000Z',physicalStatus:'maintenance',runningIntervals:[{startedAt:'2026-08-06T18:00:00.000Z',endedAt:'2026-08-06T18:01:00.000Z'}]});
+assert.equal(halfCycle.estimatedShiftPieces,5,'Meio ciclo ainda não pode contar uma peça.');
+assert.equal(halfCycle.partialCycleSeconds,60,'Progresso parcial do ciclo deve ser preservado.');
+assert.equal(halfCycle.estimatedRemainingSeconds,17940,'ETA deve descontar o minuto produtivo já consumido no ciclo atual.');
 
 assert.deepEqual(auditDiff({cycleSeconds:90,op:'1'},{cycleSeconds:95,op:'1'},['cycleSeconds','op']),[{field:'cycleSeconds',before:90,after:95}]);
 
@@ -37,4 +44,4 @@ for(const token of ['initialShiftPieces','CONTADOR ESTIMADO','Editar dados','His
 for(const token of ['neomes-live-counter','neomes-counter-status-actions','neomes-counter-modal'])assert(css.includes(token),`CSS sem ${token}`);
 assert(wrangler.includes('worker/secure-main.js'),'Wrangler deve preservar o entrypoint seguro oficial.');
 
-console.log('NEOMES 6.4: contador estimado, pausa por status, retomada e histórico auditável validados.');
+console.log('NEOMES 6.4: contador estimado, pausa por status, retomada, ETA e histórico auditável validados.');
