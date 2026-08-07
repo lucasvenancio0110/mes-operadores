@@ -924,7 +924,7 @@ function installApp() {
 }
 
 document.addEventListener('click', event => {
-  if (event.__NEOMES_ASSISTANT_HANDLED) return;
+  if (event.__NEOMES_ASSISTANT_HANDLED || event.__NEOMES_AUTH_HANDLED) return;
   const route = event.target.closest('[data-route]')?.dataset.route;
   if (route) return setRoute(route);
 
