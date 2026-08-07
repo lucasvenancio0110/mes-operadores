@@ -21,8 +21,10 @@ async function fullScreenBlockers(page){
 }
 
 async function centerForHitTest(locator){
-  await locator.evaluate(element=>element.scrollIntoView({ block:'center',inline:'nearest',behavior:'instant' }));
-  await locator.page().waitForTimeout(50);
+  await locator.evaluate(async element=>{
+    element.scrollIntoView({ block:'center',inline:'nearest',behavior:'instant' });
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  });
 }
 
 test('main limpa não possui overlay invisível permanente antes da conferência',async({ page })=>{
