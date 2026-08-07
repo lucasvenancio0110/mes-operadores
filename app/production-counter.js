@@ -64,14 +64,29 @@ function bindConference(form){
 
 function displayEstimate(entry){
   const payload=entry?.payload;if(!payload?.configured||!payload.estimate)return null;
-  const estimate=payload.estimate;const now=Date.now();let extra=0;
-  if(payload.runtimeState?.physicalStatus==='producing'&&estimate.nextPieceAt&&estimate.cycleSeconds>0){
-    const next=new Date(estimate.nextPieceAt).getTime();if(now>=next)extra=1+Math.floor((now-next)/(estimate.cycleSeconds*1000));
-  }
-  return {...estimate,estimatedShiftPieces:estimate.estimatedShiftPieces+extra,estimatedOrderProduced:estimate.estimatedOrderProduced+extra,estimatedRemainingPieces:Math.max(0,estimate.estimatedRemainingPieces-extra)};
+  const estimate=payload.estimate;const now=Date.now();const cycle=Number(estimate.cycleSeconds||0);
+  const running=payload.runtimeState?.physicalStatus==='producing'&&cycle>0;
+  const elapsed=running?Math.max(0,(now-entry.fetchedAt)/1000):0;
+  const accumulatedPartial=Number(estimate.partialCycleSeconds||0)+elapsed;
+  const extra=running?Math.floor(accumulatedPartial/cycle):0;
+  const partial=running?accumulatedPartial%cycle:Number(estimate.partialCycleSeconds||0);
+  const estimatedRemainingPieces=Math.max(0,Number(estimate.estimatedRemainingPieces||0)-extra);
+  const estimatedRemainingSeconds=Math.max(0,estimatedRemainingPieces*cycle-partial);
+  const secondsToNext=running&&estimatedRemainingPieces>0?(partial===0?cycle:cycle-partial):null;
+  return {
+    ...estimate,
+    estimatedShiftPieces:Number(estimate.estimatedShiftPieces||0)+extra,
+    estimatedOrderProduced:Number(estimate.estimatedOrderProduced||0)+extra,
+    estimatedRemainingPieces,
+    estimatedRemainingSeconds,
+    partialCycleSeconds:partial,
+    nextPieceAt:secondsToNext===null?null:new Date(now+secondsToNext*1000).toISOString(),
+    estimatedFinishAt:new Date(now+estimatedRemainingSeconds*1000).toISOString()
+  };
 }
 
 function fmtClock(value){if(!value)return '—';const d=new Date(value);return Number.isNaN(d.getTime())?'—':d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+function fmtDuration(seconds){const total=Math.max(0,Math.round(Number(seconds)||0));const hours=Math.floor(total/3600);const minutes=Math.floor((total%3600)/60);return hours?`${hours}h ${String(minutes).padStart(2,'0')}min`:`${minutes} min`;}
 
 async function refresh(machineId,force=false){
   const existing=cache.get(machineId);if(!force&&existing&&Date.now()-existing.fetchedAt<14000)return existing.payload;
@@ -85,7 +100,7 @@ function ensureCounterPanel(sheet,machineId){
   let panel=sheet.querySelector('.neomes-live-counter');
   if(!panel){
     panel=document.createElement('section');panel.className='neomes-live-counter';panel.dataset.machineId=machineId;
-    panel.innerHTML=`<header><div><small>CONTADOR ESTIMADO</small><strong data-counter-machine></strong></div><span data-counter-status>—</span></header><div class="neomes-counter-grid"><div><span>Estimado no turno</span><strong data-counter-shift>—</strong></div><div><span>Estimado na OP</span><strong data-counter-order>—</strong></div><div><span>Material estimado</span><strong data-counter-material>—</strong></div><div><span>Próxima peça</span><strong data-counter-next>—</strong></div></div><p data-counter-copy>O contador é apenas uma estimativa. O apontamento continua sendo o valor oficial.</p><div class="neomes-counter-status-actions">${[['producing','Produzindo'],['setup','Setup'],['adjustment','Ajuste'],['maintenance','Manutenção'],['stopped','Parada']].map(([value,label])=>`<button type="button" data-counter-status-set="${value}">${label}</button>`).join('')}</div><footer><button type="button" data-counter-edit>Editar dados</button><button type="button" data-counter-history>Histórico da máquina</button></footer>`;
+    panel.innerHTML=`<header><div><small>CONTADOR ESTIMADO</small><strong data-counter-machine></strong></div><span data-counter-status>—</span></header><div class="neomes-counter-grid"><div><span>Estimado no turno</span><strong data-counter-shift>—</strong></div><div><span>Estimado na OP</span><strong data-counter-order>—</strong></div><div><span>Material estimado</span><strong data-counter-material>—</strong></div><div><span>Próxima peça</span><strong data-counter-next>—</strong></div><div><span>Previsão de encerramento</span><strong data-counter-finish>—</strong></div><div><span>Tempo produtivo restante</span><strong data-counter-remaining>—</strong></div></div><p data-counter-copy>Estimativa em tempo real. O apontamento informado pelo operador continua sendo a única produção oficial da OP.</p><div class="neomes-counter-status-actions">${[['producing','Produzindo'],['setup','Setup'],['adjustment','Ajuste'],['maintenance','Manutenção'],['stopped','Parada']].map(([value,label])=>`<button type="button" data-counter-status-set="${value}">${label}</button>`).join('')}</div><footer><button type="button" data-counter-edit>Editar dados</button><button type="button" data-counter-history>Histórico da máquina</button></footer>`;
     sheet.querySelector('.ta-order-received')?.after(panel);
     panel.addEventListener('click',event=>handlePanelAction(event,machineId));
   }
@@ -130,7 +145,7 @@ async function enhanceSheet(sheet){
 function renderPanel(panel,machineId){
   const entry=cache.get(machineId);const payload=entry?.payload;const estimate=displayEstimate(entry);panel.querySelector('[data-counter-machine]').textContent=getMachine(machineId)?.name||machineId;
   if(!payload?.configured||!estimate){panel.classList.add('is-not-configured');panel.querySelector('[data-counter-status]').textContent='Aguardando conferência';panel.querySelector('[data-counter-copy]').textContent='O contador começará quando a conferência deste turno for salva.';return;}
-  panel.classList.remove('is-not-configured');const physical=payload.runtimeState?.physicalStatus||'stopped';panel.querySelector('[data-counter-status]').textContent=statusLabel(physical);panel.dataset.status=physical;panel.querySelector('[data-counter-shift]').textContent=`${estimate.estimatedShiftPieces} peças`;panel.querySelector('[data-counter-order]').textContent=`${Math.floor(estimate.estimatedOrderProduced)} peças`;panel.querySelector('[data-counter-material]').textContent=`${estimate.estimatedRemainingPieces} peças`;panel.querySelector('[data-counter-next]').textContent=physical==='producing'?fmtClock(estimate.nextPieceAt):'Pausado';for(const button of panel.querySelectorAll('[data-counter-status-set]'))button.setAttribute('aria-pressed',String(button.dataset.counterStatusSet===physical));
+  panel.classList.remove('is-not-configured');const physical=payload.runtimeState?.physicalStatus||'stopped';panel.querySelector('[data-counter-status]').textContent=statusLabel(physical);panel.dataset.status=physical;panel.querySelector('[data-counter-shift]').textContent=`${estimate.estimatedShiftPieces} peças`;panel.querySelector('[data-counter-order]').textContent=`${Math.floor(estimate.estimatedOrderProduced)} peças`;panel.querySelector('[data-counter-material]').textContent=`${estimate.estimatedRemainingPieces} peças`;panel.querySelector('[data-counter-next]').textContent=physical==='producing'?fmtClock(estimate.nextPieceAt):'Pausado';panel.querySelector('[data-counter-finish]').textContent=fmtClock(estimate.estimatedFinishAt);panel.querySelector('[data-counter-remaining]').textContent=fmtDuration(estimate.estimatedRemainingSeconds);for(const button of panel.querySelectorAll('[data-counter-status-set]'))button.setAttribute('aria-pressed',String(button.dataset.counterStatusSet===physical));
 }
 
 function renderPanels(){for(const panel of document.querySelectorAll('.neomes-live-counter'))renderPanel(panel,panel.dataset.machineId);}
