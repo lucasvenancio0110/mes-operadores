@@ -20,6 +20,11 @@ async function fullScreenBlockers(page){
   });
 }
 
+async function centerForHitTest(locator){
+  await locator.evaluate(element=>element.scrollIntoView({ block:'center',inline:'nearest',behavior:'instant' }));
+  await locator.page().waitForTimeout(50);
+}
+
 test('main limpa não possui overlay invisível permanente antes da conferência',async({ page })=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await installForensicApi(page);
@@ -27,11 +32,17 @@ test('main limpa não possui overlay invisível permanente antes da conferência
   await waitForCard(page);
   const trigger=page.locator('[data-action="open-conference"],[data-ta-reconfirm]').first();
   await expect(trigger).toBeVisible();
+  await centerForHitTest(trigger);
   const info=await trigger.evaluate(element=>{
     const r=element.getBoundingClientRect();const x=r.left+r.width/2;const y=r.top+r.height/2;const hit=document.elementFromPoint(x,y);
-    return { ok:hit===element||element.contains(hit),hit:hit?.outerHTML?.slice(0,180)||'',layers:document.getElementById('layers')?.innerHTML||'' };
+    return {
+      ok:hit===element||element.contains(hit),
+      hit:hit?.outerHTML?.slice(0,180)||'',
+      layers:document.getElementById('layers')?.innerHTML||'',
+      point:{ x,y },viewport:{ width:innerWidth,height:innerHeight }
+    };
   });
-  expect(info.ok,`botão de conferência coberto por ${info.hit}; layers=${info.layers.slice(0,300)}`).toBeTruthy();
+  expect(info.ok,`botão de conferência coberto por ${info.hit}; point=${JSON.stringify(info.point)}; viewport=${JSON.stringify(info.viewport)}; layers=${info.layers.slice(0,300)}`).toBeTruthy();
   expect((await fullScreenBlockers(page)).filter(item=>Number(item.opacity)<.08)).toEqual([]);
   expect(errors).toEqual([]);
 });
