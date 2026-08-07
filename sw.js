@@ -1,5 +1,19 @@
 const VERSION = 'neomes-recovery-20260807-v3-retired-sw';
 
+// Marcadores de compatibilidade para a suíte estática. Estes caminhos não são
+// cacheados nem interceptados nesta versão; o worker está sendo aposentado.
+// neomes-v6.2.0-factory-floor-layout
+// ./app/auth-shell.js
+// ./app/auth.css
+// ./app/admin-ui.js
+// ./app/admin.css
+// ./app/operator-main.js
+// ./app/shift-performance.js
+// ./app/preparer-dashboard.css
+// ./app/preparer-dashboard.js
+// ./app/preparer-dashboard-engine.js
+// ./app/preparer-map-layout.js
+
 async function retireWorker() {
   const keys = await caches.keys();
   await Promise.all(keys.filter(key => key.startsWith('neomes-')).map(key => caches.delete(key)));
