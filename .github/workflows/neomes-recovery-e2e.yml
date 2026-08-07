@@ -32,6 +32,9 @@ jobs:
           node --check app/machine-runtime.js
           node --check worker/machine-runtime.js
 
+      - name: Run full interaction static forensics
+        run: node tests/interaction-static-forensics.test.mjs
+
       - name: Run calculation and architecture regression
         run: npm run test:regression
 
