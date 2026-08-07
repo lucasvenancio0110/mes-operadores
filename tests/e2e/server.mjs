@@ -1,9 +1,11 @@
 import { createServer } from 'node:http';
 import { readFile,stat } from 'node:fs/promises';
-import { extname,join,normalize } from 'node:path';
+import { extname,join,normalize,resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root=fileURLToPath(new URL('../../',import.meta.url));
+const defaultRoot=fileURLToPath(new URL('../../',import.meta.url));
+const root=resolve(process.env.NEOMES_E2E_ROOT||defaultRoot);
+const port=Number(process.env.NEOMES_E2E_PORT||4173);
 const types={
   '.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8',
   '.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.webmanifest':'application/manifest+json; charset=utf-8',
@@ -13,8 +15,8 @@ const types={
 function safePath(urlPath){
   const requested=decodeURIComponent(urlPath.split('?')[0]);
   const relative=requested==='/'?'index.html':requested.replace(/^\/+/, '');
-  const resolved=normalize(join(root,relative));
-  return resolved.startsWith(normalize(root))?resolved:null;
+  const resolvedPath=normalize(join(root,relative));
+  return resolvedPath.startsWith(normalize(root))?resolvedPath:null;
 }
 
 const server=createServer(async(request,response)=>{
@@ -36,4 +38,4 @@ const server=createServer(async(request,response)=>{
   }
 });
 
-server.listen(4173,'127.0.0.1',()=>console.log('NEOMES e2e server: http://127.0.0.1:4173'));
+server.listen(port,'127.0.0.1',()=>console.log(`NEOMES e2e server: http://127.0.0.1:${port} root=${root}`));
