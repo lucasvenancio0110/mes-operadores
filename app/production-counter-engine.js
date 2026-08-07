@@ -38,7 +38,8 @@ export function calculateEstimatedCounter(input={}){
   if(!conferenceAt||!now||!(cycleSeconds>0)){
     return {
       status:'missing',estimatedShiftPieces:initialShiftPieces,estimatedOrderProduced:officialProduced,
-      productiveSeconds:0,nextPieceAt:null,estimatedRemainingPieces:0,estimatedFinishAt:null
+      productiveSeconds:0,nextPieceAt:null,estimatedRemainingPieces:0,estimatedFinishAt:null,
+      estimatedRemainingSeconds:0
     };
   }
 
@@ -62,6 +63,7 @@ export function calculateEstimatedCounter(input={}){
   const estimatedOrderProduced=officialProduced+completedAfterConference;
   const materialPieces=Math.max(0,currentBarPieces+feederBars*piecesPerFullBar);
   const estimatedRemainingPieces=Math.max(0,materialPieces-completedAfterConference);
+  const estimatedRemainingSeconds=estimatedRemainingPieces*cycleSeconds;
 
   let nextPieceAt=null;
   if(status===RUNNING_STATUS&&openIntervalStart){
@@ -70,14 +72,14 @@ export function calculateEstimatedCounter(input={}){
     nextPieceAt=new Date(now.getTime()+(remainder===0?cycleSeconds:cycleSeconds-remainder)*1000).toISOString();
   }
 
-  const estimatedFinishAt=status===RUNNING_STATUS
-    ?new Date(now.getTime()+estimatedRemainingPieces*cycleSeconds*1000).toISOString()
-    :null;
+  // Mesmo pausada, a previsão continua sendo deslocada para frente pelo relógio.
+  // A quantidade estimada congela; quando voltar a produzir, os novos ciclos voltam a abatê-la.
+  const estimatedFinishAt=new Date(now.getTime()+estimatedRemainingSeconds*1000).toISOString();
 
   return {
     status:'ready',physicalStatus:status,cycleSeconds,initialShiftPieces,officialProduced,
     completedAfterConference,estimatedShiftPieces,estimatedOrderProduced,productiveSeconds,
-    estimatedRemainingPieces,nextPieceAt,estimatedFinishAt
+    estimatedRemainingPieces,estimatedRemainingSeconds,nextPieceAt,estimatedFinishAt
   };
 }
 
