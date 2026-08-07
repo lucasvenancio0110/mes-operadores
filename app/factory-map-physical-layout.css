@@ -1,0 +1,32 @@
+/* NEOMES — planta física v6.4
+   Esta camada altera apenas a área útil do mapa. A geometria das máquinas fica
+   em preparer-map-layout.js; nenhuma regra operacional é modificada aqui. */
+
+/* O workspace mantém o estado do mini mapa no botão. O SVG é um elemento SVG e
+   `element.hidden` não o ocultava de forma confiável em Chromium/WebKit; esta
+   regra conecta a visibilidade ao estado acessível que o handler já atualiza. */
+.factory-workspace:has([data-factory-action="minimap"][aria-pressed="false"]) .factory-minimap{
+  display:none!important;
+}
+
+@media (min-width:761px){
+  .factory-workspace:not(.is-factory-fullscreen)>.prep-map-viewport{
+    /* A altura acompanha o mapa físico em vez de comprimi-lo numa miniatura.
+       Em 1366x768 a página já ganha rolagem suficiente; em 1920x1080 o ajuste
+       passa a comportar a planta completa, inclusive a região inferior. */
+    height:clamp(1450px,190dvh,1900px)!important;
+    min-height:1450px!important;
+  }
+  .factory-workspace{
+    margin-bottom:24px;
+  }
+}
+
+/* No celular permanece uma janela navegável por gesto: não reduzimos a planta
+   inteira a uma miniatura só para fazê-la caber verticalmente. */
+@media (max-width:760px){
+  .factory-workspace:not(.is-factory-fullscreen)>.prep-map-viewport{
+    height:68dvh!important;
+    min-height:430px!important;
+  }
+}

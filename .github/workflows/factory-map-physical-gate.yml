@@ -1,0 +1,65 @@
+name: Factory Map Physical Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/preparer-map-layout.js'
+      - 'app/factory-map-*.css'
+      - 'app/factory-map-*.js'
+      - 'index.html'
+      - 'tests/factory-map-physical-layout.test.mjs'
+      - 'tests/e2e/factory-map-*'
+      - 'playwright.factory-map.config.mjs'
+      - '.github/workflows/factory-map-physical-gate.yml'
+  push:
+    branches: ['agent/factory-map-physical-aisles-v2']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: factory-map-physical-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  geometry-and-browser:
+    name: Geometria + navegador real
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validar sintaxe e geometria física
+        run: |
+          set -euo pipefail
+          node --check app/preparer-map-layout.js
+          node --check tests/e2e/factory-map-server.mjs
+          node --check tests/e2e/factory-map-physical.spec.mjs
+          node tests/factory-map-physical-layout.test.mjs
+          node tests/factory-map-workspace-v6.test.mjs
+          node tests/preparer-dashboard-v6.test.mjs
+
+      - name: Instalar Playwright
+        run: |
+          npm install --no-save @playwright/test@1.54.2
+          npx playwright install --with-deps chromium webkit
+
+      - name: Testar mapa em desktop e WebKit mobile
+        run: npx playwright test -c playwright.factory-map.config.mjs
+
+      - name: Publicar screenshots e relatório
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: factory-map-physical-${{ github.run_id }}
+          path: |
+            test-results/factory-map
+            playwright-report/factory-map
+          if-no-files-found: ignore
+          retention-days: 7

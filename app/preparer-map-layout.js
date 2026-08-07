@@ -1,7 +1,8 @@
 const tnl = number => `tnl-${String(number).padStart(3,'0')}`;
 
-// Âncoras extraídas da aba LAYOUT da planilha da fábrica. Os espaços entre
-// células são parte do mapa: representam corredores, recuos e grupos físicos.
+// Âncoras extraídas da aba LAYOUT da planilha da fábrica. As células continuam
+// preservadas como referência de origem; a geometria física abaixo corrige apenas
+// o espaçamento visual conforme os corredores validados no chão de fábrica.
 const SPREADSHEET_PLACEMENTS = `
 B2:24 D2:17 F2:28 H2:9 J2:60 L2:85
 N3:83 Q3:72 T3:69 W3:68 Z3:67
@@ -34,17 +35,23 @@ M98:138
 M101:139
 `;
 
-// A planilha ainda não fixa estas posições. Elas permanecem separadas da
-// geometria homologada para serem fáceis de corrigir após a validação no chão.
+// A planilha ainda não fixa estas posições. Elas permanecem identificadas como
+// provisórias para facilitar futuras correções após validação física.
 const PROVISIONAL_PLACEMENTS = `S80:145 S83:144 V89:6`;
 const SUPPLEMENTAL_PLACEMENTS = `AB86:discovery`;
 
 export const FACTORY_MAP_GEOMETRY = Object.freeze({
   cardWidth:142,
   cardHeight:78,
+  // Mantidos apenas como referência da malha original da planilha.
   columnStep:74,
   rowStep:28,
-  padding:24
+  padding:32,
+  // Regras físicas centralizadas. Corredores equivalentes usam a mesma medida.
+  compactGap:18,
+  normalGap:44,
+  aisleGap:92,
+  sectionGap:100
 });
 
 const WORKCENTER_GROUPS = {
@@ -69,20 +76,120 @@ function machineIdFromToken(value) {
   return raw === 'milltap' || raw === 'discovery' ? raw : tnl(Number(raw));
 }
 
+function axisPositions(labels,start,gap) {
+  const positions=new Map();
+  let cursor=start;
+  for(const label of labels){
+    positions.set(label,cursor);
+    cursor+=FACTORY_MAP_GEOMETRY.cardWidth+gap;
+  }
+  return positions;
+}
+
+function rowPositions(rows,start,gap) {
+  const positions=new Map();
+  let cursor=start;
+  for(const row of rows){
+    positions.set(row,cursor);
+    cursor+=FACTORY_MAP_GEOMETRY.cardHeight+gap;
+  }
+  return positions;
+}
+
+// Bloco esquerdo: 024 | 017 | 028 | 009 | 060 | 085 possuem corredores
+// distintos entre cada coluna, repetidos verticalmente no bloco.
+const LEFT_COLUMNS=['B','D','F','H','J','L'];
+const LEFT_X=axisPositions(LEFT_COLUMNS,0,FACTORY_MAP_GEOMETRY.aisleGap);
+const LEFT_ROWS=[2,5,8,11,14,17,20,23,26,29,32];
+const LEFT_Y=rowPositions(LEFT_ROWS,0,FACTORY_MAP_GEOMETRY.compactGap);
+
+const leftRightEdge=LEFT_X.get('L')+FACTORY_MAP_GEOMETRY.cardWidth;
+const RIGHT_START=leftRightEdge+FACTORY_MAP_GEOMETRY.compactGap;
+
+// Bloco superior direito: 083/072/069/068/067 não têm corredor entre si.
+const UPPER_RIGHT_COLUMNS=['N','Q','T','W','Z','AC','AF'];
+const UPPER_RIGHT_X=axisPositions(UPPER_RIGHT_COLUMNS,RIGHT_START,FACTORY_MAP_GEOMETRY.compactGap);
+const UPPER_RIGHT_Y=new Map();
+UPPER_RIGHT_Y.set(3,0);
+UPPER_RIGHT_Y.set(13,UPPER_RIGHT_Y.get(3)+FACTORY_MAP_GEOMETRY.cardHeight+FACTORY_MAP_GEOMETRY.aisleGap);
+UPPER_RIGHT_Y.set(23,UPPER_RIGHT_Y.get(13)+FACTORY_MAP_GEOMETRY.cardHeight+FACTORY_MAP_GEOMETRY.aisleGap);
+UPPER_RIGHT_Y.set(32,UPPER_RIGHT_Y.get(23)+FACTORY_MAP_GEOMETRY.cardHeight+FACTORY_MAP_GEOMETRY.normalGap);
+UPPER_RIGHT_Y.set(42,UPPER_RIGHT_Y.get(32)+FACTORY_MAP_GEOMETRY.cardHeight+FACTORY_MAP_GEOMETRY.normalGap);
+
+const upperBottom=Math.max(
+  LEFT_Y.get(32)+FACTORY_MAP_GEOMETRY.cardHeight,
+  UPPER_RIGHT_Y.get(42)+FACTORY_MAP_GEOMETRY.cardHeight
+);
+const LOWER_START_Y=upperBottom+FACTORY_MAP_GEOMETRY.sectionGap;
+
+// Torres inferiores: corredor padronizado entre 096/097 e 097/100.
+const TOWER_COLUMNS=['N','U','AB'];
+const TOWER_X=axisPositions(TOWER_COLUMNS,RIGHT_START,FACTORY_MAP_GEOMETRY.aisleGap);
+const TOWER_ROWS=[52,55,58,61,64,67,70,73];
+const TOWER_Y=rowPositions(TOWER_ROWS,LOWER_START_Y,FACTORY_MAP_GEOMETRY.compactGap);
+
+// Linha 124..130 usa espaçamento compacto, mas existe corredor horizontal entre
+// a linha da 121 e a linha da 124.
+const LOWER_ROW_COLUMNS=['M','P','S','V','Y','AB','AE'];
+const LOWER_ROW_X=axisPositions(LOWER_ROW_COLUMNS,RIGHT_START,FACTORY_MAP_GEOMETRY.compactGap);
+const LOWER_ROW_Y=TOWER_Y.get(73)+FACTORY_MAP_GEOMETRY.cardHeight+FACTORY_MAP_GEOMETRY.aisleGap;
+
+const SPECIAL_ROWS=[80,83,86,89,92,95,98,101];
+const SPECIAL_Y=rowPositions(
+  SPECIAL_ROWS,
+  LOWER_ROW_Y+FACTORY_MAP_GEOMETRY.cardHeight+FACTORY_MAP_GEOMETRY.normalGap,
+  FACTORY_MAP_GEOMETRY.compactGap
+);
+
+// Correções físicas confirmadas pelo usuário. A célula original continua sendo
+// preservada em `cell`, enquanto estes anchors controlam somente a posição visual.
+const PHYSICAL_OVERRIDES=new Map([
+  [tnl(145),Object.freeze({ column:'P',row:86,reason:'TNL 145 ao lado da TNL 134' })],
+  [tnl(140),Object.freeze({ column:'P',row:101,reason:'TNL 140 ao lado da TNL 139' })],
+  ['milltap',Object.freeze({ column:'P',row:80,reason:'MILLTAP acima da TNL 145' })],
+  ['discovery',Object.freeze({ column:'S',row:80,reason:'DISCOVERY ao lado da MILLTAP' })]
+]);
+
+function physicalX(column,row) {
+  if(LEFT_X.has(column)&&LEFT_Y.has(row))return LEFT_X.get(column);
+  if(UPPER_RIGHT_X.has(column)&&UPPER_RIGHT_Y.has(row))return UPPER_RIGHT_X.get(column);
+  if(TOWER_X.has(column)&&TOWER_Y.has(row))return TOWER_X.get(column);
+  if(row===76&&LOWER_ROW_X.has(column))return LOWER_ROW_X.get(column);
+  if(SPECIAL_Y.has(row)&&LOWER_ROW_X.has(column))return LOWER_ROW_X.get(column);
+  return (columnNumber(column)-2)*FACTORY_MAP_GEOMETRY.columnStep;
+}
+
+function physicalY(column,row) {
+  if(LEFT_X.has(column)&&LEFT_Y.has(row))return LEFT_Y.get(row);
+  if(UPPER_RIGHT_X.has(column)&&UPPER_RIGHT_Y.has(row))return UPPER_RIGHT_Y.get(row);
+  if(TOWER_X.has(column)&&TOWER_Y.has(row))return TOWER_Y.get(row);
+  if(row===76&&LOWER_ROW_X.has(column))return LOWER_ROW_Y;
+  if(SPECIAL_Y.has(row)&&LOWER_ROW_X.has(column))return SPECIAL_Y.get(row);
+  return (row-2)*FACTORY_MAP_GEOMETRY.rowStep;
+}
+
 function parsePlacement(token,provisional=false) {
   const [cell,machine]=token.split(':');
   const match=cell.match(/^([A-Z]+)(\d+)$/);
   if(!match)throw new Error(`Célula inválida no mapa: ${cell}`);
-  const column=columnNumber(match[1]);
-  const row=Number(match[2]);
+  const machineId=machineIdFromToken(machine);
+  const sourceColumn=match[1];
+  const sourceRow=Number(match[2]);
+  const override=PHYSICAL_OVERRIDES.get(machineId) || null;
+  const physicalColumn=override?.column || sourceColumn;
+  const physicalRow=override?.row || sourceRow;
   return Object.freeze({
-    machineId:machineIdFromToken(machine),
+    machineId,
     cell,
-    column,
-    row,
-    x:(column-2)*FACTORY_MAP_GEOMETRY.columnStep,
-    y:(row-2)*FACTORY_MAP_GEOMETRY.rowStep,
-    provisional
+    column:columnNumber(sourceColumn),
+    row:sourceRow,
+    physicalColumn,
+    physicalRow,
+    x:physicalX(physicalColumn,physicalRow),
+    y:physicalY(physicalColumn,physicalRow),
+    provisional,
+    physicalOverride:Boolean(override),
+    physicalOverrideReason:override?.reason || ''
   });
 }
 
