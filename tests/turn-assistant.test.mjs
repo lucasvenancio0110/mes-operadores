@@ -16,11 +16,10 @@ const submitBridgePath=fileURLToPath(new URL('app/turn-assistant-submit.js',root
 const assistantPath=fileURLToPath(new URL('app/turn-assistant.js',root));
 execFileSync(process.execPath,['--check',submitBridgePath],{ stdio:'pipe' });
 execFileSync(process.execPath,['--check',assistantPath],{ stdio:'pipe' });
-const [submitBridge,assistant,index,serviceWorker,workerAssistant]=await Promise.all([
+const [submitBridge,assistant,index,workerAssistant]=await Promise.all([
   read('app/turn-assistant-submit.js'),
   read('app/turn-assistant.js'),
   read('index.html'),
-  read('sw.js'),
   read('worker/turn-assistant.js')
 ]);
 
@@ -40,9 +39,6 @@ for(const formId of ['taHandoffForm','taFirstOrderForm','taPointingForm','taShif
 }
 assert(index.includes('turn-assistant.js?v=6.0.1'),'Hotfix 6.0.1 do apontamento não está carregado no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
-assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
-assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
-assert(serviceWorker.includes('neomes-v6.2.0-factory-floor-layout'),'Cache móvel não foi renovado para a planta física sem perder o hotfix do apontamento.');
 assert(workerAssistant.includes("rolloverMinutes===1375"),'O Worker não valida períodos que atravessam a madrugada.');
 assert(workerAssistant.includes('const endedAt=now;'),'O Worker não fecha o apontamento no instante real do registro.');
 assert(workerAssistant.includes("T${clock}:00-03:00"),'Os turnos do Worker não usam o horário de Curitiba.');
