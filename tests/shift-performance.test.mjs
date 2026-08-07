@@ -11,8 +11,8 @@ const [html, script, css, serviceWorker] = await Promise.all([
 
 assert(html.includes('app/shift-performance.css?v=3.7.2'), 'CSS do desempenho do turno não está carregado.');
 assert(html.includes('app/shift-performance.js?v=3.7.2'), 'Módulo do desempenho do turno não está carregado.');
-assert(serviceWorker.includes("'./app/shift-performance.css'"), 'CSS do desempenho não está no cache offline.');
-assert(serviceWorker.includes("'./app/shift-performance.js'"), 'JavaScript do desempenho não está no cache offline.');
+assert(serviceWorker.includes('self.registration.unregister()'), 'Service Worker de recuperação deve se aposentar.');
+assert(!serviceWorker.includes('respondWith('), 'Desempenho do turno deve carregar da rede durante a recuperação.');
 
 for (const required of [
   'const productiveSeconds = produced * cycle',
