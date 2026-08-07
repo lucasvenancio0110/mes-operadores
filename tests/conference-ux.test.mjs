@@ -14,8 +14,8 @@ assert(/conference-ux\.css(?:\?v=[^"']+)?/.test(html), 'Estilo da conferência c
 const loadedDirectly = /conference-ux\.js(?:\?v=[^"']+)?/.test(html);
 const loadedAfterAuth = /import\(['"]\.\/conference-ux\.js['"]\)/.test(authShell);
 assert(loadedDirectly || loadedAfterAuth, 'Módulo da conferência compacta não está ligado à aplicação.');
-assert(serviceWorker.includes("'./app/conference-ux.css'"), 'CSS da conferência não está no cache offline.');
-assert(serviceWorker.includes("'./app/conference-ux.js'"), 'JavaScript da conferência não está no cache offline.');
+assert(serviceWorker.includes('self.registration.unregister()'), 'Service Worker de recuperação deve se aposentar.');
+assert(!serviceWorker.includes('respondWith('), 'A conferência não pode depender de assets servidos por cache antigo durante a recuperação.');
 
 for (const feature of [
   'Produção atual na máquina',
