@@ -64,9 +64,10 @@ assert.doesNotMatch(index,/production-counter\.(?:js|css)/,'contador não pode e
 const operator=await readFile(join(root,'app/operator-main.js'),'utf8');
 const assistant=await readFile(join(root,'app/turn-assistant.js'),'utf8');
 const assistantSubmit=await readFile(join(root,'app/turn-assistant-submit.js'),'utf8');
+const auth=await readFile(join(root,'app/auth-shell.js'),'utf8');
 
 assert.match(operator,/document\.addEventListener\(['"]click['"]/,'operator-main precisa ter delegação de clique');
-assert.match(operator,/if \(event\.__NEOMES_ASSISTANT_HANDLED\) return;/,'operator-main deve respeitar propriedade do evento do assistente');
+assert.match(operator,/if \(event\.__NEOMES_ASSISTANT_HANDLED \|\| event\.__NEOMES_AUTH_HANDLED\) return;/,'operator-main deve respeitar ownership do assistente e autenticação');
 assert.match(operator,/const handler = handlers\[event\.target\?\.id\];\s*if \(!handler\) return;\s*event\.preventDefault\(\);/s,'submit global deve bloquear apenas formulários do operator-main');
 assert.match(operator,/NON_RENDERING_STORE_REASONS = new Set\(\['conference-draft','sync','sync-error','queue','queue-flush'\]\)/,'sync/queue não podem recriar toda a interface');
 
@@ -75,6 +76,13 @@ assert.match(assistant,/function claimAssistantEvent\(event\)/,'assistente deve 
 assert.doesNotMatch(assistant,/stopImmediatePropagation\s*\(/,'assistente não pode matar propagação global');
 assert.doesNotMatch(assistantSubmit,/stopImmediatePropagation\s*\(/,'ponte de submit não pode matar propagação global');
 assert.match(assistantSubmit,/event\.__NEOMES_ASSISTANT_HANDLED = true/,'ponte de submit deve marcar ownership sem cancelar outros listeners');
+
+assert.match(auth,/async function importOperationalEnhancement\(modulePath\)/,'auth-shell deve isolar falhas dos enhancements autenticados');
+assert.match(auth,/window\.__NEOMES_MODULE_BOOT=/,'auth-shell deve publicar diagnóstico do boot operacional');
+assert.match(auth,/window\.dispatchEvent\(new CustomEvent\('neomes:module-error'/,'falhas de módulo devem ser observáveis, não escondidas');
+assert.match(auth,/event\.__NEOMES_AUTH_HANDLED = true/,'logout seguro deve usar ownership cooperativo');
+const authLogout=auth.slice(auth.indexOf("if (event.target.closest('[data-action=\"logout\"]'))"));
+assert.doesNotMatch(authLogout.slice(0,300),/stopImmediatePropagation/,'logout não pode matar outros listeners globais');
 
 const operatorActions=[...operator.matchAll(/data-action=\\?['"]([^'"]+)/g)].map(m=>m[1]);
 const assistantIntercept=[...assistant.matchAll(/action===['"]([^'"]+)['"]/g)].map(m=>m[1]);
