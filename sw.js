@@ -1,4 +1,4 @@
-const VERSION = 'neomes-recovery-pre-counter-20260807-v1';
+const VERSION = 'neomes-v6.2.0-factory-floor-layout-recovery-20260807-v1';
 const STATIC_CACHE = `${VERSION}-static`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 const BASE = self.registration.scope;
