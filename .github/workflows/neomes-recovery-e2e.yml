@@ -27,6 +27,11 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
 
+      - name: Check recovery module syntax
+        run: |
+          node --check app/machine-runtime.js
+          node --check worker/machine-runtime.js
+
       - name: Run calculation and architecture regression
         run: npm run test:regression
 
