@@ -6,9 +6,12 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:migrate": "wrangler d1 migrations apply mes-operadores-db --remote"
+    "db:migrate": "wrangler d1 migrations apply mes-operadores-db --remote",
+    "test:regression": "node tests/preparer-dashboard-v6.test.mjs",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "wrangler": "^4.68.0"
   }
 }

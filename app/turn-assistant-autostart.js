@@ -59,6 +59,6 @@ function attempt() {
   });
 }
 
-new MutationObserver(attempt).observe(document.body,{ childList:true,subtree:true });
+new MutationObserver(attempt).observe(document.getElementById('app') || document.body,{ childList:true,subtree:true });
 store.subscribe(attempt);
 attempt();

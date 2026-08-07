@@ -924,6 +924,7 @@ function installApp() {
 }
 
 document.addEventListener('click', event => {
+  if (event.__NEOMES_ASSISTANT_HANDLED || event.__NEOMES_AUTH_HANDLED) return;
   const route = event.target.closest('[data-route]')?.dataset.route;
   if (route) return setRoute(route);
 
@@ -1015,10 +1016,15 @@ document.addEventListener('click', event => {
 });
 
 document.addEventListener('submit', event => {
+  const handlers = {
+    loginForm: submitLogin,
+    conferenceForm: submitConference,
+    closeOrderForm: submitCloseOrder
+  };
+  const handler = handlers[event.target?.id];
+  if (!handler) return;
   event.preventDefault();
-  if (event.target.id === 'loginForm') submitLogin(event.target);
-  if (event.target.id === 'conferenceForm') submitConference(event.target);
-  if (event.target.id === 'closeOrderForm') submitCloseOrder(event.target);
+  handler(event.target);
 });
 
 document.addEventListener('keydown', event => {
@@ -1030,8 +1036,16 @@ window.addEventListener('beforeinstallprompt', event => {
   installPrompt = event;
 });
 
+const NON_RENDERING_STORE_REASONS = new Set([
+  'conference-draft','sync','sync-error','queue','queue-flush','ui-normalize',
+  'cloud-events','cloud-machine-states','machine-runtime-status'
+]);
+function storeReasonOwnsRendering(reason) {
+  const value=String(reason || '');
+  return NON_RENDERING_STORE_REASONS.has(value) || value.startsWith('ta-') || value.startsWith('turn-assistant-');
+}
 store.subscribe((_state, reason) => {
-  if (!['conference-draft'].includes(reason)) render();
+  if (!storeReasonOwnsRendering(reason)) render();
 });
 
 if ('serviceWorker' in navigator) {

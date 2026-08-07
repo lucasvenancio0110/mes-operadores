@@ -1,5 +1,7 @@
 const app = document.getElementById('app');
+const desktopMedia = window.matchMedia('(min-width: 760px)');
 let arranging = false;
+let frame = 0;
 
 function roleLabel(code) {
   return ({
@@ -43,7 +45,25 @@ function sidebarMarkup() {
   </aside>`;
 }
 
+function restoreMobileWorkspace() {
+  const shell = app?.querySelector('.ops-shell');
+  const layout = shell?.querySelector(':scope > .ops-desktop-layout');
+  if (!shell || !layout) return;
+  const content = layout.querySelector('.ops-desktop-content');
+  const page = content?.querySelector(':scope > .ops-page');
+  const connection = content?.querySelector(':scope > .ops-connection');
+  const nav = layout.querySelector('.ops-desktop-sidebar .ops-nav');
+  if (connection) shell.insertBefore(connection, layout);
+  if (page) shell.insertBefore(page, layout);
+  if (nav) shell.appendChild(nav);
+  layout.remove();
+}
+
 function arrangeDesktopWorkspace() {
+  if (!desktopMedia.matches) {
+    restoreMobileWorkspace();
+    return;
+  }
   if (arranging) return;
   const shell = app?.querySelector('.ops-shell');
   if (!shell || shell.querySelector(':scope > .ops-desktop-layout')) return;
@@ -74,11 +94,15 @@ function arrangeDesktopWorkspace() {
   }
 }
 
-const observer = new MutationObserver(() => {
-  window.requestAnimationFrame(arrangeDesktopWorkspace);
-});
+function scheduleArrange() {
+  cancelAnimationFrame(frame);
+  frame = requestAnimationFrame(arrangeDesktopWorkspace);
+}
+
+const observer = new MutationObserver(scheduleArrange);
 
 if (app) {
   observer.observe(app,{ childList:true,subtree:true });
-  arrangeDesktopWorkspace();
+  desktopMedia.addEventListener?.('change',scheduleArrange);
+  scheduleArrange();
 }

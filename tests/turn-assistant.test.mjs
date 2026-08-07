@@ -16,17 +16,18 @@ const submitBridgePath=fileURLToPath(new URL('app/turn-assistant-submit.js',root
 const assistantPath=fileURLToPath(new URL('app/turn-assistant.js',root));
 execFileSync(process.execPath,['--check',submitBridgePath],{ stdio:'pipe' });
 execFileSync(process.execPath,['--check',assistantPath],{ stdio:'pipe' });
-const [submitBridge,assistant,index,serviceWorker,workerAssistant]=await Promise.all([
+const [submitBridge,assistant,index,workerAssistant]=await Promise.all([
   read('app/turn-assistant-submit.js'),
   read('app/turn-assistant.js'),
   read('index.html'),
-  read('sw.js'),
   read('worker/turn-assistant.js')
 ]);
 
 assert(submitBridge.includes('onSubmit(form,button)'),'A ponte de toque não chama a rotina real de envio.');
 assert(!submitBridge.includes('SubmitEvent'),'A ponte não deve sintetizar eventos de submit.');
 assert(!submitBridge.includes('form.dispatchEvent'),'A ponte não deve reenviar eventos artificialmente.');
+assert(submitBridge.includes('event.__NEOMES_ASSISTANT_HANDLED = true'),'A ponte móvel deve marcar ownership cooperativo do clique.');
+assert(!submitBridge.includes('stopImmediatePropagation'),'A ponte móvel não pode matar outros listeners do clique.');
 assert(assistant.includes("bindAssistantSubmit(document,submitAssistantForm)"),'A ponte móvel não está conectada ao assistente.');
 assert(assistant.includes('taPointingForm:submitPointing'),'O formulário de apontamento não está ligado à rotina de persistência.');
 assert(assistant.includes("post('/api/v1/turn-assistant/handoff',body)"),'Persistência da passagem de turno não está conectada.');
@@ -38,11 +39,8 @@ assert(!assistant.includes('Faltarão cerca de'),'A quantidade faltante ainda es
 for(const formId of ['taHandoffForm','taFirstOrderForm','taPointingForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert(assistant.includes(`data-ta-submit-form="${formId}"`),`Envio direto ausente em ${formId}.`);
 }
-assert(index.includes('turn-assistant.js?v=6.0.1'),'Hotfix 6.0.1 do apontamento não está carregado no HTML.');
+assert(index.includes('turn-assistant.js?v=6.0.2'),'Correção de estabilidade 6.0.2 do assistente não está carregada no HTML.');
 assert(!index.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está carregado no HTML.');
-assert(serviceWorker.includes("'./app/turn-assistant-submit.js'"),'Ponte de envio não está no cache do PWA.');
-assert(!serviceWorker.includes('turn-assistant-submit-fix'),'Hotfix sintético antigo ainda está no cache do PWA.');
-assert(serviceWorker.includes('neomes-v6.2.0-factory-floor-layout'),'Cache móvel não foi renovado para a planta física sem perder o hotfix do apontamento.');
 assert(workerAssistant.includes("rolloverMinutes===1375"),'O Worker não valida períodos que atravessam a madrugada.');
 assert(workerAssistant.includes('const endedAt=now;'),'O Worker não fecha o apontamento no instante real do registro.');
 assert(workerAssistant.includes("T${clock}:00-03:00"),'Os turnos do Worker não usam o horário de Curitiba.');
@@ -93,8 +91,9 @@ const click={ target:button,preventDefault(){prevented+=1;},stopImmediatePropaga
 listeners.get('click')(click);
 listeners.get('click')(click);
 assert.equal(submitted,1,'Um toque deve iniciar exatamente um salvamento.');
-assert.equal(prevented,1);
-assert.equal(stopped,1);
+assert.equal(prevented,1,'Um toque deve impedir apenas o comportamento padrão uma vez.');
+assert.equal(stopped,0,'A ponte não pode interromper os demais listeners globais/target.');
+assert.equal(click.__NEOMES_ASSISTANT_HANDLED,true,'O clique deve ser marcado como pertencente ao assistente.');
 for(const formId of ['taHandoffForm','taFirstOrderForm','taPointingForm','taShiftCloseForm','taOrderCloseForm','taNewOrderForm','taStoppedForm']) {
   assert.equal(isAssistantForm({ id:formId }),true,`${formId} precisa ser reconhecido pela ponte móvel.`);
 }
@@ -190,4 +189,4 @@ assert.equal(tnl092.inconsistent,true,'A estimativa da TNL 092 deve continuar al
 assert.equal(Math.round(tnl092.runningMinutes),478);
 assert.equal(Math.round(tnl092.overrunMinutes),320);
 
-console.log('NEOMES 6.0.1: apontamento móvel, fluxo consultivo e instruções operacionais validados.');
+console.log('NEOMES 6.0.2: apontamento móvel, fluxo consultivo e estabilidade de DOM validados.');

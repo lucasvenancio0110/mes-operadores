@@ -12,7 +12,7 @@ import {
 import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=6.0.1';
 
 const layers = document.getElementById('layers');
-const VERSION = '6.0.1';
+const VERSION = '6.0.2';
 const BAR_LENGTH_MM = 3600;
 const KERF_MM = 1;
 let contextCache = new Map();
@@ -512,13 +512,21 @@ function enhanceCards() {
     const assignment=store.state.assignments[index];if(!assignment)return;
     const session=currentMachineSession(assignment.machineId);
     if(!session){
+      const signature=`empty|${assignment.machineId}|${shiftKey()}`;
+      if(card.dataset.taSignature===signature)return;
       const empty=card.querySelector('.ops-empty-machine p');
-      if(empty)empty.textContent='Busque a OP ativa, confirme a produção e informe o material disponível.';
-      const button=card.querySelector('[data-action="open-conference"]');if(button)button.textContent='Assumir máquina';
+      const emptyText='Busque a OP ativa, confirme a produção e informe o material disponível.';
+      if(empty&&empty.textContent!==emptyText)empty.textContent=emptyText;
+      const button=card.querySelector('[data-action="open-conference"]');
+      if(button&&button.textContent!=='Assumir máquina')button.textContent='Assumir máquina';
+      card.dataset.taSignature=signature;
       return;
     }
     if((!session.turnAssistantConfirmedAt||session.turnAssistantShiftKey!==shiftKey())&&!session.assistantMachineStopped){
       const machine=machineInfo(assignment.machineId);
+      const signature=['conference-pending',assignment.machineId,session.op||'',session.status||'',session.turnAssistantShiftKey||'',shiftKey()].join('|');
+      if(card.dataset.taSignature===signature&&card.querySelector('[data-ta-reconfirm]'))return;
+      card.dataset.taSignature=signature;
       card.dataset.turnAssistant='true';
       card.innerHTML=`<header class="ta-card-head"><div><h2>${escapeHtml(machine.name)}</h2><p>${escapeHtml(machine.lineName)}</p></div><span class="ta-status-pill" data-status="pointed">CONFERÊNCIA PENDENTE</span></header><section class="ta-conference-callout"><strong>Confirme esta máquina antes de usar</strong><p>O NEOMES vai buscar a OP ativa e eliminar automaticamente qualquer informação antiga deste aparelho.</p></section><footer class="ta-card-actions ta-card-actions--single"><button class="ops-btn ops-btn--primary" type="button" data-ta-reconfirm="${escapeHtml(assignment.machineId)}">Fazer conferência</button></footer>`;
       reconcileLocalSession(assignment.machineId);
@@ -706,26 +714,31 @@ function selectSingle(button, selector) {
   button.parentElement?.querySelectorAll(selector).forEach(item=>item.setAttribute('aria-pressed','false'));button.setAttribute('aria-pressed','true');
 }
 
+function claimAssistantEvent(event) {
+  event.preventDefault();
+  event.__NEOMES_ASSISTANT_HANDLED = true;
+}
+
 function intercept(event) {
   const action=event.target.closest('[data-action]')?.dataset.action;
   if(action==='open-conference'||action==='edit-conference'){
-    event.preventDefault();event.stopImmediatePropagation();openHandoff(event.target.closest('[data-action]').dataset.machineId,action==='edit-conference'?'update':'handoff');return;
+    claimAssistantEvent(event);openHandoff(event.target.closest('[data-action]').dataset.machineId,action==='edit-conference'?'update':'handoff');return;
   }
   if(action==='open-first-conference'){
-    event.preventDefault();event.stopImmediatePropagation();const first=store.state.assignments.find(item=>{const session=currentMachineSession(item.machineId);return !session||session.turnAssistantShiftKey!==shiftKey();});if(first)openHandoff(first.machineId);return;
+    claimAssistantEvent(event);const first=store.state.assignments.find(item=>{const session=currentMachineSession(item.machineId);return !session||session.turnAssistantShiftKey!==shiftKey();});if(first)openHandoff(first.machineId);return;
   }
   if(action==='close-shift'){
-    event.preventDefault();event.stopImmediatePropagation();openShiftClose();return;
+    claimAssistantEvent(event);openShiftClose();return;
   }
   if(action==='close-order'){
-    event.preventDefault();event.stopImmediatePropagation();openOrderClose(event.target.closest('[data-action]').dataset.machineId);return;
+    claimAssistantEvent(event);openOrderClose(event.target.closest('[data-action]').dataset.machineId);return;
   }
-  const update=event.target.closest('[data-ta-update]');if(update){event.preventDefault();event.stopImmediatePropagation();openHandoff(update.dataset.taUpdate,'update');return;}
-  const pointing=event.target.closest('[data-ta-point]');if(pointing){event.preventDefault();event.stopImmediatePropagation();openPointing(pointing.dataset.taPoint);return;}
-  const reconfirm=event.target.closest('[data-ta-reconfirm]');if(reconfirm){event.preventDefault();event.stopImmediatePropagation();openHandoff(reconfirm.dataset.taReconfirm,'handoff');return;}
-  const closeOrder=event.target.closest('[data-ta-close-order]');if(closeOrder){event.preventDefault();event.stopImmediatePropagation();openOrderClose(closeOrder.dataset.taCloseOrder);return;}
-  if(event.target.closest('[data-ta-close]')){event.preventDefault();event.stopImmediatePropagation();closeAssistantLayer();return;}
-  const nextMachine=event.target.closest('[data-ta-next-machine]');if(nextMachine){event.preventDefault();event.stopImmediatePropagation();openHandoff(nextMachine.dataset.taNextMachine);return;}
+  const update=event.target.closest('[data-ta-update]');if(update){claimAssistantEvent(event);openHandoff(update.dataset.taUpdate,'update');return;}
+  const pointing=event.target.closest('[data-ta-point]');if(pointing){claimAssistantEvent(event);openPointing(pointing.dataset.taPoint);return;}
+  const reconfirm=event.target.closest('[data-ta-reconfirm]');if(reconfirm){claimAssistantEvent(event);openHandoff(reconfirm.dataset.taReconfirm,'handoff');return;}
+  const closeOrder=event.target.closest('[data-ta-close-order]');if(closeOrder){claimAssistantEvent(event);openOrderClose(closeOrder.dataset.taCloseOrder);return;}
+  if(event.target.closest('[data-ta-close]')){claimAssistantEvent(event);closeAssistantLayer();return;}
+  const nextMachine=event.target.closest('[data-ta-next-machine]');if(nextMachine){claimAssistantEvent(event);openHandoff(nextMachine.dataset.taNextMachine);return;}
   const feeder=event.target.closest('[data-ta-feeder-value]');if(feeder){const input=feeder.closest('form')?.elements.feederBars;if(input){input.value=feeder.dataset.taFeederValue;input.dispatchEvent(new Event('input',{ bubbles:true }));}return;}
   if(event.target.closest('[data-ta-feeder-minus]'))return handleStepper(event.target.closest('[data-ta-feeder-minus]'),-1,'[name="feederBars"]');
   if(event.target.closest('[data-ta-feeder-plus]'))return handleStepper(event.target.closest('[data-ta-feeder-plus]'),1,'[name="feederBars"]');
@@ -772,18 +785,24 @@ function submitAssistantForm(form) {
 bindAssistantSubmit(document,submitAssistantForm);
 document.addEventListener('submit',event=>{
   if(!isAssistantForm(event.target))return;
-  event.preventDefault();event.stopImmediatePropagation();submitAssistantForm(event.target);
+  claimAssistantEvent(event);submitAssistantForm(event.target);
 },true);
 
 function schedule() {
-  cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
-    enhanceCards();
-    const oldConference=document.getElementById('conferenceLayer');
-    if(oldConference&&!oldConference.dataset.turnAssistant&&!observerBusy&&authReady()){
-      observerBusy=true;const machineId=store.state.activeMachineId;queueMicrotask(async()=>{try{await openHandoff(machineId);}finally{observerBusy=false;}});
-    }
-  });
+  cancelAnimationFrame(frame);
+  frame=requestAnimationFrame(enhanceCards);
 }
-new MutationObserver(schedule).observe(document.body,{ childList:true,subtree:true });
-store.subscribe(schedule);
+function scheduleLegacyConference() {
+  const oldConference=document.getElementById('conferenceLayer');
+  if(oldConference&&!oldConference.dataset.turnAssistant&&!observerBusy&&authReady()){
+    observerBusy=true;
+    const machineId=store.state.activeMachineId;
+    queueMicrotask(async()=>{try{await openHandoff(machineId);}finally{observerBusy=false;}});
+  }
+}
+const appRoot=document.getElementById('app');
+if(appRoot)new MutationObserver(schedule).observe(appRoot,{ childList:true,subtree:true });
+if(layers)new MutationObserver(scheduleLegacyConference).observe(layers,{ childList:true,subtree:true });
+store.subscribe((_state,reason)=>{ if(reason!=='ta-active-machine')schedule(); });
 schedule();
+scheduleLegacyConference();

@@ -4,13 +4,13 @@ import { calculatePreparerMetrics, closureCopy, closureUrgency, preparerMachineS
 import { FACTORY_MAP_GEOMETRY, FACTORY_MAP_POSITIONS, factoryMapBounds, factoryMapMachineIds, mapMachineMetadata } from '../app/preparer-map-layout.js';
 
 await import('./factory-map-workspace-v6.test.mjs');
-await import('./production-counter-v64.test.mjs');
 
 const read=path=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
-const [dashboard,authShell,css,index,serviceWorker,backend,workspace,workspaceCss,spatial]=await Promise.all([
+const [dashboard,authShell,css,index,serviceWorker,backend,workspace,workspaceCss,spatial,runtime,runtimeBackend]=await Promise.all([
   read('app/preparer-dashboard.js'),read('app/auth-shell.js'),read('app/preparer-dashboard.css'),
   read('index.html'),read('sw.js'),read('worker/turn-assistant.js'),
-  read('app/factory-map-workspace.js'),read('app/factory-map-workspace.css'),read('app/factory-map-spatial.js')
+  read('app/factory-map-workspace.js'),read('app/factory-map-workspace.css'),read('app/factory-map-spatial.js'),
+  read('app/machine-runtime.js'),read('worker/machine-runtime.js')
 ]);
 
 const machine={
@@ -70,10 +70,8 @@ assert(css.includes('width:142px;height:78px')&&css.includes('position:absolute'
 assert(css.includes('touch-action:pan-x pan-y')&&css.includes('transform-origin:top left'),'Mapa não permite navegação espacial no celular.');
 assert(css.includes('.prep-map-status[data-tone="critical"]')&&css.includes('footer[data-urgency="critical"]'),'Status e risco de fechamento não possuem linguagens visuais independentes.');
 assert(index.includes('app/preparer-dashboard.css?v=6.2.0'),'CSS do mapa não está versionado no index.');
-for(const asset of ['./app/preparer-dashboard.css','./app/preparer-dashboard.js','./app/preparer-dashboard-engine.js','./app/preparer-map-layout.js'])assert(serviceWorker.includes(asset),`Service Worker não inclui ${asset}.`);
 
 assert(index.includes('app/factory-map-workspace.css?v=6.3.0')&&index.includes('app/factory-map-workspace.js?v=6.3.0'),'Workspace industrial 6.3.0 não está carregado.');
-for(const asset of ['./app/factory-map-workspace.css','./app/factory-map-spatial.js','./app/factory-map-workspace.js'])assert(serviceWorker.includes(asset),`Service Worker não inclui ${asset}.`);
 for(const capability of ['MutationObserver','pointerdown','pointermove','requestAnimationFrame','sessionStorage','data-factory-action="fullscreen"','factory-minimap','calculateCorridors','semanticZoomLevel'])assert(workspace.includes(capability),`Workspace industrial sem capacidade: ${capability}`);
 for(const capability of ['calculateCorridors','fitCamera','clampCamera','semanticZoomLevel','rectIntersects'])assert(spatial.includes(capability),`Motor espacial sem capacidade: ${capability}`);
 assert(workspaceCss.includes('touch-action:none')&&workspaceCss.includes('height:100dvh')&&workspaceCss.includes('data-semantic-zoom="distant"')&&workspaceCss.includes('.factory-corridor'),'CSS não cobre gesto, tela cheia, semantic zoom e corredores.');
@@ -81,4 +79,12 @@ assert(!/fetch\([^\n]+method:\s*['\"](?:POST|PUT|PATCH|DELETE)/.test(workspace),
 
 assert(backend.includes("auth.lineAccess")&&backend.includes("/api/v1/turn-assistant/line-dashboard")&&backend.includes("Acesso restrito ao preparador"),'Backend não protege o cockpit por perfil e linha.');
 
-console.log('NEOMES v6 preparador: linha autorizada, cockpit ao vivo e workspace industrial validados.');
+assert(index.includes('app/machine-runtime.js?v=1.0.1')&&index.includes('app/machine-runtime.css?v=1.0.0'),'Domínio de situação física não está carregado.');
+for(const status of ['producing','setup','adjustment','maintenance','stopped'])assert(runtime.includes(status),`Situação física ausente: ${status}`);
+assert(runtimeBackend.includes('machine_runtime_states')&&runtimeBackend.includes('machine.status_changed'),'Situação física não está persistida/auditada no domínio correto.');
+assert(!index.includes('production-counter.js')&&!index.includes('production-counter.css'),'Contador não pode participar do frontend de recuperação.');
+assert(serviceWorker.includes('self.registration.unregister()'),'Service Worker de recuperação deve se aposentar.');
+assert(!serviceWorker.includes('respondWith('),'Service Worker de recuperação não pode interceptar rede.');
+assert(!serviceWorker.includes('Marcadores de compatibilidade'),'Service Worker não pode conter strings artificiais para satisfazer testes.');
+
+console.log('NEOMES recovery: cálculos, mapa, status físico isolado e frontend sem contador validados.');

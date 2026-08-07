@@ -1,0 +1,106 @@
+name: Apply Single Hydration Fix
+
+on:
+  push:
+    branches:
+      - agent/neomes-architecture-recovery
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/neomes-architecture-recovery
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Aplicar hidratação única do operador
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path, old, new):
+              p=Path(path); text=p.read_text()
+              if old not in text:
+                  raise SystemExit(f'Bloco esperado não encontrado em {path}')
+              p.write_text(text.replace(old,new,1))
+
+          replace_exact('app/operator-main.js',
+          """const NON_RENDERING_STORE_REASONS = new Set([
+  'conference-draft','sync','sync-error','queue','queue-flush','ui-normalize',
+  'cloud-events','cloud-machine-states','machine-runtime-status'
+]);
+function storeReasonOwnsRendering(reason) {
+  const value=String(reason || '');
+  return NON_RENDERING_STORE_REASONS.has(value) || value.startsWith('ta-') || value.startsWith('turn-assistant-');
+}
+store.subscribe((_state, reason) => {
+  if (!storeReasonOwnsRendering(reason)) render();
+});""",
+          """const NON_RENDERING_STORE_REASONS = new Set([
+  'conference-draft','sync','sync-error','queue','queue-flush','ui-normalize',
+  'cloud-events','cloud-machine-states','machine-runtime-status'
+]);
+let bootHydrating=true;
+function storeReasonOwnsRendering(reason) {
+  const value=String(reason || '');
+  return bootHydrating || NON_RENDERING_STORE_REASONS.has(value) || value.startsWith('ta-') || value.startsWith('turn-assistant-');
+}
+store.subscribe((_state, reason) => {
+  if (!storeReasonOwnsRendering(reason)) render();
+});""")
+
+          replace_exact('app/operator-main.js',
+          """async function start() {
+  store.update(state => {
+    state.ui ||= {};
+    if (!ROUTES.has(state.ui.route)) state.ui.route = 'turn';
+    state.ui.historyPeriod ||= 'today';
+  }, 'ui-normalize');
+  render();
+  if (API_BASE) {
+    await Promise.allSettled([loadCloudCatalog(), loadCloudRecords()]);
+  }
+  if (!store.state.session) return loginSheet();
+  await loadAssignments();
+  render();
+  if (!store.state.assignments.length) openAssignments();
+}
+
+start();""",
+          """async function start() {
+  try {
+    store.update(state => {
+      state.ui ||= {};
+      if (!ROUTES.has(state.ui.route)) state.ui.route = 'turn';
+      state.ui.historyPeriod ||= 'today';
+    }, 'ui-normalize');
+    if (API_BASE) await Promise.allSettled([loadCloudCatalog(), loadCloudRecords()]);
+    if (store.state.session) await loadAssignments();
+  } finally {
+    bootHydrating=false;
+    render();
+  }
+  if (!store.state.session) return loginSheet();
+  if (!store.state.assignments.length) openAssignments();
+}
+
+start();""")
+
+          replace_exact('app/auth-shell.js',"await import('./operator-main.js');","await import('./operator-main.js?v=6.2.1');")
+          PY
+          node --check app/operator-main.js
+          node --check app/auth-shell.js
+      - name: Commitar
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/operator-main.js app/auth-shell.js
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: hidrata painel uma vez antes de renderizar"
+          git push origin HEAD:agent/neomes-architecture-recovery

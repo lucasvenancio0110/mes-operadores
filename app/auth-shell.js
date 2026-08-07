@@ -124,6 +124,18 @@ async function setOperationalSession(user, offline = false) {
   },'secure-auth');
 }
 
+async function importOperationalEnhancement(modulePath) {
+  try {
+    await import(modulePath);
+    return { modulePath,status:'loaded' };
+  } catch (error) {
+    const detail={ modulePath,status:'failed',message:error?.message || String(error) };
+    console.error('[NEOMES MODULE BOOT]',detail,error);
+    window.dispatchEvent(new CustomEvent('neomes:module-error',{ detail }));
+    return detail;
+  }
+}
+
 async function loadOperationalApp(user, offline = false) {
   currentAuth = { user, offline };
   window.NEOMES_AUTH = currentAuth;
@@ -132,18 +144,30 @@ async function loadOperationalApp(user, offline = false) {
     await import('./preparer-dashboard.js');
     return;
   }
+
+  // O shell do operador é P0: sem ele não existe aplicação operacional.
   await import('./operator-main.js');
-  await import('./cloud-state.js');
-  await import('./exports.js');
-  await import('./premium-runtime.js');
-  await import('./production-planning.js');
-  await import('./measurement-plan.js');
-  await import('./conference-ux.js');
-  await import('./shift-performance.js');
-  await import('./shift-time-fix.js');
-  await import('./measurement-frequency-fix.js');
-  await import('./frequency-fields-v2.js');
-  await import('./admin-ui.js');
+  const enhancements=[
+    './cloud-state.js',
+    './exports.js',
+    './premium-runtime.js',
+    './production-planning.js',
+    './measurement-plan.js',
+    './conference-ux.js',
+    './shift-performance.js',
+    './shift-time-fix.js',
+    './measurement-frequency-fix.js',
+    './frequency-fields-v2.js',
+    './admin-ui.js'
+  ];
+  const results=[];
+  for (const modulePath of enhancements) results.push(await importOperationalEnhancement(modulePath));
+  window.__NEOMES_MODULE_BOOT={
+    completedAt:new Date().toISOString(),
+    results,
+    failures:results.filter(result=>result.status==='failed')
+  };
+  window.dispatchEvent(new CustomEvent('neomes:module-boot-complete',{ detail:window.__NEOMES_MODULE_BOOT }));
 }
 
 async function login(form) {
@@ -245,7 +269,9 @@ document.addEventListener('click',event => {
     return;
   }
   if (event.target.closest('[data-action="logout"]')) {
-    event.preventDefault(); event.stopImmediatePropagation(); secureLogout();
+    event.preventDefault();
+    event.__NEOMES_AUTH_HANDLED = true;
+    secureLogout();
   }
 },true);
 
