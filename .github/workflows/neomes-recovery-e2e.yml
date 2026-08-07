@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -43,6 +45,18 @@ jobs:
 
       - name: Run mobile WebKit behavior tests
         run: npm run test:e2e
+
+      - name: Prepare exact current main worktree
+        run: |
+          git fetch origin main
+          rm -rf /tmp/neomes-main
+          git worktree add --detach /tmp/neomes-main origin/main
+
+      - name: Forensic WebKit comparison against current main
+        env:
+          NEOMES_E2E_ROOT: /tmp/neomes-main
+          NEOMES_FORENSIC_MAIN: '1'
+        run: npx playwright test tests/e2e/main-forensics.spec.mjs
 
       - name: Upload Playwright report on failure
         if: failure()
