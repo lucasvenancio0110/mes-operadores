@@ -44,6 +44,45 @@ jobs:
       - name: Run calculation and architecture regression
         run: npm run test:regression
 
+      - name: Audit remote D1 catalog and assignment integrity
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+
+          SUMMARY="$(npx --yes wrangler@4.68.0 d1 execute mes-operadores-db --remote --command "SELECT (SELECT COUNT(*) FROM production_lines WHERE active=1) AS active_lines, (SELECT COUNT(*) FROM machines WHERE active=1) AS active_machines, (SELECT COUNT(*) FROM operator_machine_assignments) AS assignments;" --json)"
+          ORPHANS="$(npx --yes wrangler@4.68.0 d1 execute mes-operadores-db --remote --command "SELECT a.machine_id AS machine_id, COUNT(*) AS uses FROM operator_machine_assignments a LEFT JOIN machines m ON m.id=a.machine_id WHERE m.id IS NULL GROUP BY a.machine_id ORDER BY uses DESC, a.machine_id LIMIT 100;" --json)"
+          SESSION_ORPHANS="$(npx --yes wrangler@4.68.0 d1 execute mes-operadores-db --remote --command "SELECT s.machine_id AS machine_id, COUNT(*) AS uses FROM shift_machine_sessions s LEFT JOIN machines m ON m.id=s.machine_id WHERE m.id IS NULL GROUP BY s.machine_id ORDER BY uses DESC, s.machine_id LIMIT 100;" --json)"
+
+          printf '%s\n' "$SUMMARY"
+          printf '%s\n' "$ORPHANS"
+          printf '%s\n' "$SESSION_ORPHANS"
+
+          node - "$SUMMARY" "$ORPHANS" "$SESSION_ORPHANS" <<'NODE'
+          const [summaryRaw,orphansRaw,sessionOrphansRaw]=process.argv.slice(2);
+          const rows=raw=>{
+            const parsed=JSON.parse(raw);
+            const result=Array.isArray(parsed)?parsed[0]:parsed;
+            return result?.results || result?.result?.[0]?.results || [];
+          };
+          const summary=rows(summaryRaw)[0] || {};
+          const orphans=rows(orphansRaw);
+          const sessionOrphans=rows(sessionOrphansRaw);
+          console.log('D1 audit summary:',summary);
+          console.log('Assignment orphan machine IDs:',orphans);
+          console.log('Session orphan machine IDs:',sessionOrphans);
+          if(Number(summary.active_lines)!==10) throw new Error(`D1 possui ${summary.active_lines} linhas ativas; esperado 10.`);
+          if(Number(summary.active_machines)!==136) throw new Error(`D1 possui ${summary.active_machines} máquinas ativas; esperado 136.`);
+          if(orphans.length) throw new Error(`Existem atribuições com machine_id fora do catálogo: ${orphans.map(x=>x.machine_id).join(', ')}`);
+          if(sessionOrphans.length) throw new Error(`Existem sessões com machine_id fora do catálogo: ${sessionOrphans.map(x=>x.machine_id).join(', ')}`);
+          NODE
+
       - name: Install WebKit
         run: npx playwright install --with-deps webkit
 
