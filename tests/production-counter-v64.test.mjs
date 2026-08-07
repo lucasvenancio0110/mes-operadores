@@ -41,7 +41,7 @@ for(const token of ['./app/production-counter-engine.js','./app/production-count
 for(const token of ['machine_counter_sessions','machine_counter_intervals','machine_history_events','conference.counter_started','machine.status_changed','order.data_changed'])assert(worker.includes(token),`Backend sem ${token}`);
 for(const token of ['handleProductionCounter','productionCounterHealth','/api/v1/auth/production-counter-health'])assert(secureMain.includes(token),`Worker seguro sem integração: ${token}`);
 for(const token of ['initialShiftPieces','CONTADOR ESTIMADO','Editar dados','Histórico da máquina','setInterval(renderPanels,1000)','15000'])assert(ui.includes(token),`UI sem ${token}`);
-for(const token of ["document.querySelectorAll('.ops-machine-card')","ensureCounterPanel(card,machineId,'card')","pendingConferences.set(machineId)","store.subscribe((_state,reason)=>"])assert(ui.includes(token),`Contador não integrado ao card principal: ${token}`);
+for(const token of ["document.querySelectorAll('.ops-machine-card')","ensureCounterPanel(card,machineId,'card')","pendingConferences.set(machineId,","store.subscribe((_state,reason)=>"])assert(ui.includes(token),`Contador não integrado ao card principal: ${token}`);
 assert(!ui.includes('document.body.contains(form)'),'Conferência não pode ser descartada enquanto o formulário ainda estiver no DOM.');
 assert(!ui.includes('setTimeout(()=>registerConference'),'Inicialização do contador não pode depender de timeout arbitrário.');
 for(const token of ['neomes-live-counter','neomes-counter-status-actions','neomes-counter-modal'])assert(css.includes(token),`CSS sem ${token}`);
