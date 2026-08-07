@@ -27,21 +27,20 @@ assert.equal(halfCycle.estimatedRemainingSeconds,17940,'ETA deve descontar o min
 
 assert.deepEqual(auditDiff({cycleSeconds:90,op:'1'},{cycleSeconds:95,op:'1'},['cycleSeconds','op']),[{field:'cycleSeconds',before:90,after:95}]);
 
-const [index,sw,worker,secureMain,ui,css,wrangler]=await Promise.all([
+const [index,sw,worker,secureMain,ui,wrangler]=await Promise.all([
   readFile(new URL('../index.html',import.meta.url),'utf8'),
   readFile(new URL('../sw.js',import.meta.url),'utf8'),
   readFile(new URL('../worker/production-counter.js',import.meta.url),'utf8'),
   readFile(new URL('../worker/secure-main.js',import.meta.url),'utf8'),
   readFile(new URL('../app/production-counter.js',import.meta.url),'utf8'),
-  readFile(new URL('../app/production-counter.css',import.meta.url),'utf8'),
   readFile(new URL('../wrangler.jsonc',import.meta.url),'utf8')
 ]);
 for(const token of ['production-counter.css?v=6.4.0','production-counter.js?v=6.4.0'])assert(index.includes(token),`Index sem ${token}`);
 for(const token of ['./app/production-counter-engine.js','./app/production-counter.js','./app/production-counter.css'])assert(sw.includes(token),`PWA sem ${token}`);
-for(const token of ['machine_counter_sessions','machine_counter_intervals','machine_history_events','conference.counter_started','machine.status_changed','order.data_changed'])assert(worker.includes(token),`Backend sem ${token}`);
+for(const token of ['machine_counter_sessions','machine_counter_intervals','conference.counter_started'])assert(worker.includes(token),`Backend sem ${token}`);
 for(const token of ['handleProductionCounter','productionCounterHealth','/api/v1/auth/production-counter-health'])assert(secureMain.includes(token),`Worker seguro sem integração: ${token}`);
-for(const token of ['initialShiftPieces','CONTADOR ESTIMADO','Editar dados','Histórico da máquina','setInterval(renderPanels,1000)','15000'])assert(ui.includes(token),`UI sem ${token}`);
-for(const token of ['neomes-live-counter','neomes-counter-status-actions','neomes-counter-modal'])assert(css.includes(token),`CSS sem ${token}`);
+for(const token of ['initialShiftPieces','Contador do turno','Tempo restante','.ta-forecast-time','.ops-machine-card','pendingConferences.set','turnAssistantConfirmedAt','setInterval(renderMachineCards,1000)','15000'])assert(ui.includes(token),`UI mínima sem ${token}`);
+for(const forbidden of ['neomes-live-counter','data-counter-status-set','Editar dados','Histórico da máquina'])assert(!ui.includes(forbidden),`Card não pode reintroduzir UI extra: ${forbidden}`);
 assert(wrangler.includes('worker/secure-main.js'),'Wrangler deve preservar o entrypoint seguro oficial.');
 
-console.log('NEOMES 6.4: contador estimado, pausa por status, retomada, ETA e histórico auditável validados.');
+console.log('NEOMES 6.4 mínimo: card original, contador do turno e tempo restante dinâmico validados.');
