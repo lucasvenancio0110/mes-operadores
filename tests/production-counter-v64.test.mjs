@@ -22,7 +22,7 @@ for(const forbidden of ['production-counter.js','production-counter.css']){
   assert(!sw.includes(`./app/${forbidden}`),`Service Worker de recuperação não pode armazenar ${forbidden}.`);
 }
 
-assert(sw.includes("const VERSION = 'neomes-recovery-pre-counter-20260807-v1'"),'Cache de recuperação deve possuir identidade nova.');
+assert(sw.includes("const VERSION = 'neomes-v6.2.0-factory-floor-layout-recovery-20260807-v1'"),'Cache de recuperação deve possuir identidade nova preservando o contrato 6.2.0.');
 assert(sw.includes('keys.filter(key => ![STATIC_CACHE, RUNTIME_CACHE].includes(key)).map(key => caches.delete(key))'),'Ativação deve apagar caches antigos da PWA.');
 assert(sw.includes('self.skipWaiting()')&&sw.includes('self.clients.claim()'),'Service Worker de recuperação deve assumir o controle sem aguardar versão antiga.');
 for(const asset of ['./app/turn-assistant.js','./app/preparer-dashboard.js','./app/factory-map-workspace.js','./app/auth-shell.js'])assert(sw.includes(asset),`PWA de recuperação sem asset operacional: ${asset}`);
