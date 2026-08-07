@@ -34,7 +34,7 @@ assert(assistant.includes('Confira novamente antes de continuar'),'Reconferênci
 assert(assistant.includes('release.turnPiece'),'Liberações após reconferência não usam a produção acumulada no turno.');
 
 assert(index.includes('app/auth-shell.js?v=6.2.0'));
-assert(index.includes('app/turn-assistant.js?v=6.0.1'));
+assert(index.includes('app/turn-assistant.js?v=6.0.2'));
 assert(serviceWorker.includes('self.registration.unregister()'),'Service Worker de recuperação deve se aposentar.');
 assert(!serviceWorker.includes('respondWith('),'Fluxo do operador não pode depender de cache antigo durante a recuperação.');
 
