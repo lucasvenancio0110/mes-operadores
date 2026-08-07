@@ -108,15 +108,31 @@ test('geometria física, corredores e posições especiais',async({page},testInf
   expect(boxes['tnl-024'].top).toBeLessThan(boxes['tnl-130'].top);
   expect(boxes['tnl-130'].left).toBeGreaterThan(boxes['tnl-024'].left);
 
-  const viewportHeight=await page.locator('[data-map-viewport]').evaluate(element=>element.getBoundingClientRect().height);
+  const viewport=page.locator('[data-map-viewport]');
+  const viewportRect=await viewport.boundingBox();
+  const viewportHeight=viewportRect?.height || 0;
   const isMobile=testInfo.project.name.startsWith('webkit-');
   if(isMobile){
     expect(viewportHeight).toBeGreaterThanOrEqual(420);
     expect(viewportHeight).toBeLessThan(760);
   }else{
-    expect(viewportHeight).toBeGreaterThanOrEqual(1070);
+    expect(viewportHeight).toBeGreaterThanOrEqual(1440);
     const pageHeight=await page.evaluate(()=>document.documentElement.scrollHeight);
     expect(pageHeight).toBeGreaterThan(testInfo.project.use.viewport.height);
+
+    // Depois do Ajustar inicial, a planta inteira precisa caber dentro da área
+    // rolável do mapa no desktop. Isso impede que a região da 130/139 suma abaixo.
+    const renderedMachines=await page.locator('.prep-map-machine').evaluateAll(elements=>elements.map(element=>{
+      const rect=element.getBoundingClientRect();
+      return { id:element.dataset.mapMachine,left:rect.left,top:rect.top,right:rect.right,bottom:rect.bottom };
+    }));
+    const tolerance=4;
+    for(const machine of renderedMachines){
+      expect(machine.left,`${machine.id} saiu pela esquerda`).toBeGreaterThanOrEqual((viewportRect?.x || 0)-tolerance);
+      expect(machine.top,`${machine.id} saiu por cima`).toBeGreaterThanOrEqual((viewportRect?.y || 0)-tolerance);
+      expect(machine.right,`${machine.id} saiu pela direita`).toBeLessThanOrEqual((viewportRect?.x || 0)+(viewportRect?.width || 0)+tolerance);
+      expect(machine.bottom,`${machine.id} saiu por baixo`).toBeLessThanOrEqual((viewportRect?.y || 0)+(viewportRect?.height || 0)+tolerance);
+    }
   }
 
   await page.screenshot({ path:testInfo.outputPath('factory-map-full.png'),fullPage:true });
