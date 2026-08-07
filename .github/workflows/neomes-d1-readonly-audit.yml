@@ -1,0 +1,38 @@
+name: NEOMES D1 Readonly Audit
+
+on:
+  push:
+    branches:
+      - agent/neomes-architecture-recovery
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Auditar integridade catálogo x atribuições no D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
+
+          echo '=== CATÁLOGO ==='
+          npx --yes wrangler@4.68.0 d1 execute mes-operadores-db --remote --command "SELECT (SELECT COUNT(*) FROM production_lines WHERE active=1) AS active_lines, (SELECT COUNT(*) FROM machines WHERE active=1) AS active_machines, (SELECT COUNT(*) FROM operator_machine_assignments) AS assignments;" --json
+
+          echo '=== ATRIBUIÇÕES SEM MÁQUINA NO CATÁLOGO ==='
+          npx --yes wrangler@4.68.0 d1 execute mes-operadores-db --remote --command "SELECT a.machine_id AS machine_id, COUNT(*) AS uses FROM operator_machine_assignments a LEFT JOIN machines m ON m.id=a.machine_id WHERE m.id IS NULL GROUP BY a.machine_id ORDER BY uses DESC, a.machine_id LIMIT 100;" --json
+
+          echo '=== SESSÕES SEM MÁQUINA NO CATÁLOGO ==='
+          npx --yes wrangler@4.68.0 d1 execute mes-operadores-db --remote --command "SELECT s.machine_id AS machine_id, COUNT(*) AS uses FROM shift_machine_sessions s LEFT JOIN machines m ON m.id=s.machine_id WHERE m.id IS NULL GROUP BY s.machine_id ORDER BY uses DESC, s.machine_id LIMIT 100;" --json
+
+          echo '=== AMOSTRA DE FORMATOS DE IDs ==='
+          npx --yes wrangler@4.68.0 d1 execute mes-operadores-db --remote --command "SELECT id FROM machines WHERE active=1 ORDER BY id LIMIT 12;" --json
