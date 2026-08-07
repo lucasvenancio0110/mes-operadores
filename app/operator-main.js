@@ -1036,9 +1036,16 @@ window.addEventListener('beforeinstallprompt', event => {
   installPrompt = event;
 });
 
-const NON_RENDERING_STORE_REASONS = new Set(['conference-draft','sync','sync-error','queue','queue-flush']);
+const NON_RENDERING_STORE_REASONS = new Set([
+  'conference-draft','sync','sync-error','queue','queue-flush','ui-normalize',
+  'cloud-events','cloud-machine-states','machine-runtime-status'
+]);
+function storeReasonOwnsRendering(reason) {
+  const value=String(reason || '');
+  return NON_RENDERING_STORE_REASONS.has(value) || value.startsWith('ta-') || value.startsWith('turn-assistant-');
+}
 store.subscribe((_state, reason) => {
-  if (!NON_RENDERING_STORE_REASONS.has(reason)) render();
+  if (!storeReasonOwnsRendering(reason)) render();
 });
 
 if ('serviceWorker' in navigator) {

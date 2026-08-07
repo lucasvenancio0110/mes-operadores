@@ -12,7 +12,7 @@ import {
 import { bindAssistantSubmit, formControlValue, isAssistantForm } from './turn-assistant-submit.js?v=6.0.1';
 
 const layers = document.getElementById('layers');
-const VERSION = '6.0.1';
+const VERSION = '6.0.2';
 const BAR_LENGTH_MM = 3600;
 const KERF_MM = 1;
 let contextCache = new Map();
@@ -512,13 +512,21 @@ function enhanceCards() {
     const assignment=store.state.assignments[index];if(!assignment)return;
     const session=currentMachineSession(assignment.machineId);
     if(!session){
+      const signature=`empty|${assignment.machineId}|${shiftKey()}`;
+      if(card.dataset.taSignature===signature)return;
       const empty=card.querySelector('.ops-empty-machine p');
-      if(empty)empty.textContent='Busque a OP ativa, confirme a produção e informe o material disponível.';
-      const button=card.querySelector('[data-action="open-conference"]');if(button)button.textContent='Assumir máquina';
+      const emptyText='Busque a OP ativa, confirme a produção e informe o material disponível.';
+      if(empty&&empty.textContent!==emptyText)empty.textContent=emptyText;
+      const button=card.querySelector('[data-action="open-conference"]');
+      if(button&&button.textContent!=='Assumir máquina')button.textContent='Assumir máquina';
+      card.dataset.taSignature=signature;
       return;
     }
     if((!session.turnAssistantConfirmedAt||session.turnAssistantShiftKey!==shiftKey())&&!session.assistantMachineStopped){
       const machine=machineInfo(assignment.machineId);
+      const signature=['conference-pending',assignment.machineId,session.op||'',session.status||'',session.turnAssistantShiftKey||'',shiftKey()].join('|');
+      if(card.dataset.taSignature===signature&&card.querySelector('[data-ta-reconfirm]'))return;
+      card.dataset.taSignature=signature;
       card.dataset.turnAssistant='true';
       card.innerHTML=`<header class="ta-card-head"><div><h2>${escapeHtml(machine.name)}</h2><p>${escapeHtml(machine.lineName)}</p></div><span class="ta-status-pill" data-status="pointed">CONFERÊNCIA PENDENTE</span></header><section class="ta-conference-callout"><strong>Confirme esta máquina antes de usar</strong><p>O NEOMES vai buscar a OP ativa e eliminar automaticamente qualquer informação antiga deste aparelho.</p></section><footer class="ta-card-actions ta-card-actions--single"><button class="ops-btn ops-btn--primary" type="button" data-ta-reconfirm="${escapeHtml(assignment.machineId)}">Fazer conferência</button></footer>`;
       reconcileLocalSession(assignment.machineId);
@@ -781,14 +789,20 @@ document.addEventListener('submit',event=>{
 },true);
 
 function schedule() {
-  cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
-    enhanceCards();
-    const oldConference=document.getElementById('conferenceLayer');
-    if(oldConference&&!oldConference.dataset.turnAssistant&&!observerBusy&&authReady()){
-      observerBusy=true;const machineId=store.state.activeMachineId;queueMicrotask(async()=>{try{await openHandoff(machineId);}finally{observerBusy=false;}});
-    }
-  });
+  cancelAnimationFrame(frame);
+  frame=requestAnimationFrame(enhanceCards);
 }
-new MutationObserver(schedule).observe(document.body,{ childList:true,subtree:true });
-store.subscribe(schedule);
+function scheduleLegacyConference() {
+  const oldConference=document.getElementById('conferenceLayer');
+  if(oldConference&&!oldConference.dataset.turnAssistant&&!observerBusy&&authReady()){
+    observerBusy=true;
+    const machineId=store.state.activeMachineId;
+    queueMicrotask(async()=>{try{await openHandoff(machineId);}finally{observerBusy=false;}});
+  }
+}
+const appRoot=document.getElementById('app');
+if(appRoot)new MutationObserver(schedule).observe(appRoot,{ childList:true,subtree:true });
+if(layers)new MutationObserver(scheduleLegacyConference).observe(layers,{ childList:true,subtree:true });
+store.subscribe((_state,reason)=>{ if(reason!=='ta-active-machine')schedule(); });
 schedule();
+scheduleLegacyConference();

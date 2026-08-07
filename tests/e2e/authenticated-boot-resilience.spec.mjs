@@ -33,7 +33,7 @@ test('logout seguro tem um único dono e não dispara confirmação duplicada',a
   await installForensicApi(page);
   await page.goto('/');
   await expect(page.getByText('TNL 091',{ exact:true }).first()).toBeVisible();
-  await page.locator('[data-action="menu"]').tap();
+  await page.getByRole('button',{ name:'Abrir menu' }).first().tap();
   const logout=page.locator('[data-action="logout"]').first();
   await expect(logout).toBeVisible();
 

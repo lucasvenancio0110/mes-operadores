@@ -142,6 +142,6 @@ function schedule(){
   requestAnimationFrame(enhance);
 }
 
-new MutationObserver(schedule).observe(document.body,{ childList:true,subtree:true });
+new MutationObserver(schedule).observe(document.getElementById('app') || document.body,{ childList:true,subtree:true });
 store.subscribe(schedule);
 schedule();
