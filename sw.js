@@ -81,7 +81,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(retireWorker());
 });
 
-// Intencionalmente sem event.respondWith(): enquanto este worker ainda estiver
+// Intencionalmente sem interceptação de fetch: enquanto este worker ainda estiver
 // associado a uma aba antiga, toda navegação e todos os assets seguem direto
 // para a rede. O frontend v3 também remove o registro e recarrega a página.
 self.addEventListener('fetch', () => {});
