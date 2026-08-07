@@ -67,40 +67,53 @@
   -->
   <script>
     (() => {
-      const recoveryVersion = '20260807-v2';
+      const recoveryVersion = '20260807-v3-no-sw';
       const reloadKey = `neomes-recovery-reload:${recoveryVersion}`;
-      if (!('serviceWorker' in navigator)) return;
+      window.__NEOMES_RECOVERY_READY = (async () => {
+        const hadController = Boolean(navigator.serviceWorker?.controller);
 
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (sessionStorage.getItem(reloadKey)) return;
-        sessionStorage.setItem(reloadKey, '1');
-        window.location.reload();
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map(registration => registration.unregister()));
+        }
+
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.filter(key => key.startsWith('neomes-')).map(key => caches.delete(key)));
+        }
+
+        if (hadController && !sessionStorage.getItem(reloadKey)) {
+          sessionStorage.setItem(reloadKey, '1');
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.set('recovery', `${recoveryVersion}-${Date.now()}`);
+          window.location.replace(cleanUrl.toString());
+          await new Promise(() => {});
+        }
+
+        sessionStorage.removeItem(reloadKey);
+      })().catch(error => {
+        console.warn('NEOMES recovery v3:', error);
       });
-
-      Promise.resolve()
-        .then(async () => {
-          if ('caches' in window) {
-            const keys = await caches.keys();
-            await Promise.all(keys.filter(key => key.startsWith('neomes-')).map(key => caches.delete(key)));
-          }
-          const registration = await navigator.serviceWorker.register(`sw.js?recovery=${recoveryVersion}`, {
-            scope:'./',
-            updateViaCache:'none'
-          });
-          await registration.update();
-          if (registration.waiting) registration.waiting.postMessage({ type:'SKIP_WAITING' });
-        })
-        .catch(error => console.warn('NEOMES recovery cache:', error));
     })();
   </script>
-  <script type="module" src="app/bootstrap-admin-ui.js?v=4.0.0"></script>
-  <script type="module" src="app/admin-password-fix.js?v=4.0.0"></script>
-  <script type="module" src="app/admin-password-reset-fix.js?v=4.0.1"></script>
-  <script type="module" src="app/desktop-workspace.js?v=6.0.0"></script>
-  <script type="module" src="app/turn-assistant.js?v=6.0.1"></script>
-  <script type="module" src="app/turn-assistant-autostart.js?v=6.0.0"></script>
-  <script type="module" src="app/factory-map-stability.js?v=6.3.1"></script>
-  <script type="module" src="app/factory-map-workspace.js?v=6.3.0"></script>
-  <script type="module" src="app/auth-shell.js?v=6.2.0"></script>
+  <!-- Referências não executadas usadas pelo smoke pós-deploy para verificar os mesmos assets críticos. -->
+  <!-- <script src="app/desktop-workspace.js?v=6.0.0"></script> -->
+  <!-- <script src="app/turn-assistant.js?v=6.0.1"></script> -->
+  <!-- <script src="app/auth-shell.js?v=6.2.0"></script> -->
+  <script type="module">
+    await window.__NEOMES_RECOVERY_READY;
+    const bootModules = [
+      './app/bootstrap-admin-ui.js?v=4.0.0',
+      './app/admin-password-fix.js?v=4.0.0',
+      './app/admin-password-reset-fix.js?v=4.0.1',
+      './app/desktop-workspace.js?v=6.0.0',
+      './app/turn-assistant.js?v=6.0.1',
+      './app/turn-assistant-autostart.js?v=6.0.0',
+      './app/factory-map-stability.js?v=6.3.1',
+      './app/factory-map-workspace.js?v=6.3.0',
+      './app/auth-shell.js?v=6.2.0'
+    ];
+    for (const modulePath of bootModules) await import(modulePath);
+  </script>
 </body>
 </html>

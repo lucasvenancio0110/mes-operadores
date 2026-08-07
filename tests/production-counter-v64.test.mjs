@@ -16,26 +16,33 @@ for(const required of [
   'app/factory-map-stability.js?v=6.3.1',
   'app/factory-map-workspace.js?v=6.3.0',
   'app/auth-shell.js?v=6.2.0'
-])assert(index.includes(required),`Rollback removeu módulo operacional obrigatório: ${required}`);
+])assert(index.includes(required),`Recuperação removeu módulo operacional obrigatório: ${required}`);
 
 for(const forbidden of ['production-counter.js','production-counter.css']){
   assert(!index.includes(forbidden),`Frontend de recuperação não pode carregar ${forbidden}.`);
-  assert(!sw.includes(`./app/${forbidden}`),`Service Worker de recuperação não pode armazenar ${forbidden}.`);
 }
 
 for(const token of [
-  "const recoveryVersion = '20260807-v2'",
-  "updateViaCache:'none'",
+  "const recoveryVersion = '20260807-v3-no-sw'",
+  'navigator.serviceWorker.getRegistrations()',
+  'registration.unregister()',
   "key.startsWith('neomes-')",
-  "navigator.serviceWorker.addEventListener('controllerchange'"
-])assert(index.includes(token),`Bootstrap de recuperação incompleto: ${token}`);
+  'window.__NEOMES_RECOVERY_READY',
+  'await window.__NEOMES_RECOVERY_READY',
+  'window.location.replace'
+])assert(index.includes(token),`Bootstrap v3 incompleto: ${token}`);
 
-assert(sw.includes("const VERSION = 'neomes-v6.2.0-factory-floor-layout-recovery-20260807-v2'"),'Cache de recuperação deve possuir identidade v2 preservando o contrato 6.2.0.');
-assert(sw.includes("new Request(request, { cache:'no-store' })"),'Service Worker deve ignorar cache HTTP em navegação e assets críticos.');
-assert(sw.includes("new Request(url, { cache:'reload' })"),'App shell deve ser baixado novamente durante a instalação.');
-assert(sw.includes('keys.filter(key => ![STATIC_CACHE, RUNTIME_CACHE].includes(key)).map(key => caches.delete(key))'),'Ativação deve apagar caches antigos da PWA.');
-assert(sw.includes('self.skipWaiting()')&&sw.includes('self.clients.claim()'),'Service Worker de recuperação deve assumir o controle sem aguardar versão antiga.');
-for(const asset of ['./app/turn-assistant.js','./app/preparer-dashboard.js','./app/factory-map-workspace.js','./app/auth-shell.js'])assert(sw.includes(asset),`PWA de recuperação sem asset operacional: ${asset}`);
+assert(!index.includes('navigator.serviceWorker.register('),'Recovery v3 não pode registrar novo Service Worker.');
+assert(index.includes('for (const modulePath of bootModules) await import(modulePath)'),'Módulos operacionais devem aguardar a limpeza completa do worker antigo.');
+
+for(const token of [
+  "const VERSION = 'neomes-recovery-20260807-v3-retired-sw'",
+  'self.registration.unregister()',
+  "self.addEventListener('fetch', () => {})",
+  "event.data?.type === 'RETIRE'"
+])assert(sw.includes(token),`Service Worker aposentado incompleto: ${token}`);
+assert(!sw.includes('event.respondWith('),'Worker aposentado não pode interceptar navegação ou assets.');
+assert(!sw.includes('APP_SHELL'),'Worker aposentado não pode manter app shell em cache.');
 
 for(const token of [
   "headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')",
@@ -45,8 +52,8 @@ for(const token of [
   "path.endsWith('.css')"
 ])assert(workerIndex.includes(token),`Worker não protege contra cache antigo do navegador: ${token}`);
 
-for(const token of ['machine_counter_sessions','machine_counter_intervals','conference.counter_started'])assert(worker.includes(token),`Rollback não deve apagar dados/backend existentes: ${token}`);
+for(const token of ['machine_counter_sessions','machine_counter_intervals','conference.counter_started'])assert(worker.includes(token),`Recuperação não deve apagar dados/backend existentes: ${token}`);
 for(const token of ['handleProductionCounter','productionCounterHealth'])assert(secureMain.includes(token),`Backend dormente do contador deve permanecer íntegro: ${token}`);
 assert(wrangler.includes('worker/secure-main.js'),'Wrangler deve preservar o entrypoint seguro oficial.');
 
-console.log('NEOMES recovery v2: frontend pré-contador preservado, cache antigo eliminado e atualização forçada no Safari/PWA.');
+console.log('NEOMES recovery v3: service worker removido, caches eliminados e módulos operacionais iniciados somente após boot limpo.');
