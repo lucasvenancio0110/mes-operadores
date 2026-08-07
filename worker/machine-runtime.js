@@ -1,6 +1,7 @@
 import { authenticateRequest, canAccessMachine } from './auth.js';
 
 const ALLOWED_STATUSES = new Set(['producing','setup','adjustment','maintenance','stopped']);
+let readyPromise=null;
 
 const json = (data,status=200) => new Response(JSON.stringify(data),{
   status,
@@ -9,6 +10,29 @@ const json = (data,status=200) => new Response(JSON.stringify(data),{
 const text = value => String(value ?? '').trim();
 const nowIso = () => new Date().toISOString();
 const uid = prefix => `${prefix}-${crypto.randomUUID()}`;
+
+async function initialize(env){
+  if(!env.DB)return;
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS machine_runtime_states (
+      machine_id TEXT PRIMARY KEY,line_id TEXT NOT NULL DEFAULT '',physical_status TEXT NOT NULL DEFAULT 'producing',
+      reason TEXT NOT NULL DEFAULT '',note TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL,
+      updated_by_registration TEXT NOT NULL DEFAULT '',updated_by_name TEXT NOT NULL DEFAULT ''
+    )`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS turn_assistant_events (
+      id TEXT PRIMARY KEY,production_date TEXT NOT NULL,shift TEXT NOT NULL,machine_id TEXT NOT NULL,op_number TEXT,
+      event_type TEXT NOT NULL,operator_registration TEXT NOT NULL,operator_name TEXT NOT NULL,payload TEXT NOT NULL,
+      ip_address TEXT,user_agent TEXT,created_at TEXT NOT NULL
+    )`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_runtime_states_line ON machine_runtime_states (line_id,physical_status,updated_at DESC)'),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_turn_events_machine ON turn_assistant_events (machine_id,created_at DESC)')
+  ]);
+}
+
+async function ensureRuntimeTables(env){
+  if(!readyPromise)readyPromise=initialize(env).catch(error=>{readyPromise=null;throw error;});
+  await readyPromise;
+}
 
 function sameOrigin(request) {
   const origin=request.headers.get('Origin');
@@ -101,6 +125,7 @@ async function historyRoute(request,env,url) {
 export async function handleMachineRuntime(request,env) {
   const url=new URL(request.url);
   if(!url.pathname.startsWith('/api/v1/machine-runtime/'))return null;
+  await ensureRuntimeTables(env);
   if(url.pathname==='/api/v1/machine-runtime/status' && request.method==='POST')return statusRoute(request,env);
   if(url.pathname==='/api/v1/machine-runtime/history' && request.method==='GET')return historyRoute(request,env,url);
   return json({ error:'Rota de situação da máquina não encontrada.',code:'NOT_FOUND' },404);
