@@ -1,0 +1,82 @@
+name: Factory Map Pixi Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/factory-map-pixi-*'
+      - 'app/vendor/factory-map-pixi.bundle.js'
+      - 'app/preparer-map-layout.js'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tests/e2e/factory-map-pixi.spec.mjs'
+      - 'tests/e2e/factory-map-server.mjs'
+      - 'playwright.factory-map-pixi.config.mjs'
+      - '.github/workflows/factory-map-pixi-gate.yml'
+  push:
+    branches: ['agent/factory-map-pixi-beta']
+    paths-ignore:
+      - '.github/workflows/build-pixi-bundle-temp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: factory-map-pixi-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pixi-browser:
+    name: PixiJS GPU + navegador real
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Sintaxe e contratos clássicos
+        run: |
+          set -euo pipefail
+          node --check app/factory-map-pixi-source.js
+          node --check app/factory-map-pixi-adapter.js
+          node --check tests/e2e/factory-map-pixi.spec.mjs
+          node tests/factory-map-physical-layout.test.mjs
+          node tests/factory-map-workspace-v6.test.mjs
+          node tests/preparer-dashboard-v6.test.mjs
+
+      - name: Instalar dependências reproduzíveis
+        run: npm ci --no-audit --no-fund
+
+      - name: Recompilar e comparar bundle versionado
+        run: |
+          set -euo pipefail
+          test -f app/vendor/factory-map-pixi.bundle.js
+          npm run build:factory-map-pixi
+          node --check app/vendor/factory-map-pixi.bundle.js
+          git diff --exit-code -- app/vendor/factory-map-pixi.bundle.js
+          test -z "$(git status --porcelain -- app/vendor/factory-map-pixi.bundle.js)"
+
+      - name: Instalar Chromium e WebKit
+        run: |
+          npm install --no-save @playwright/test@1.54.2
+          npx playwright install --with-deps chromium webkit
+
+      - name: Testar mapa Pixi em desktop e iPhone WebKit
+        run: npx playwright test -c playwright.factory-map-pixi.config.mjs
+
+      - name: Publicar screenshots, traces e relatório
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: factory-map-pixi-${{ github.run_id }}
+          path: |
+            test-results/factory-map-pixi
+            playwright-report/factory-map-pixi
+          if-no-files-found: ignore
+          retention-days: 7
