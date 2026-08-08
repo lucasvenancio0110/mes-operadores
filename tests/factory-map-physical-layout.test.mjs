@@ -43,34 +43,62 @@ for(const [left,right] of [['tnl-083','tnl-072'],['tnl-072','tnl-069'],['tnl-069
 }
 assert(FACTORY_MAP_GEOMETRY.compactGap<FACTORY_MAP_GEOMETRY.aisleGap,'Gap compacto precisa ser menor que corredor.');
 
-// Corredores horizontais confirmados no bloco da 083 e entre 121/124.
-approximately(verticalGap('tnl-083','tnl-084'),FACTORY_MAP_GEOMETRY.aisleGap,0.001,'Corredor horizontal 083/084');
-approximately(verticalGap('tnl-084','tnl-086'),FACTORY_MAP_GEOMETRY.aisleGap,0.001,'Corredor horizontal 084/086');
-approximately(verticalGap('tnl-121','tnl-124'),FACTORY_MAP_GEOMETRY.aisleGap,0.001,'Corredor horizontal 121/124');
+// Bloco 086: começa ao lado da 091 e toda a fileira segue no mesmo sentido.
+assert.equal(placement('tnl-086').y,placement('tnl-091').y,'TNL 086 deve ficar alinhada verticalmente com a TNL 091.');
+approximately(horizontalGap('tnl-091','tnl-086'),FACTORY_MAP_GEOMETRY.compactGap,0.001,'TNL 091/086 lado a lado');
+for(const [left,right] of [['tnl-086','tnl-081'],['tnl-081','tnl-082'],['tnl-082','tnl-076'],['tnl-076','tnl-075']]){
+  assert.equal(placement(left).y,placement(right).y,`${left}/${right} devem permanecer na mesma fileira.`);
+  approximately(horizontalGap(left,right),FACTORY_MAP_GEOMETRY.compactGap,0.001,`Fileira da 086 ${left}/${right}`);
+}
 
-// Torres inferiores: corredores com exatamente a mesma largura.
+// Bloco 084: começa ao lado da 093 e conserva o mesmo espaçamento compacto.
+assert.equal(placement('tnl-084').y,placement('tnl-093').y,'TNL 084 deve ficar alinhada verticalmente com a TNL 093.');
+approximately(horizontalGap('tnl-093','tnl-084'),FACTORY_MAP_GEOMETRY.compactGap,0.001,'TNL 093/084 lado a lado');
+for(const [left,right] of [['tnl-084','tnl-079'],['tnl-079','tnl-077'],['tnl-077','tnl-074'],['tnl-074','tnl-073']]){
+  assert.equal(placement(left).y,placement(right).y,`${left}/${right} devem permanecer na mesma fileira.`);
+  approximately(horizontalGap(left,right),FACTORY_MAP_GEOMETRY.compactGap,0.001,`Fileira da 084 ${left}/${right}`);
+}
+
+// O bloco da 111 nasce na altura da 066, logo abaixo da 095, e segue à direita.
+assert.equal(placement('tnl-111').y,placement('tnl-066').y,'TNL 111 deve começar na mesma altura física da TNL 066.');
+assert(placement('tnl-111').y>placement('tnl-095').y,'TNL 111 deve começar abaixo da TNL 095.');
+approximately(horizontalGap('tnl-066','tnl-111'),FACTORY_MAP_GEOMETRY.compactGap,0.001,'TNL 066/111 lado a lado');
+for(const [left,right] of [['tnl-111','tnl-103'],['tnl-103','tnl-110'],['tnl-110','tnl-062'],['tnl-062','tnl-045'],['tnl-045','tnl-055'],['tnl-055','tnl-054']]){
+  assert.equal(placement(left).y,placement(right).y,`${left}/${right} devem permanecer na mesma fileira.`);
+  approximately(horizontalGap(left,right),FACTORY_MAP_GEOMETRY.compactGap,0.001,`Fileira da 111 ${left}/${right}`);
+}
+assert.equal(placement('tnl-070').x,placement('tnl-111').x,'A fileira inferior do bloco da 111 deve começar no mesmo eixo horizontal.');
+approximately(verticalGap('tnl-111','tnl-070'),FACTORY_MAP_GEOMETRY.normalGap,0.001,'Espaço entre as fileiras 111/070');
+
+// Torres inferiores e corredor horizontal 121/124 permanecem padronizados.
+approximately(verticalGap('tnl-121','tnl-124'),FACTORY_MAP_GEOMETRY.aisleGap,0.001,'Corredor horizontal 121/124');
 const aisle9697=horizontalGap('tnl-096','tnl-097');
 const aisle97100=horizontalGap('tnl-097','tnl-100');
 approximately(aisle9697,FACTORY_MAP_GEOMETRY.aisleGap,0.001,'Corredor 096/097');
 approximately(aisle97100,FACTORY_MAP_GEOMETRY.aisleGap,0.001,'Corredor 097/100');
 approximately(aisle9697,aisle97100,0.001,'Corredores inferiores padronizados');
 
-// Equipamentos especiais: célula de origem preservada, posição física corrigida.
-const p140=placement('tnl-140');const p139=placement('tnl-139');
-assert.equal(p140.cell,'S92','A origem da TNL 140 na planilha deve permanecer auditável.');
-assert.equal(p140.physicalOverride,true);
-assert.equal(p140.y,p139.y,'TNL 140 deve ficar na mesma fileira física da TNL 139.');
+// Coluna especial: 145, 144, 143, 142, 141, 140 de cima para baixo.
+const specialIds=['tnl-145','tnl-144','tnl-143','tnl-142','tnl-141','tnl-140'];
+const expectedSourceCells=['S80','S83','F23','S86','S89','S92'];
+for(let index=0;index<specialIds.length;index+=1){
+  const item=placement(specialIds[index]);
+  assert.equal(item.cell,expectedSourceCells[index],`Origem de ${specialIds[index]} deve permanecer auditável.`);
+  assert.equal(item.physicalOverride,true,`${specialIds[index]} deve usar override físico.`);
+  if(index>0){
+    assert.equal(item.x,placement(specialIds[0]).x,'Toda a coluna 145→140 deve usar o mesmo eixo horizontal.');
+    approximately(verticalGap(specialIds[index-1],specialIds[index]),FACTORY_MAP_GEOMETRY.compactGap,0.001,`Coluna especial ${specialIds[index-1]}/${specialIds[index]}`);
+  }
+}
+
+assert.equal(placement('tnl-145').y,placement('tnl-134').y,'TNL 145 deve permanecer ao lado da TNL 134.');
+approximately(horizontalGap('tnl-134','tnl-145'),FACTORY_MAP_GEOMETRY.compactGap,0.001,'TNL 134/145 lado a lado');
+assert.equal(placement('tnl-140').y,placement('tnl-139').y,'TNL 140 deve permanecer ao lado da TNL 139.');
 approximately(horizontalGap('tnl-139','tnl-140'),FACTORY_MAP_GEOMETRY.compactGap,0.001,'TNL 139/140 lado a lado');
 
-const p145=placement('tnl-145');const p134=placement('tnl-134');
-assert.equal(p145.cell,'S80','A origem provisória da TNL 145 deve permanecer auditável.');
-assert.equal(p145.physicalOverride,true);
-assert.equal(p145.y,p134.y,'TNL 145 deve ficar na mesma fileira física da TNL 134.');
-approximately(horizontalGap('tnl-134','tnl-145'),FACTORY_MAP_GEOMETRY.compactGap,0.001,'TNL 134/145 lado a lado');
-
 const milltap=placement('milltap');const discovery=placement('discovery');
-assert.equal(milltap.x,p145.x,'MILLTAP deve ficar diretamente acima da TNL 145.');
-assert(milltap.y<p145.y,'MILLTAP deve ficar acima da TNL 145.');
+assert.equal(milltap.x,placement('tnl-145').x,'MILLTAP deve ficar diretamente acima da TNL 145.');
+assert(milltap.y<placement('tnl-145').y,'MILLTAP deve ficar acima da TNL 145.');
 assert.equal(discovery.y,milltap.y,'DISCOVERY deve ficar na mesma fileira da MILLTAP.');
 approximately(horizontalGap('milltap','discovery'),FACTORY_MAP_GEOMETRY.compactGap,0.001,'MILLTAP/DISCOVERY lado a lado');
 
@@ -89,4 +117,4 @@ const bounds=factoryMapBounds();
 assert(bounds.width>=2400&&bounds.width<=2600,`Largura física inesperada: ${bounds.width}px`);
 assert(bounds.height>=2850&&bounds.height<=3050,`Altura física inesperada: ${bounds.height}px`);
 
-console.log(`Mapa físico validado: ${bounds.width}x${bounds.height}px, corredor=${FACTORY_MAP_GEOMETRY.aisleGap}px, compacto=${FACTORY_MAP_GEOMETRY.compactGap}px.`);
+console.log(`Mapa físico validado: ${bounds.width}x${bounds.height}px; blocos 086/084/111 alinhados; coluna 145→140 validada.`);
