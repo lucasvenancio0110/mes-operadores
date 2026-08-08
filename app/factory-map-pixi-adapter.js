@@ -128,9 +128,7 @@ async function mountPixi(){
     if(search&&descriptors.length===1)controller.focus(descriptors[0].id);
   }catch(error){
     console.error('NEOMES Pixi renderer:',error);
-    host.innerHTML='<div class="factory-pixi-error"><div><strong>Mapa Pixi indisponível</strong><br><span>O mapa clássico foi preservado. Toque em “Clássico” para continuar.</span></div></div>';
-    activeFloor.classList.remove('factory-renderer-pixi');
-    preference='classic';persist();updateSwitch();
+    preference='classic';persist();updateSwitch();destroyPixi();
   }
 }
 
