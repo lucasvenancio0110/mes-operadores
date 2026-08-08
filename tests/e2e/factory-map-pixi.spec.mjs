@@ -68,61 +68,86 @@ async function boot(page){
   return { pageErrors,consoleErrors };
 }
 
-async function activatePixi(page){
-  await page.locator('[data-factory-renderer="pixi"]').click();
+async function expectPixiReady(page){
   await expect(page.locator('.factory-workspace')).toHaveClass(/factory-renderer-pixi/);
   await expect(page.locator('.factory-pixi-canvas')).toBeVisible();
-  await expect.poll(()=>page.evaluate(()=>Boolean(window.NEOMES_FACTORY_PIXI?.ready)),{ timeout:12000 }).toBe(true);
-  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.machineCount||0)).toBe(136);
-  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.visibleMachineCount||0)).toBe(136);
-  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.highlightedMachineCount||0)).toBe(0);
+  await expect.poll(()=>page.evaluate(()=>Boolean(window.NEOMES_FACTORY_PIXI?.ready)),{ timeout:15000 }).toBe(true);
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.machineCount||0),{ timeout:15000 }).toBe(136);
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.visibleMachineCount||0),{ timeout:15000 }).toBe(136);
   await expect(page.locator('.factory-pixi-error')).toHaveCount(0);
 }
 
-test('Pixi GPU monta as 136 máquinas, navega, dá zoom e abre detalhe real',async({page},testInfo)=>{
+async function activatePixi(page){
+  await page.locator('[data-factory-renderer="pixi"]').click();
+  await expectPixiReady(page);
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.highlightedMachineCount||0)).toBe(0);
+}
+
+async function canvasGeometry(page){
+  await expectPixiReady(page);
+  const canvas=page.locator('.factory-pixi-canvas');
+  const box=await canvas.boundingBox();
+  expect(box?.width||0).toBeGreaterThan(250);
+  expect(box?.height||0).toBeGreaterThan(400);
+  return { canvas,box };
+}
+
+async function projectedPoint(page,id){
+  await expectPixiReady(page);
+  const { box }=await canvasGeometry(page);
+  const point=await page.evaluate(machineId=>window.NEOMES_FACTORY_PIXI.project(machineId),id);
+  expect(point).toBeTruthy();
+  expect(point.x).toBeGreaterThan(0);expect(point.y).toBeGreaterThan(0);
+  expect(point.x).toBeLessThan(box.width);expect(point.y).toBeLessThan(box.height);
+  return { point,box };
+}
+
+test('Pixi GPU preserva câmera no refresh, navega, dá zoom e abre detalhe real',async({page},testInfo)=>{
   const errors=await boot(page);
   await activatePixi(page);
 
-  const canvas=page.locator('.factory-pixi-canvas');
-  const canvasBox=await canvas.boundingBox();
-  expect(canvasBox?.width||0).toBeGreaterThan(250);
-  expect(canvasBox?.height||0).toBeGreaterThan(400);
-
-  const beforeScale=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.ready ? Number(document.querySelector('[data-pixi-scale]')?.value?.replace('%','')) : 0);
-  await page.locator('[data-pixi-action="in"]').click();
-  await page.waitForTimeout(320);
-  const afterScale=await page.evaluate(()=>Number(document.querySelector('[data-pixi-scale]')?.value?.replace('%',''))||0);
-  expect(afterScale).toBeGreaterThan(beforeScale);
-
   await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.focus('tnl-024'));
-  await page.waitForTimeout(220);
-  const point=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.project('tnl-024'));
-  expect(point).toBeTruthy();
-  expect(point.x).toBeGreaterThan(0);expect(point.y).toBeGreaterThan(0);
-  expect(point.x).toBeLessThan(canvasBox.width);expect(point.y).toBeLessThan(canvasBox.height);
-  await page.mouse.click(canvasBox.x+point.x,canvasBox.y+point.y);
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.scale||0)).toBeGreaterThan(.85);
+  const beforeScale=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.scale);
+  await page.locator('[data-pixi-action="in"]').click();
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.scale||0)).toBeGreaterThan(beforeScale+.03);
+
+  const cameraBeforeRefresh=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.camera);
+  await page.locator('#prepRefresh').click();
+  await expect(page.locator('#prepRefresh')).toHaveText('Atualizar agora');
+  await expectPixiReady(page);
+  const cameraAfterRefresh=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.camera);
+  expect(Math.abs(cameraAfterRefresh.scale-cameraBeforeRefresh.scale)).toBeLessThan(.03);
+  expect(Math.hypot(cameraAfterRefresh.center.x-cameraBeforeRefresh.center.x,cameraAfterRefresh.center.y-cameraBeforeRefresh.center.y)).toBeLessThan(12);
+
+  const first=await projectedPoint(page,'tnl-024');
+  await page.mouse.click(first.box.x+first.point.x,first.box.y+first.point.y);
   await expect(page.locator('#prepDetailLayer')).toHaveClass(/is-open/);
   await expect(page.locator('#prepDetailTitle')).toContainText('TNL 024');
   await page.locator('#prepDetailContent [data-detail-close]').click();
 
+  await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.focus('tnl-091'));
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.scale||0)).toBeGreaterThan(.85);
   const beforePan=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.project('tnl-091'));
-  await page.mouse.move(canvasBox.x+canvasBox.width*.62,canvasBox.y+canvasBox.height*.55);
+  const current=await canvasGeometry(page);
+  await page.mouse.move(current.box.x+current.box.width*.62,current.box.y+current.box.height*.55);
   await page.mouse.down();
-  await page.mouse.move(canvasBox.x+canvasBox.width*.42,canvasBox.y+canvasBox.height*.4,{ steps:8 });
+  await page.mouse.move(current.box.x+current.box.width*.42,current.box.y+current.box.height*.4,{ steps:8 });
   await page.mouse.up();
-  await page.waitForTimeout(220);
-  const afterPan=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.project('tnl-091'));
-  expect(Math.abs(afterPan.x-beforePan.x)+Math.abs(afterPan.y-beforePan.y)).toBeGreaterThan(20);
+  await expect.poll(async()=>{
+    const after=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.project('tnl-091'));
+    return Math.abs(after.x-beforePan.x)+Math.abs(after.y-beforePan.y);
+  }).toBeGreaterThan(20);
 
   await page.locator('[data-pixi-action="fit"]').click();
-  await page.waitForTimeout(220);
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.scale||0)).toBeGreaterThan(0);
   await page.screenshot({ path:testInfo.outputPath('factory-map-pixi.png'),fullPage:true });
 
   expect(errors.pageErrors).toEqual([]);
   expect(errors.consoleErrors).toEqual([]);
 });
 
-test('Pixi acompanha busca/destaque e volta ao mapa clássico sem perder funcionalidade',async({page})=>{
+test('Pixi acompanha busca, abre resultado único e volta ao mapa clássico',async({page})=>{
   const errors=await boot(page);
   await activatePixi(page);
 
@@ -133,10 +158,12 @@ test('Pixi acompanha busca/destaque e volta ao mapa clássico sem perder funcion
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.machineCount||0),{ timeout:12000 }).toBe(136);
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.visibleMachineCount||0),{ timeout:12000 }).toBe(136);
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.highlightedMachineCount||0),{ timeout:12000 }).toBe(1);
-  const canvasBox=await page.locator('.factory-pixi-canvas').boundingBox();
-  const point=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.project('tnl-091'));
-  expect(point.x).toBeGreaterThan(0);expect(point.y).toBeGreaterThan(0);
-  expect(point.x).toBeLessThan(canvasBox.width);expect(point.y).toBeLessThan(canvasBox.height);
+  await expect(page.locator('#prepDetailLayer')).toHaveClass(/is-open/);
+  await expect(page.locator('#prepDetailTitle')).toContainText('TNL 091');
+  await page.locator('#prepDetailContent [data-detail-close]').click();
+
+  const located=await projectedPoint(page,'tnl-091');
+  expect(located.point.x).toBeLessThan(located.box.width);
 
   await search.fill('');
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.highlightedMachineCount||0),{ timeout:12000 }).toBe(0);
