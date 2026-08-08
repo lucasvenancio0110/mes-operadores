@@ -93,14 +93,35 @@ jobs:
           BETA_URL: ${{ steps.publish.outputs.url }}
         run: |
           set -euo pipefail
-          HEALTH="$(curl --fail --silent --show-error "$BETA_URL/health")"
+
+          HEALTH=''
+          for attempt in $(seq 1 12); do
+            STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/health.json" -w '%{http_code}' "$BETA_URL/health" || true)"
+            if [ "$STATUS" = "200" ]; then
+              HEALTH="$(cat "$RUNNER_TEMP/health.json")"
+              break
+            fi
+            echo "Aguardando propagação do Worker BETA (tentativa $attempt/12, HTTP ${STATUS:-erro})..."
+            sleep 2
+          done
+          test -n "$HEALTH" || { echo 'Health do preview não ficou disponível.'; cat "$RUNNER_TEMP/health.json" 2>/dev/null || true; exit 1; }
           node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok || x.service!=="neomes-pixi-beta" || x.mode!=="read-only-preview") process.exit(1)' "$HEALTH"
-          INDEX="$(curl --fail --silent --show-error "$BETA_URL/")"
+
+          INDEX=''
+          for attempt in $(seq 1 6); do
+            STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/index.html" -w '%{http_code}' "$BETA_URL/" || true)"
+            if [ "$STATUS" = "200" ]; then
+              INDEX="$(cat "$RUNNER_TEMP/index.html")"
+              break
+            fi
+            sleep 2
+          done
+          test -n "$INDEX"
           printf '%s' "$INDEX" | grep -q 'factory-map-pixi-adapter.js'
           printf '%s' "$INDEX" | grep -q 'PIXI BETA'
 
-          STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/write-block.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/machine-states" -H 'Content-Type: application/json' --data '{}')"
-          test "$STATUS" = "423"
+          WRITE_STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/write-block.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/machine-states" -H 'Content-Type: application/json' --data '{}')"
+          test "$WRITE_STATUS" = "423"
           node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.code!=="BETA_READ_ONLY") process.exit(1)' "$RUNNER_TEMP/write-block.json"
 
       - name: Resumo
