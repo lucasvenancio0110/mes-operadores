@@ -81,6 +81,14 @@ function ensureSwitch(){
   activeControls=switcher;updateSwitch();
 }
 
+function runPixiAction(action){
+  if(preference!=='pixi'||!controller)return;
+  if(action==='fit')controller.fit();
+  if(action==='in')controller.zoomIn();
+  if(action==='out')controller.zoomOut();
+  updateScale(controller.scale);
+}
+
 function createHost(){
   let host=activeViewport.querySelector('.factory-pixi-host');
   if(!host){
@@ -93,6 +101,14 @@ function createHost(){
   if(!controls){
     controls=document.createElement('div');controls.className='factory-pixi-controls';
     controls.innerHTML='<button type="button" data-pixi-action="out" aria-label="Diminuir zoom">−</button><button type="button" data-pixi-action="fit">Ajustar</button><output data-pixi-scale>--%</output><button type="button" data-pixi-action="in" aria-label="Aumentar zoom">+</button>';
+    const stopControlPointer=event=>event.stopPropagation();
+    for(const type of ['pointerdown','pointermove','pointerup','pointercancel','wheel'])controls.addEventListener(type,stopControlPointer);
+    controls.addEventListener('click',event=>{
+      const button=event.target.closest('[data-pixi-action]');
+      if(!button)return;
+      event.preventDefault();event.stopPropagation();
+      runPixiAction(button.dataset.pixiAction);
+    });
     activeViewport.append(controls);
   }
   if(!activeViewport.querySelector('.factory-pixi-badge')){
@@ -170,12 +186,7 @@ if(app)appObserver.observe(app,{ childList:true,subtree:true });
 
 document.addEventListener('click',event=>{
   const renderer=event.target.closest('[data-factory-renderer]');
-  if(renderer){event.preventDefault();setPreference(renderer.dataset.factoryRenderer);return;}
-  if(preference!=='pixi'||!controller)return;
-  const action=event.target.closest('[data-pixi-action]')?.dataset.pixiAction;
-  if(action==='fit')controller.fit();
-  if(action==='in')controller.zoomIn();
-  if(action==='out')controller.zoomOut();
+  if(renderer){event.preventDefault();setPreference(renderer.dataset.factoryRenderer);}
 });
 
 document.addEventListener('input',event=>{
@@ -190,6 +201,7 @@ window.NEOMES_FACTORY_PIXI={
   get machineCount(){return controller?.machineCount||0;},
   get visibleMachineCount(){return controller?.visibleMachineCount||0;},
   get highlightedMachineCount(){return controller?.highlightedMachineCount||0;},
+  get scale(){return Number(controller?.scale||0);},
   project(id){return controller?.project?.(id)||null;},
   focus(id){return controller?.focus?.(id)||false;},
   fit(){return controller?.fit?.();}
