@@ -1,7 +1,7 @@
 # Código e configuração do Worker
 worker/**
 migrations/**
-wrangler.jsonc
+wrangler*.jsonc
 .wrangler/**
 
 # Automação, testes e metadados internos

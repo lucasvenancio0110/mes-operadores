@@ -1,0 +1,158 @@
+name: Deploy NEOMES Pixi BETA
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: neomes-pixi-beta-cloudflare-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-beta:
+    name: Publicar preview Pixi somente leitura
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    steps:
+      - name: Baixar branch BETA
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          fetch-depth: 0
+
+      - name: Confirmar commit da BETA
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validar preview e renderer
+        run: |
+          set -euo pipefail
+          node --check worker/beta-preview.js
+          node --check app/factory-map-pixi-adapter.js
+          node --check app/factory-map-pixi-source.js
+          test -s app/vendor/factory-map-pixi.bundle.js
+          test -f wrangler.beta.jsonc
+          node tests/factory-map-stability-v6.test.mjs
+          node tests/preparer-dashboard-v6.test.mjs
+
+      - name: Verificar Cloudflare
+        id: preflight
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
+          ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
+          test -n "$TOKEN"
+          test -n "$ACCOUNT_ID"
+          VERIFY="$(curl --fail --silent --show-error -H "Authorization: Bearer $TOKEN" https://api.cloudflare.com/client/v4/user/tokens/verify)"
+          node -e 'const x=JSON.parse(process.argv[1]); if(!x.success || x.result?.status!=="active") process.exit(1)' "$VERIFY"
+          SUBDOMAIN_RESPONSE="$(curl --fail --silent --show-error -H "Authorization: Bearer $TOKEN" "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/subdomain")"
+          SUBDOMAIN="$(node -e 'const x=JSON.parse(process.argv[1]); process.stdout.write(x.result?.subdomain || "")' "$SUBDOMAIN_RESPONSE")"
+          test -n "$SUBDOMAIN"
+          echo "subdomain=$SUBDOMAIN" >> "$GITHUB_OUTPUT"
+
+      - name: Publicar Pixi BETA
+        id: publish
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WORKERS_SUBDOMAIN: ${{ steps.preflight.outputs.subdomain }}
+        run: |
+          set -euo pipefail
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')"
+          export CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$CLOUDFLARE_ACCOUNT_ID" | tr -d '[:space:]')"
+          LOG="$RUNNER_TEMP/neomes-pixi-beta-deploy.log"
+          npx --yes wrangler@4.68.0 deploy --config wrangler.beta.jsonc 2>&1 | tee "$LOG"
+          URL="$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$LOG" | tail -n 1 || true)"
+          if [ -z "$URL" ]; then
+            URL="https://mes-operadores-pixi-beta.$WORKERS_SUBDOMAIN.workers.dev"
+          fi
+          VERSION_ID="$(grep -Eo 'Current Version ID: [A-Za-z0-9-]+' "$LOG" | awk '{print $4}' | tail -n 1 || true)"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "version_id=$VERSION_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke do preview
+        env:
+          BETA_URL: ${{ steps.publish.outputs.url }}
+        run: |
+          set -euo pipefail
+
+          HEALTH=''
+          for attempt in $(seq 1 12); do
+            STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/health.json" -w '%{http_code}' "$BETA_URL/health" || true)"
+            if [ "$STATUS" = "200" ]; then
+              HEALTH="$(cat "$RUNNER_TEMP/health.json")"
+              break
+            fi
+            echo "Aguardando propagação do Worker BETA (tentativa $attempt/12, HTTP ${STATUS:-erro})..."
+            sleep 2
+          done
+          test -n "$HEALTH" || { echo 'Health do preview não ficou disponível.'; cat "$RUNNER_TEMP/health.json" 2>/dev/null || true; exit 1; }
+          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok || x.service!=="neomes-pixi-beta" || x.mode!=="read-only-preview" || x.demoLogin!==true) process.exit(1)' "$HEALTH"
+
+          INDEX=''
+          for attempt in $(seq 1 6); do
+            STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/index.html" -w '%{http_code}' "$BETA_URL/" || true)"
+            if [ "$STATUS" = "200" ]; then
+              INDEX="$(cat "$RUNNER_TEMP/index.html")"
+              break
+            fi
+            sleep 2
+          done
+          test -n "$INDEX"
+          grep -q 'factory-map-pixi-adapter.js' "$RUNNER_TEMP/index.html"
+          grep -q 'PIXI BETA' "$RUNNER_TEMP/index.html"
+
+          WRONG_STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/login-wrong.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/auth/login" -H 'Content-Type: application/json' --data '{"registration":"9999","password":"errada"}')"
+          test "$WRONG_STATUS" = "401"
+
+          COOKIE_JAR="$RUNNER_TEMP/beta-cookie.txt"
+          LOGIN_STATUS="$(curl --silent --show-error -c "$COOKIE_JAR" -o "$RUNNER_TEMP/login.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/auth/login" -H 'Content-Type: application/json' --data '{"registration":"9999","password":"senha123456"}')"
+          test "$LOGIN_STATUS" = "200"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.user?.registration!=="9999" || x.user?.roleCode!=="preparator" || x.demoData!==true) process.exit(1)' "$RUNNER_TEMP/login.json"
+
+          ME_STATUS="$(curl --silent --show-error -b "$COOKIE_JAR" -o "$RUNNER_TEMP/me.json" -w '%{http_code}' "$BETA_URL/api/v1/auth/me")"
+          test "$ME_STATUS" = "200"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.user?.registration!=="9999") process.exit(1)' "$RUNNER_TEMP/me.json"
+
+          DASH_STATUS="$(curl --silent --show-error -b "$COOKIE_JAR" -o "$RUNNER_TEMP/dashboard.json" -w '%{http_code}' "$BETA_URL/api/v1/turn-assistant/line-dashboard?productionDate=2026-08-08&shift=1")"
+          test "$DASH_STATUS" = "200"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.demoData!==true || x.machines?.length!==136 || x.summary?.total!==136) process.exit(1)' "$RUNNER_TEMP/dashboard.json"
+
+          WRITE_STATUS="$(curl --silent --show-error -b "$COOKIE_JAR" -o "$RUNNER_TEMP/write-block.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/machine-states" -H 'Content-Type: application/json' --data '{}')"
+          test "$WRITE_STATUS" = "423"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.code!=="BETA_READ_ONLY") process.exit(1)' "$RUNNER_TEMP/write-block.json"
+
+      - name: Resumo
+        env:
+          BETA_URL: ${{ steps.publish.outputs.url }}
+          VERSION_ID: ${{ steps.publish.outputs.version_id }}
+        run: |
+          {
+            echo '## NEOMES Pixi BETA publicado'
+            echo
+            echo "- Commit: $SOURCE_SHA"
+            echo "- URL: $BETA_URL"
+            echo "- Cloudflare Version ID: ${VERSION_ID:-n/a}"
+            echo '- Login de demonstração local: matrícula 9999'
+            echo '- Dados: fictícios, 136 máquinas do layout físico'
+            echo '- Modo: preview somente leitura para operações'
+            echo '- Renderer Pixi selecionado por padrão neste ambiente'
+          } >> "$GITHUB_STEP_SUMMARY"

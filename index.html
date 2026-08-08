@@ -40,6 +40,7 @@
   <link rel="stylesheet" href="app/preparer-dashboard.css?v=6.2.0">
   <link rel="stylesheet" href="app/factory-map-workspace.css?v=6.3.0">
   <link rel="stylesheet" href="app/factory-map-physical-layout.css?v=6.4.0">
+  <link rel="stylesheet" href="app/factory-map-pixi.css?v=1.0.0">
   <link rel="stylesheet" href="app/factory-map-stability.css?v=6.3.1">
   <link rel="stylesheet" href="app/auth.css?v=6.0.0">
   <link rel="stylesheet" href="app/admin.css?v=4.0.0">
@@ -116,5 +117,6 @@
     ];
     for (const modulePath of bootModules) await import(modulePath);
   </script>
+  <script type="module" src="app/factory-map-pixi-adapter.js?v=1.0.0"></script>
 </body>
 </html>
