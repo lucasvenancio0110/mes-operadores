@@ -118,7 +118,7 @@ function semantic(nodes,scale){
   }
 }
 
-export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines,onSelect,onCamera }){
+export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines,onSelect,onCamera,initialCamera=null }){
   if(!host)throw new Error('Host Pixi não informado.');
   const app=new Application();
   await app.init({
@@ -190,14 +190,15 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
   const fitScale=()=>clamp(Math.min(host.clientWidth/worldWidth,host.clientHeight/worldHeight),.18,1);
   const setCamera=(scale,center=null)=>{
     viewport.setZoom(clamp(scale,.16,2.4),true);
-    if(center)viewport.moveCenter(center.x,center.y);
+    if(center&&Number.isFinite(Number(center.x))&&Number.isFinite(Number(center.y)))viewport.moveCenter(Number(center.x),Number(center.y));
     emitCamera();
   };
 
   sync(machines);
-  viewport.setZoom(fitScale(),false);
-  centerWorld();
-  emitCamera();
+  const restoreScale=Number(initialCamera?.scale);
+  const restoreCenter=initialCamera?.center;
+  if(restoreScale>0&&Number.isFinite(Number(restoreCenter?.x))&&Number.isFinite(Number(restoreCenter?.y)))setCamera(restoreScale,restoreCenter);
+  else{viewport.setZoom(fitScale(),false);centerWorld();emitCamera();}
 
   const tapState={ pointers:new Set(),candidate:null };
   const canvasPoint=event=>{
@@ -277,6 +278,7 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
     get visibleMachineCount(){return [...nodes.values()].filter(node=>!node.machine.hidden).length;},
     get highlightedMachineCount(){return [...nodes.values()].filter(node=>node.machine.searchHit).length;},
     get scale(){return viewport.scale.x;},
+    get camera(){return { scale:viewport.scale.x,center:{ x:viewport.center.x,y:viewport.center.y } };},
     destroy(){
       resizeObserver.disconnect();
       app.canvas.removeEventListener('pointerdown',pointerDown);
