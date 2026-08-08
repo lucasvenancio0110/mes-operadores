@@ -104,8 +104,9 @@ function syncFromDom(){
 
 async function mountPixi(){
   if(preference!=='pixi'||!activeViewport||!activeSurface||!activeFloor)return;
-  const token=++mountToken;
   destroyPixi();
+  if(preference!=='pixi'||!activeViewport||!activeSurface||!activeFloor)return;
+  const token=++mountToken;
   activeFloor.classList.add('factory-renderer-pixi');
   const host=createHost();activeHost=host;
   try{
@@ -114,12 +115,13 @@ async function mountPixi(){
     const worldWidth=number(activeSurface.dataset.baseWidth)||number(activeSurface.style.width)||1;
     const worldHeight=number(activeSurface.dataset.baseHeight)||number(activeSurface.style.height)||1;
     const machineElements=new Map([...activeSurface.querySelectorAll('[data-map-machine]')].map(element=>[element.dataset.mapMachine,element]));
-    controller=await module.mountPixiFactoryMap({
+    const mounted=await module.mountPixiFactoryMap({
       host,worldWidth,worldHeight,machines:machineDescriptors(),
       onSelect:id=>machineElements.get(id)?.click(),
       onCamera:camera=>updateScale(camera.scale)
     });
-    if(token!==mountToken){controller?.destroy?.();controller=null;return;}
+    if(token!==mountToken){mounted?.destroy?.();return;}
+    controller=mounted;
     updateScale(controller.scale);
     const search=document.getElementById('prepSearch')?.value?.trim();
     const descriptors=machineDescriptors();
