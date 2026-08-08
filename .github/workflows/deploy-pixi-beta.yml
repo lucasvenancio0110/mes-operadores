@@ -1,18 +1,17 @@
 name: Deploy NEOMES Pixi BETA
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/factory-map-pixi-beta
-    paths-ignore:
-      - deployment/pixi-beta-latest.json
+      - main
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: neomes-pixi-beta-cloudflare
+  group: neomes-pixi-beta-cloudflare-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,13 +20,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SOURCE_SHA: ${{ github.sha }}
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
     steps:
       - name: Baixar branch BETA
         uses: actions/checkout@v4
         with:
+          ref: ${{ env.SOURCE_SHA }}
           fetch-depth: 0
+
+      - name: Confirmar commit da BETA
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
 
       - name: Preparar Node.js
         uses: actions/setup-node@v4
@@ -98,35 +103,6 @@ jobs:
           test "$STATUS" = "423"
           node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.code!=="BETA_READ_ONLY") process.exit(1)' "$RUNNER_TEMP/write-block.json"
 
-      - name: Registrar preview publicado
-        env:
-          BETA_URL: ${{ steps.publish.outputs.url }}
-          VERSION_ID: ${{ steps.publish.outputs.version_id }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          mkdir -p deployment
-          node - <<'NODE'
-          const fs=require('fs');
-          const record={
-            status:'success',
-            environment:'pixi-beta',
-            commit:process.env.SOURCE_SHA,
-            deployedAt:new Date().toISOString(),
-            applicationUrl:process.env.BETA_URL,
-            cloudflareVersionId:process.env.VERSION_ID || null,
-            renderer:'pixi',
-            operationalWrites:'blocked',
-            authProxy:'production',
-            smoke:'passed'
-          };
-          fs.writeFileSync('deployment/pixi-beta-latest.json',JSON.stringify(record,null,2)+'\n');
-          NODE
-          git add deployment/pixi-beta-latest.json
-          git diff --cached --quiet || git commit -m "chore: registra preview Pixi BETA [skip ci]"
-          git push origin HEAD:${GITHUB_REF_NAME}
-
       - name: Resumo
         env:
           BETA_URL: ${{ steps.publish.outputs.url }}
@@ -135,6 +111,7 @@ jobs:
           {
             echo '## NEOMES Pixi BETA publicado'
             echo
+            echo "- Commit: $SOURCE_SHA"
             echo "- URL: $BETA_URL"
             echo "- Cloudflare Version ID: ${VERSION_ID:-n/a}"
             echo '- Modo: preview somente leitura para operações'
