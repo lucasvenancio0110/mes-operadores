@@ -91,7 +91,7 @@ function machineVisual(machine,onSelect){
     status.text=String(machine.statusLabel||machine.status||'').toUpperCase();
     order.text=machine.op?`OP ${machine.op}`:'SEM OP';
     metric.text=machine.production||'';
-    group.alpha=machine.hidden?0:((machine.filtered||machine.context)?.6:1);
+    group.alpha=machine.hidden?0:((machine.filtered||machine.context) ? .6 : 1);
     group.visible=!machine.hidden;
   }
 
