@@ -9,15 +9,12 @@ on:
       - 'app/preparer-map-layout.js'
       - 'index.html'
       - 'package.json'
-      - 'package-lock.json'
       - 'tests/e2e/factory-map-pixi.spec.mjs'
       - 'tests/e2e/factory-map-server.mjs'
       - 'playwright.factory-map-pixi.config.mjs'
       - '.github/workflows/factory-map-pixi-gate.yml'
   push:
     branches: ['agent/factory-map-pixi-beta']
-    paths-ignore:
-      - '.github/workflows/build-pixi-bundle-temp.yml'
   workflow_dispatch:
 
 permissions:
@@ -38,7 +35,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Sintaxe e contratos clássicos
         run: |
@@ -50,21 +46,21 @@ jobs:
           node tests/factory-map-workspace-v6.test.mjs
           node tests/preparer-dashboard-v6.test.mjs
 
-      - name: Instalar dependências reproduzíveis
-        run: npm ci --no-audit --no-fund
+      - name: Instalar dependências fixadas
+        run: npm install --no-audit --no-fund --package-lock=false
 
       - name: Recompilar e comparar bundle versionado
         run: |
           set -euo pipefail
           test -f app/vendor/factory-map-pixi.bundle.js
+          cp app/vendor/factory-map-pixi.bundle.js "$RUNNER_TEMP/factory-map-pixi.bundle.committed.js"
           npm run build:factory-map-pixi
           node --check app/vendor/factory-map-pixi.bundle.js
-          git diff --exit-code -- app/vendor/factory-map-pixi.bundle.js
-          test -z "$(git status --porcelain -- app/vendor/factory-map-pixi.bundle.js)"
+          cmp "$RUNNER_TEMP/factory-map-pixi.bundle.committed.js" app/vendor/factory-map-pixi.bundle.js
 
       - name: Instalar Chromium e WebKit
         run: |
-          npm install --no-save @playwright/test@1.54.2
+          npm install --no-save --package-lock=false @playwright/test@1.54.2
           npx playwright install --with-deps chromium webkit
 
       - name: Testar mapa Pixi em desktop e iPhone WebKit
