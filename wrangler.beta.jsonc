@@ -10,10 +10,7 @@
   "assets": {
     "directory": ".",
     "binding": "ASSETS",
-    "run_worker_first": [
-      "/health",
-      "/api/*"
-    ]
+    "run_worker_first": true
   },
   "vars": {
     "NEOMES_PRODUCTION_ORIGIN": "https://mes-operadores.lucassantanals0110.workers.dev"
