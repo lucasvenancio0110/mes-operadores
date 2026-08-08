@@ -43,6 +43,10 @@ function machineDescriptors(){
   return [...activeSurface.querySelectorAll('.prep-map-machine:not(.is-unplaced)')].map(describeMachine);
 }
 
+function visibleDescriptors(list=machineDescriptors()){
+  return list.filter(machine=>!machine.hidden);
+}
+
 function updateSwitch(){
   if(!activeControls)return;
   for(const button of activeControls.querySelectorAll('[data-factory-renderer]'))button.setAttribute('aria-pressed',String(button.dataset.factoryRenderer===preference));
@@ -99,7 +103,11 @@ function updateScale(value){const output=activeViewport?.querySelector('[data-pi
 
 function syncFromDom(){
   if(preference!=='pixi'||!controller||!activeSurface)return;
-  controller.update(machineDescriptors());
+  const list=machineDescriptors();
+  controller.update(list);
+  const search=document.getElementById('prepSearch')?.value?.trim();
+  const visible=visibleDescriptors(list);
+  if(search&&visible.length===1)controller.focus(visible[0].id);
 }
 
 async function mountPixi(){
@@ -115,8 +123,9 @@ async function mountPixi(){
     const worldWidth=number(activeSurface.dataset.baseWidth)||number(activeSurface.style.width)||1;
     const worldHeight=number(activeSurface.dataset.baseHeight)||number(activeSurface.style.height)||1;
     const machineElements=new Map([...activeSurface.querySelectorAll('[data-map-machine]')].map(element=>[element.dataset.mapMachine,element]));
+    const descriptors=machineDescriptors();
     const mounted=await module.mountPixiFactoryMap({
-      host,worldWidth,worldHeight,machines:machineDescriptors(),
+      host,worldWidth,worldHeight,machines:descriptors,
       onSelect:id=>machineElements.get(id)?.click(),
       onCamera:camera=>updateScale(camera.scale)
     });
@@ -124,8 +133,8 @@ async function mountPixi(){
     controller=mounted;
     updateScale(controller.scale);
     const search=document.getElementById('prepSearch')?.value?.trim();
-    const descriptors=machineDescriptors();
-    if(search&&descriptors.length===1)controller.focus(descriptors[0].id);
+    const visible=visibleDescriptors(descriptors);
+    if(search&&visible.length===1)controller.focus(visible[0].id);
   }catch(error){
     console.error('NEOMES Pixi renderer:',error);
     preference='classic';persist();updateSwitch();destroyPixi();
@@ -167,13 +176,17 @@ document.addEventListener('click',event=>{
   if(action==='out')controller.zoomOut();
 });
 
-document.addEventListener('input',event=>{if(event.target.id==='prepSearch'&&preference==='pixi')requestAnimationFrame(()=>{const list=machineDescriptors();controller?.update(list);if(event.target.value.trim()&&list.length===1)controller?.focus(list[0].id);});});
+document.addEventListener('input',event=>{
+  if(event.target.id!=='prepSearch'||preference!=='pixi')return;
+  requestAnimationFrame(syncFromDom);
+});
 
 window.NEOMES_FACTORY_PIXI={
   setRenderer:setPreference,
   get renderer(){return preference;},
   get ready(){return Boolean(controller);},
   get machineCount(){return controller?.machineCount||0;},
+  get visibleMachineCount(){return controller?.visibleMachineCount||0;},
   project(id){return controller?.project?.(id)||null;},
   focus(id){return controller?.focus?.(id)||false;},
   fit(){return controller?.fit?.();}
