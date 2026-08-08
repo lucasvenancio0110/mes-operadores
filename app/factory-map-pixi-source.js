@@ -83,9 +83,13 @@ function machineVisual(machine){
 
   function redraw(){
     const color=statusColor(machine.status);
-    ring.clear().roundRect(-4,-4,machine.width+8,machine.height+8,20).stroke({ color:urgencyColor(machine.urgency),width:machine.urgency==='critical'?3:1.5,alpha:machine.urgency==='none'?.18:.65 });
+    const highlighted=Boolean(machine.searchHit);
+    const ringColor=highlighted?COLORS.accent:urgencyColor(machine.urgency);
+    const ringWidth=highlighted?4:(machine.urgency==='critical'?3:1.5);
+    const ringAlpha=highlighted?1:(machine.urgency==='none'?.18:.65);
+    ring.clear().roundRect(-4,-4,machine.width+8,machine.height+8,20).stroke({ color:ringColor,width:ringWidth,alpha:ringAlpha });
     body.clear().roundRect(0,0,machine.width,machine.height,16).fill({ color:COLORS.machine,alpha:.98 }).stroke({ color:COLORS.machineBorder,width:1.5,alpha:.95 });
-    accent.clear().roundRect(0,0,5,machine.height,16).fill({ color,alpha:1 });
+    accent.clear().roundRect(0,0,5,machine.height,16).fill({ color:highlighted?COLORS.accent:color,alpha:1 });
     statusDot.clear().circle(0,0,4.5).fill(color);
     title.text=machineNumber(machine.label);
     status.text=String(machine.statusLabel||machine.status||'').toUpperCase();
@@ -244,7 +248,7 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
   app.ticker.add(ticker=>{
     if(reducedMotion)return;
     const pulse=.42+.25*(1+Math.sin(ticker.lastTime/320))/2;
-    for(const node of nodes.values())if(node.machine.urgency==='critical')node.ring.alpha=pulse;
+    for(const node of nodes.values())if(node.machine.urgency==='critical'&&!node.machine.searchHit)node.ring.alpha=pulse;
   });
 
   viewport.on('zoomed',emitCamera);
@@ -271,6 +275,7 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
     project(id){const node=nodes.get(id);if(!node)return null;const point=viewport.toScreen(node.machine.x+node.machine.width/2,node.machine.y+node.machine.height/2);return { x:point.x,y:point.y };},
     get machineCount(){return nodes.size;},
     get visibleMachineCount(){return [...nodes.values()].filter(node=>!node.machine.hidden).length;},
+    get highlightedMachineCount(){return [...nodes.values()].filter(node=>node.machine.searchHit).length;},
     get scale(){return viewport.scale.x;},
     destroy(){
       resizeObserver.disconnect();
