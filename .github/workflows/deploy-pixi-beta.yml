@@ -47,7 +47,7 @@ jobs:
           node --check app/factory-map-pixi-source.js
           test -s app/vendor/factory-map-pixi.bundle.js
           test -f wrangler.beta.jsonc
-          node tests/factory-map-geometry-v6.test.mjs
+          node tests/factory-map-stability-v6.test.mjs
           node tests/preparer-dashboard-v6.test.mjs
 
       - name: Verificar Cloudflare
