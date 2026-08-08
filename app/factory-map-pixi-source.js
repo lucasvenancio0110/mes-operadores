@@ -43,7 +43,7 @@ function drawFloor(width,height){
   return group;
 }
 
-function machineVisual(machine,onSelect){
+function machineVisual(machine){
   const group=new Container();
   group.position.set(machine.x,machine.y);
   group.eventMode='static';
@@ -98,7 +98,6 @@ function machineVisual(machine,onSelect){
   redraw();
   group.on('pointerover',()=>{if(!machine.hidden){group.scale.set(1.035);body.tint=0x152239;}});
   group.on('pointerout',()=>{group.scale.set(1);body.tint=0xffffff;});
-  group.on('pointertap',()=>{if(!machine.hidden)onSelect?.(machine.id);});
 
   return { group,ring,body,title,status,order,metric,machine,redraw };
 }
@@ -164,7 +163,7 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
     for(const machine of nextMachines){
       let node=nodes.get(machine.id);
       if(!node){
-        node=machineVisual(machine,onSelect);
+        node=machineVisual(machine);
         nodes.set(machine.id,node);
         machineLayer.addChild(node.group);
       }else{
@@ -196,6 +195,51 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
   centerWorld();
   emitCamera();
 
+  const tapState={ pointers:new Set(),candidate:null };
+  const canvasPoint=event=>{
+    const rect=app.canvas.getBoundingClientRect();
+    return { x:event.clientX-rect.left,y:event.clientY-rect.top };
+  };
+  const machineAt=(screenX,screenY)=>{
+    const world=viewport.toWorld(screenX,screenY);
+    const candidates=[...nodes.values()].reverse();
+    return candidates.find(node=>{
+      const machine=node.machine;
+      return !machine.hidden&&world.x>=machine.x&&world.x<=machine.x+machine.width&&world.y>=machine.y&&world.y<=machine.y+machine.height;
+    })?.machine||null;
+  };
+  const pointerDown=event=>{
+    tapState.pointers.add(event.pointerId);
+    if(tapState.pointers.size!==1){tapState.candidate=null;return;}
+    const point=canvasPoint(event);
+    tapState.candidate={ pointerId:event.pointerId,x:point.x,y:point.y };
+  };
+  const pointerMove=event=>{
+    const candidate=tapState.candidate;
+    if(!candidate||candidate.pointerId!==event.pointerId)return;
+    const point=canvasPoint(event);
+    if(Math.hypot(point.x-candidate.x,point.y-candidate.y)>8)tapState.candidate=null;
+  };
+  const pointerEnd=event=>{
+    const candidate=tapState.candidate;
+    const wasSingle=tapState.pointers.size===1;
+    tapState.pointers.delete(event.pointerId);
+    tapState.candidate=null;
+    if(!wasSingle||!candidate||candidate.pointerId!==event.pointerId)return;
+    const point=canvasPoint(event);
+    if(Math.hypot(point.x-candidate.x,point.y-candidate.y)>8)return;
+    const machine=machineAt(point.x,point.y);
+    if(machine)onSelect?.(machine.id);
+  };
+  const pointerCancel=event=>{
+    tapState.pointers.delete(event.pointerId);
+    if(tapState.candidate?.pointerId===event.pointerId)tapState.candidate=null;
+  };
+  app.canvas.addEventListener('pointerdown',pointerDown);
+  app.canvas.addEventListener('pointermove',pointerMove);
+  app.canvas.addEventListener('pointerup',pointerEnd);
+  app.canvas.addEventListener('pointercancel',pointerCancel);
+
   const reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   app.ticker.add(ticker=>{
     if(reducedMotion)return;
@@ -226,7 +270,15 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
     },
     project(id){const node=nodes.get(id);if(!node)return null;const point=viewport.toScreen(node.machine.x+node.machine.width/2,node.machine.y+node.machine.height/2);return { x:point.x,y:point.y };},
     get machineCount(){return nodes.size;},
+    get visibleMachineCount(){return [...nodes.values()].filter(node=>!node.machine.hidden).length;},
     get scale(){return viewport.scale.x;},
-    destroy(){resizeObserver.disconnect();app.destroy(true,{ children:true });host.replaceChildren();}
+    destroy(){
+      resizeObserver.disconnect();
+      app.canvas.removeEventListener('pointerdown',pointerDown);
+      app.canvas.removeEventListener('pointermove',pointerMove);
+      app.canvas.removeEventListener('pointerup',pointerEnd);
+      app.canvas.removeEventListener('pointercancel',pointerCancel);
+      app.destroy(true,{ children:true });host.replaceChildren();
+    }
   };
 }
