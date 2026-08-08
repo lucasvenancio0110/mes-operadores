@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - agent/factory-map-pixi-beta
+    paths-ignore:
+      - deployment/pixi-beta-latest.json
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: neomes-pixi-beta-cloudflare
@@ -18,10 +20,14 @@ jobs:
     name: Publicar preview Pixi somente leitura
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      SOURCE_SHA: ${{ github.sha }}
 
     steps:
       - name: Baixar branch BETA
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Preparar Node.js
         uses: actions/setup-node@v4
@@ -91,6 +97,35 @@ jobs:
           STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/write-block.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/machine-states" -H 'Content-Type: application/json' --data '{}')"
           test "$STATUS" = "423"
           node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.code!=="BETA_READ_ONLY") process.exit(1)' "$RUNNER_TEMP/write-block.json"
+
+      - name: Registrar preview publicado
+        env:
+          BETA_URL: ${{ steps.publish.outputs.url }}
+          VERSION_ID: ${{ steps.publish.outputs.version_id }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mkdir -p deployment
+          node - <<'NODE'
+          const fs=require('fs');
+          const record={
+            status:'success',
+            environment:'pixi-beta',
+            commit:process.env.SOURCE_SHA,
+            deployedAt:new Date().toISOString(),
+            applicationUrl:process.env.BETA_URL,
+            cloudflareVersionId:process.env.VERSION_ID || null,
+            renderer:'pixi',
+            operationalWrites:'blocked',
+            authProxy:'production',
+            smoke:'passed'
+          };
+          fs.writeFileSync('deployment/pixi-beta-latest.json',JSON.stringify(record,null,2)+'\n');
+          NODE
+          git add deployment/pixi-beta-latest.json
+          git diff --cached --quiet || git commit -m "chore: registra preview Pixi BETA [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}
 
       - name: Resumo
         env:
