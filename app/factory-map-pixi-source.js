@@ -91,7 +91,7 @@ function machineVisual(machine,onSelect){
     status.text=String(machine.statusLabel||machine.status||'').toUpperCase();
     order.text=machine.op?`OP ${machine.op}`:'SEM OP';
     metric.text=machine.production||'';
-    group.alpha=machine.hidden?0:((machine.filtered||machine.context) ? .6 : 1);
+    group.alpha=machine.hidden?0:((machine.filtered||machine.context)?.6:1);
     group.visible=!machine.hidden;
   }
 
@@ -140,10 +140,10 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
     worldHeight,
     events:app.renderer.events,
     ticker:app.ticker,
-    threshold:8,
-    stopPropagation:true
+    threshold:8
   });
   viewport.eventMode='static';
+  viewport.hitArea=new Rectangle(0,0,worldWidth,worldHeight);
   viewport.drag({ mouseButtons:'left' }).pinch().wheel({ smooth:3 }).decelerate({ friction:.92 }).clampZoom({ minScale:.16,maxScale:2.4 }).clamp({ direction:'all',underflow:'center' });
   app.stage.addChild(viewport);
 
@@ -178,11 +178,23 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
     semantic(nodes,viewport.scale.x);
   }
 
+  const emitCamera=()=>{
+    semantic(nodes,viewport.scale.x);
+    onCamera?.({ scale:viewport.scale.x,center:{ x:viewport.center.x,y:viewport.center.y } });
+  };
+
+  const centerWorld=()=>viewport.moveCenter(worldWidth/2,worldHeight/2);
+  const fitScale=()=>clamp(Math.min(host.clientWidth/worldWidth,host.clientHeight/worldHeight),.18,1);
+  const setCamera=(scale,center=null)=>{
+    viewport.setZoom(clamp(scale,.16,2.4),true);
+    if(center)viewport.moveCenter(center.x,center.y);
+    emitCamera();
+  };
+
   sync(machines);
-  viewport.fitWorld(true).moveCenter(worldWidth/2,worldHeight/2);
-  const initialScale=clamp(viewport.scale.x,.18,1);
-  viewport.setZoom(initialScale,false).moveCenter(worldWidth/2,worldHeight/2);
-  semantic(nodes,viewport.scale.x);
+  viewport.setZoom(fitScale(),false);
+  centerWorld();
+  emitCamera();
 
   const reducedMotion=globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   app.ticker.add(ticker=>{
@@ -191,10 +203,6 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
     for(const node of nodes.values())if(node.machine.urgency==='critical')node.ring.alpha=pulse;
   });
 
-  const emitCamera=()=>{
-    semantic(nodes,viewport.scale.x);
-    onCamera?.({ scale:viewport.scale.x,center:{ x:viewport.center.x,y:viewport.center.y } });
-  };
   viewport.on('zoomed',emitCamera);
   viewport.on('moved',emitCamera);
 
@@ -202,18 +210,20 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
     const width=Math.max(1,host.clientWidth);const height=Math.max(1,host.clientHeight);
     viewport.resize(width,height,worldWidth,worldHeight);
     app.resize();
+    emitCamera();
   });
   resizeObserver.observe(host);
 
-  const blockBubble=event=>event.stopPropagation();
-  for(const type of ['pointerdown','pointermove','pointerup','pointercancel','wheel'])app.canvas.addEventListener(type,blockBubble,{ passive:type==='wheel' });
-
   return {
     update(nextMachines){sync(nextMachines);},
-    fit(){viewport.animate({ time:320,position:{ x:worldWidth/2,y:worldHeight/2 },scale:clamp(Math.min(host.clientWidth/worldWidth,host.clientHeight/worldHeight),.18,1),ease:'easeInOutSine' });},
-    zoomIn(){viewport.animate({ time:180,scale:clamp(viewport.scale.x*1.22,.16,2.4),ease:'easeOutSine' });},
-    zoomOut(){viewport.animate({ time:180,scale:clamp(viewport.scale.x/1.22,.16,2.4),ease:'easeOutSine' });},
-    focus(id){const node=nodes.get(id);if(!node)return false;viewport.animate({ time:420,position:{ x:node.machine.x+node.machine.width/2,y:node.machine.y+node.machine.height/2 },scale:Math.max(.9,viewport.scale.x),ease:'easeInOutSine' });return true;},
+    fit(){viewport.setZoom(fitScale(),false);centerWorld();emitCamera();},
+    zoomIn(){setCamera(viewport.scale.x*1.22,viewport.center);},
+    zoomOut(){setCamera(viewport.scale.x/1.22,viewport.center);},
+    focus(id){
+      const node=nodes.get(id);if(!node)return false;
+      setCamera(Math.max(.9,viewport.scale.x),{ x:node.machine.x+node.machine.width/2,y:node.machine.y+node.machine.height/2 });
+      return true;
+    },
     project(id){const node=nodes.get(id);if(!node)return null;const point=viewport.toScreen(node.machine.x+node.machine.width/2,node.machine.y+node.machine.height/2);return { x:point.x,y:point.y };},
     get machineCount(){return nodes.size;},
     get scale(){return viewport.scale.x;},
