@@ -83,7 +83,12 @@ function ensureSwitch(){
 
 function createHost(){
   let host=activeViewport.querySelector('.factory-pixi-host');
-  if(!host){host=document.createElement('div');host.className='factory-pixi-host';host.dataset.pixiHost='';activeViewport.append(host);}
+  if(!host){
+    host=document.createElement('div');host.className='factory-pixi-host';host.dataset.pixiHost='';
+    const stopAtPixiBoundary=event=>event.stopPropagation();
+    for(const type of ['pointerdown','pointermove','pointerup','pointercancel','wheel','dblclick'])host.addEventListener(type,stopAtPixiBoundary);
+    activeViewport.append(host);
+  }
   let controls=activeViewport.querySelector('.factory-pixi-controls');
   if(!controls){
     controls=document.createElement('div');controls.className='factory-pixi-controls';
