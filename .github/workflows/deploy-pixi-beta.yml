@@ -105,7 +105,7 @@ jobs:
             sleep 2
           done
           test -n "$HEALTH" || { echo 'Health do preview não ficou disponível.'; cat "$RUNNER_TEMP/health.json" 2>/dev/null || true; exit 1; }
-          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok || x.service!=="neomes-pixi-beta" || x.mode!=="read-only-preview") process.exit(1)' "$HEALTH"
+          node -e 'const x=JSON.parse(process.argv[1]); if(!x.ok || x.service!=="neomes-pixi-beta" || x.mode!=="read-only-preview" || x.demoLogin!==true) process.exit(1)' "$HEALTH"
 
           INDEX=''
           for attempt in $(seq 1 6); do
@@ -120,7 +120,23 @@ jobs:
           grep -q 'factory-map-pixi-adapter.js' "$RUNNER_TEMP/index.html"
           grep -q 'PIXI BETA' "$RUNNER_TEMP/index.html"
 
-          WRITE_STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/write-block.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/machine-states" -H 'Content-Type: application/json' --data '{}')"
+          WRONG_STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/login-wrong.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/auth/login" -H 'Content-Type: application/json' --data '{"registration":"9999","password":"errada"}')"
+          test "$WRONG_STATUS" = "401"
+
+          COOKIE_JAR="$RUNNER_TEMP/beta-cookie.txt"
+          LOGIN_STATUS="$(curl --silent --show-error -c "$COOKIE_JAR" -o "$RUNNER_TEMP/login.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/auth/login" -H 'Content-Type: application/json' --data '{"registration":"9999","password":"senha123456"}')"
+          test "$LOGIN_STATUS" = "200"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.user?.registration!=="9999" || x.user?.roleCode!=="preparator" || x.demoData!==true) process.exit(1)' "$RUNNER_TEMP/login.json"
+
+          ME_STATUS="$(curl --silent --show-error -b "$COOKIE_JAR" -o "$RUNNER_TEMP/me.json" -w '%{http_code}' "$BETA_URL/api/v1/auth/me")"
+          test "$ME_STATUS" = "200"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.user?.registration!=="9999") process.exit(1)' "$RUNNER_TEMP/me.json"
+
+          DASH_STATUS="$(curl --silent --show-error -b "$COOKIE_JAR" -o "$RUNNER_TEMP/dashboard.json" -w '%{http_code}' "$BETA_URL/api/v1/turn-assistant/line-dashboard?productionDate=2026-08-08&shift=1")"
+          test "$DASH_STATUS" = "200"
+          node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.demoData!==true || x.machines?.length!==136 || x.summary?.total!==136) process.exit(1)' "$RUNNER_TEMP/dashboard.json"
+
+          WRITE_STATUS="$(curl --silent --show-error -b "$COOKIE_JAR" -o "$RUNNER_TEMP/write-block.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/machine-states" -H 'Content-Type: application/json' --data '{}')"
           test "$WRITE_STATUS" = "423"
           node -e 'const fs=require("fs"); const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(x.code!=="BETA_READ_ONLY") process.exit(1)' "$RUNNER_TEMP/write-block.json"
 
@@ -135,6 +151,8 @@ jobs:
             echo "- Commit: $SOURCE_SHA"
             echo "- URL: $BETA_URL"
             echo "- Cloudflare Version ID: ${VERSION_ID:-n/a}"
+            echo '- Login de demonstração local: matrícula 9999'
+            echo '- Dados: fictícios, 136 máquinas do layout físico'
             echo '- Modo: preview somente leitura para operações'
             echo '- Renderer Pixi selecionado por padrão neste ambiente'
           } >> "$GITHUB_STEP_SUMMARY"
