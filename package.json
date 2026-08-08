@@ -7,7 +7,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:migrate": "wrangler d1 migrations apply mes-operadores-db --remote",
-    "build:factory-map-pixi": "esbuild app/factory-map-pixi-source.js --bundle --format=esm --platform=browser --target=es2022 --minify --outfile=app/vendor/factory-map-pixi.bundle.js"
+    "build:factory-map-pixi": "esbuild app/factory-map-pixi-source.js --bundle --format=esm --platform=browser --target=es2022 --minify --legal-comments=eof --outfile=app/vendor/factory-map-pixi.bundle.js"
   },
   "devDependencies": {
     "esbuild": "0.28.1",
