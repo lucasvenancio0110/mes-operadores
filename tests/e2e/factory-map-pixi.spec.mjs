@@ -74,6 +74,7 @@ async function activatePixi(page){
   await expect(page.locator('.factory-pixi-canvas')).toBeVisible();
   await expect.poll(()=>page.evaluate(()=>Boolean(window.NEOMES_FACTORY_PIXI?.ready)),{ timeout:12000 }).toBe(true);
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.machineCount||0)).toBe(136);
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.visibleMachineCount||0)).toBe(136);
   await expect(page.locator('.factory-pixi-error')).toHaveCount(0);
 }
 
@@ -93,7 +94,7 @@ test('Pixi GPU monta as 136 máquinas, navega, dá zoom e abre detalhe real',asy
   expect(afterScale).toBeGreaterThan(beforeScale);
 
   await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.focus('tnl-024'));
-  await page.waitForTimeout(520);
+  await page.waitForTimeout(220);
   const point=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.project('tnl-024'));
   expect(point).toBeTruthy();
   expect(point.x).toBeGreaterThan(0);expect(point.y).toBeGreaterThan(0);
@@ -113,7 +114,7 @@ test('Pixi GPU monta as 136 máquinas, navega, dá zoom e abre detalhe real',asy
   expect(Math.abs(afterPan.x-beforePan.x)+Math.abs(afterPan.y-beforePan.y)).toBeGreaterThan(20);
 
   await page.locator('[data-pixi-action="fit"]').click();
-  await page.waitForTimeout(420);
+  await page.waitForTimeout(220);
   await page.screenshot({ path:testInfo.outputPath('factory-map-pixi.png'),fullPage:true });
 
   expect(errors.pageErrors).toEqual([]);
@@ -126,13 +127,17 @@ test('Pixi acompanha busca/rerender e volta ao mapa clássico sem perder funcion
 
   const search=page.locator('#prepSearch');
   await search.fill('TNL 091');
-  await expect(page.locator('.prep-map-machine')).toHaveCount(1);
-  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.machineCount||0),{ timeout:12000 }).toBe(1);
-  await expect(page.locator('.factory-pixi-canvas')).toBeVisible();
-
-  await search.fill('');
+  await expect(page.getByText('1 máquina localizada',{ exact:true })).toBeVisible();
   await expect(page.locator('.prep-map-machine')).toHaveCount(136);
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.machineCount||0),{ timeout:12000 }).toBe(136);
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.visibleMachineCount||0),{ timeout:12000 }).toBe(1);
+  const canvasBox=await page.locator('.factory-pixi-canvas').boundingBox();
+  const point=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.project('tnl-091'));
+  expect(point.x).toBeGreaterThan(0);expect(point.y).toBeGreaterThan(0);
+  expect(point.x).toBeLessThan(canvasBox.width);expect(point.y).toBeLessThan(canvasBox.height);
+
+  await search.fill('');
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.visibleMachineCount||0),{ timeout:12000 }).toBe(136);
 
   await page.locator('[data-factory-renderer="classic"]').click();
   await expect(page.locator('.factory-workspace')).not.toHaveClass(/factory-renderer-pixi/);
@@ -152,6 +157,7 @@ test('falha do bundle Pixi preserva o mapa clássico',async({page})=>{
   await page.locator('[data-factory-renderer="pixi"]').click();
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.renderer)).toBe('classic');
   await expect(page.locator('.factory-workspace')).not.toHaveClass(/factory-renderer-pixi/);
+  await expect(page.locator('.factory-pixi-host')).toHaveCount(0);
   await page.locator('[data-map-machine="tnl-024"]').click();
   await expect(page.locator('#prepDetailTitle')).toContainText('TNL 024');
 });
