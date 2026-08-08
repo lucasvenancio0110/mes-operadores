@@ -115,7 +115,9 @@ test('geometria física, alinhamentos e posições especiais',async({page},testI
 
   expect(boxes['tnl-111'].top).toBe(boxes['tnl-066'].top);
   expect(boxes['tnl-111'].top).toBeGreaterThan(boxes['tnl-095'].top);
-  await expectGap(gapX(boxes['tnl-066'],boxes['tnl-111']),FACTORY_MAP_GEOMETRY.compactGap);
+  expect(boxes['tnl-111'].left).toBe(boxes['tnl-086'].left);
+  expect(boxes['tnl-111'].left).toBe(boxes['tnl-084'].left);
+  await expectGap(gapX(boxes['tnl-095'],boxes['tnl-111']),FACTORY_MAP_GEOMETRY.compactGap);
   for(const [a,b] of [['tnl-111','tnl-103'],['tnl-103','tnl-110'],['tnl-110','tnl-062'],['tnl-062','tnl-045'],['tnl-045','tnl-055'],['tnl-055','tnl-054']]){
     expect(boxes[a].top).toBe(boxes[b].top);
     await expectGap(gapX(boxes[a],boxes[b]),FACTORY_MAP_GEOMETRY.compactGap);
