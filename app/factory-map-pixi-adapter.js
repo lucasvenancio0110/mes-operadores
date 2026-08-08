@@ -34,17 +34,14 @@ function describeMachine(element){
     ariaLabel:element.getAttribute('aria-label')||'',
     filtered:element.classList.contains('is-factory-filtered'),
     context:element.classList.contains('is-factory-context'),
-    hidden:element.classList.contains('is-factory-hidden')||element.getAttribute('aria-hidden')==='true'
+    hidden:element.classList.contains('is-factory-hidden')||element.getAttribute('aria-hidden')==='true',
+    searchHit:element.classList.contains('is-factory-search-hit')
   };
 }
 
 function machineDescriptors(){
   if(!activeSurface)return[];
   return [...activeSurface.querySelectorAll('.prep-map-machine:not(.is-unplaced)')].map(describeMachine);
-}
-
-function visibleDescriptors(list=machineDescriptors()){
-  return list.filter(machine=>!machine.hidden);
 }
 
 function updateSwitch(){
@@ -106,8 +103,8 @@ function syncFromDom(){
   const list=machineDescriptors();
   controller.update(list);
   const search=document.getElementById('prepSearch')?.value?.trim();
-  const visible=visibleDescriptors(list);
-  if(search&&visible.length===1)controller.focus(visible[0].id);
+  const hits=list.filter(machine=>machine.searchHit);
+  if(search&&hits.length===1)controller.focus(hits[0].id);
 }
 
 async function mountPixi(){
@@ -133,8 +130,8 @@ async function mountPixi(){
     controller=mounted;
     updateScale(controller.scale);
     const search=document.getElementById('prepSearch')?.value?.trim();
-    const visible=visibleDescriptors(descriptors);
-    if(search&&visible.length===1)controller.focus(visible[0].id);
+    const hits=descriptors.filter(machine=>machine.searchHit);
+    if(search&&hits.length===1)controller.focus(hits[0].id);
   }catch(error){
     console.error('NEOMES Pixi renderer:',error);
     preference='classic';persist();updateSwitch();destroyPixi();
@@ -187,6 +184,7 @@ window.NEOMES_FACTORY_PIXI={
   get ready(){return Boolean(controller);},
   get machineCount(){return controller?.machineCount||0;},
   get visibleMachineCount(){return controller?.visibleMachineCount||0;},
+  get highlightedMachineCount(){return controller?.highlightedMachineCount||0;},
   project(id){return controller?.project?.(id)||null;},
   focus(id){return controller?.focus?.(id)||false;},
   fit(){return controller?.fit?.();}
