@@ -91,7 +91,7 @@ function machineVisual(machine,onSelect){
     status.text=String(machine.statusLabel||machine.status||'').toUpperCase();
     order.text=machine.op?`OP ${machine.op}`:'SEM OP';
     metric.text=machine.production||'';
-    group.alpha=machine.hidden?0:(machine.filtered||machine.context?.6:1);
+    group.alpha=machine.hidden?0:((machine.filtered||machine.context)?.6:1);
     group.visible=!machine.hidden;
   }
 
@@ -214,6 +214,8 @@ export async function mountPixiFactoryMap({ host,worldWidth,worldHeight,machines
     zoomIn(){viewport.animate({ time:180,scale:clamp(viewport.scale.x*1.22,.16,2.4),ease:'easeOutSine' });},
     zoomOut(){viewport.animate({ time:180,scale:clamp(viewport.scale.x/1.22,.16,2.4),ease:'easeOutSine' });},
     focus(id){const node=nodes.get(id);if(!node)return false;viewport.animate({ time:420,position:{ x:node.machine.x+node.machine.width/2,y:node.machine.y+node.machine.height/2 },scale:Math.max(.9,viewport.scale.x),ease:'easeInOutSine' });return true;},
+    project(id){const node=nodes.get(id);if(!node)return null;const point=viewport.toScreen(node.machine.x+node.machine.width/2,node.machine.y+node.machine.height/2);return { x:point.x,y:point.y };},
+    get machineCount(){return nodes.size;},
     get scale(){return viewport.scale.x;},
     destroy(){resizeObserver.disconnect();app.destroy(true,{ children:true });host.replaceChildren();}
   };
