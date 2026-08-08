@@ -106,14 +106,18 @@ const LEFT_Y=rowPositions(LEFT_ROWS,0,FACTORY_MAP_GEOMETRY.compactGap);
 const leftRightEdge=LEFT_X.get('L')+FACTORY_MAP_GEOMETRY.cardWidth;
 const RIGHT_START=leftRightEdge+FACTORY_MAP_GEOMETRY.compactGap;
 
-// Bloco superior direito: 083/072/069/068/067 não têm corredor entre si.
+// Blocos à direita seguem a posição física informada no chão de fábrica:
+// - 086/081/082/076/075 começam ao lado da TNL 091;
+// - 084/079/077/074/073 começam ao lado da TNL 093;
+// - 111/103/110/... começam ao lado da TNL 066, um pouco abaixo da TNL 095.
+// As colunas do bloco permanecem compactas e com espaçamento uniforme.
 const UPPER_RIGHT_COLUMNS=['N','Q','T','W','Z','AC','AF'];
 const UPPER_RIGHT_X=axisPositions(UPPER_RIGHT_COLUMNS,RIGHT_START,FACTORY_MAP_GEOMETRY.compactGap);
 const UPPER_RIGHT_Y=new Map();
 UPPER_RIGHT_Y.set(3,0);
-UPPER_RIGHT_Y.set(13,UPPER_RIGHT_Y.get(3)+FACTORY_MAP_GEOMETRY.cardHeight+FACTORY_MAP_GEOMETRY.aisleGap);
-UPPER_RIGHT_Y.set(23,UPPER_RIGHT_Y.get(13)+FACTORY_MAP_GEOMETRY.cardHeight+FACTORY_MAP_GEOMETRY.aisleGap);
-UPPER_RIGHT_Y.set(32,UPPER_RIGHT_Y.get(23)+FACTORY_MAP_GEOMETRY.cardHeight+FACTORY_MAP_GEOMETRY.normalGap);
+UPPER_RIGHT_Y.set(23,LEFT_Y.get(17));
+UPPER_RIGHT_Y.set(13,LEFT_Y.get(23));
+UPPER_RIGHT_Y.set(32,LEFT_Y.get(32));
 UPPER_RIGHT_Y.set(42,UPPER_RIGHT_Y.get(32)+FACTORY_MAP_GEOMETRY.cardHeight+FACTORY_MAP_GEOMETRY.normalGap);
 
 const upperBottom=Math.max(
@@ -143,9 +147,15 @@ const SPECIAL_Y=rowPositions(
 
 // Correções físicas confirmadas pelo usuário. A célula original continua sendo
 // preservada em `cell`, enquanto estes anchors controlam somente a posição visual.
+// A coluna especial fica, de cima para baixo: 145, 144, 143, 142, 141, 140.
+// Assim 145 permanece ao lado da 134 e 140 ao lado da 139.
 const PHYSICAL_OVERRIDES=new Map([
-  [tnl(145),Object.freeze({ column:'P',row:86,reason:'TNL 145 ao lado da TNL 134' })],
-  [tnl(140),Object.freeze({ column:'P',row:101,reason:'TNL 140 ao lado da TNL 139' })],
+  [tnl(145),Object.freeze({ column:'P',row:86,reason:'TNL 145 no topo da coluna especial, ao lado da TNL 134' })],
+  [tnl(144),Object.freeze({ column:'P',row:89,reason:'TNL 144 abaixo da TNL 145' })],
+  [tnl(143),Object.freeze({ column:'P',row:92,reason:'TNL 143 entre TNL 144 e TNL 142' })],
+  [tnl(142),Object.freeze({ column:'P',row:95,reason:'TNL 142 acima da TNL 141' })],
+  [tnl(141),Object.freeze({ column:'P',row:98,reason:'TNL 141 acima da TNL 140' })],
+  [tnl(140),Object.freeze({ column:'P',row:101,reason:'TNL 140 na base da coluna especial, ao lado da TNL 139' })],
   ['milltap',Object.freeze({ column:'P',row:80,reason:'MILLTAP acima da TNL 145' })],
   ['discovery',Object.freeze({ column:'S',row:80,reason:'DISCOVERY ao lado da MILLTAP' })]
 ]);

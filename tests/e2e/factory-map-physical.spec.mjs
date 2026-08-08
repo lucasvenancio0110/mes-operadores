@@ -82,24 +82,63 @@ function gapY(a,b){
 
 async function expectGap(actual,expected){expect(Math.abs(actual-expected)).toBeLessThanOrEqual(1);}
 
-test('geometria física, corredores e posições especiais',async({page},testInfo)=>{
+test('geometria física, alinhamentos e posições especiais',async({page},testInfo)=>{
   const errors=await boot(page);
   const boxes={};
-  for(const id of ['tnl-024','tnl-017','tnl-028','tnl-009','tnl-060','tnl-085','tnl-083','tnl-072','tnl-069','tnl-068','tnl-067','tnl-084','tnl-086','tnl-096','tnl-097','tnl-100','tnl-121','tnl-124','tnl-130','tnl-134','tnl-139','tnl-140','tnl-145','milltap','discovery'])boxes[id]=await rawBox(page,id);
+  for(const id of [
+    'tnl-024','tnl-017','tnl-028','tnl-009','tnl-060','tnl-085',
+    'tnl-083','tnl-072','tnl-069','tnl-068','tnl-067',
+    'tnl-091','tnl-086','tnl-081','tnl-082','tnl-076','tnl-075',
+    'tnl-093','tnl-084','tnl-079','tnl-077','tnl-074','tnl-073',
+    'tnl-095','tnl-066','tnl-111','tnl-103','tnl-110','tnl-062','tnl-045','tnl-055','tnl-054','tnl-070',
+    'tnl-096','tnl-097','tnl-100','tnl-121','tnl-124','tnl-130',
+    'tnl-134','tnl-135','tnl-136','tnl-137','tnl-138','tnl-139',
+    'tnl-145','tnl-144','tnl-143','tnl-142','tnl-141','tnl-140','milltap','discovery'
+  ])boxes[id]=await rawBox(page,id);
 
   for(const [a,b] of [['tnl-024','tnl-017'],['tnl-017','tnl-028'],['tnl-028','tnl-009'],['tnl-009','tnl-060'],['tnl-060','tnl-085']])await expectGap(gapX(boxes[a],boxes[b]),FACTORY_MAP_GEOMETRY.aisleGap);
   for(const [a,b] of [['tnl-083','tnl-072'],['tnl-072','tnl-069'],['tnl-069','tnl-068'],['tnl-068','tnl-067']])await expectGap(gapX(boxes[a],boxes[b]),FACTORY_MAP_GEOMETRY.compactGap);
 
-  await expectGap(gapY(boxes['tnl-083'],boxes['tnl-084']),FACTORY_MAP_GEOMETRY.aisleGap);
-  await expectGap(gapY(boxes['tnl-084'],boxes['tnl-086']),FACTORY_MAP_GEOMETRY.aisleGap);
+  expect(boxes['tnl-086'].top).toBe(boxes['tnl-091'].top);
+  await expectGap(gapX(boxes['tnl-091'],boxes['tnl-086']),FACTORY_MAP_GEOMETRY.compactGap);
+  for(const [a,b] of [['tnl-086','tnl-081'],['tnl-081','tnl-082'],['tnl-082','tnl-076'],['tnl-076','tnl-075']]){
+    expect(boxes[a].top).toBe(boxes[b].top);
+    await expectGap(gapX(boxes[a],boxes[b]),FACTORY_MAP_GEOMETRY.compactGap);
+  }
+
+  expect(boxes['tnl-084'].top).toBe(boxes['tnl-093'].top);
+  await expectGap(gapX(boxes['tnl-093'],boxes['tnl-084']),FACTORY_MAP_GEOMETRY.compactGap);
+  for(const [a,b] of [['tnl-084','tnl-079'],['tnl-079','tnl-077'],['tnl-077','tnl-074'],['tnl-074','tnl-073']]){
+    expect(boxes[a].top).toBe(boxes[b].top);
+    await expectGap(gapX(boxes[a],boxes[b]),FACTORY_MAP_GEOMETRY.compactGap);
+  }
+
+  expect(boxes['tnl-111'].top).toBe(boxes['tnl-066'].top);
+  expect(boxes['tnl-111'].top).toBeGreaterThan(boxes['tnl-095'].top);
+  expect(boxes['tnl-111'].left).toBe(boxes['tnl-086'].left);
+  expect(boxes['tnl-111'].left).toBe(boxes['tnl-084'].left);
+  await expectGap(gapX(boxes['tnl-095'],boxes['tnl-111']),FACTORY_MAP_GEOMETRY.compactGap);
+  for(const [a,b] of [['tnl-111','tnl-103'],['tnl-103','tnl-110'],['tnl-110','tnl-062'],['tnl-062','tnl-045'],['tnl-045','tnl-055'],['tnl-055','tnl-054']]){
+    expect(boxes[a].top).toBe(boxes[b].top);
+    await expectGap(gapX(boxes[a],boxes[b]),FACTORY_MAP_GEOMETRY.compactGap);
+  }
+  expect(boxes['tnl-070'].left).toBe(boxes['tnl-111'].left);
+  await expectGap(gapY(boxes['tnl-111'],boxes['tnl-070']),FACTORY_MAP_GEOMETRY.normalGap);
+
   await expectGap(gapY(boxes['tnl-121'],boxes['tnl-124']),FACTORY_MAP_GEOMETRY.aisleGap);
   await expectGap(gapX(boxes['tnl-096'],boxes['tnl-097']),FACTORY_MAP_GEOMETRY.aisleGap);
   await expectGap(gapX(boxes['tnl-097'],boxes['tnl-100']),FACTORY_MAP_GEOMETRY.aisleGap);
 
-  expect(boxes['tnl-140'].top).toBe(boxes['tnl-139'].top);
-  await expectGap(gapX(boxes['tnl-139'],boxes['tnl-140']),FACTORY_MAP_GEOMETRY.compactGap);
+  const special=['tnl-145','tnl-144','tnl-143','tnl-142','tnl-141','tnl-140'];
+  for(let index=1;index<special.length;index+=1){
+    expect(boxes[special[index]].left).toBe(boxes[special[0]].left);
+    expect(boxes[special[index]].top).toBeGreaterThan(boxes[special[index-1]].top);
+    await expectGap(gapY(boxes[special[index-1]],boxes[special[index]]),FACTORY_MAP_GEOMETRY.compactGap);
+  }
   expect(boxes['tnl-145'].top).toBe(boxes['tnl-134'].top);
   await expectGap(gapX(boxes['tnl-134'],boxes['tnl-145']),FACTORY_MAP_GEOMETRY.compactGap);
+  expect(boxes['tnl-140'].top).toBe(boxes['tnl-139'].top);
+  await expectGap(gapX(boxes['tnl-139'],boxes['tnl-140']),FACTORY_MAP_GEOMETRY.compactGap);
   expect(boxes.milltap.left).toBe(boxes['tnl-145'].left);
   expect(boxes.milltap.top).toBeLessThan(boxes['tnl-145'].top);
   expect(boxes.discovery.top).toBe(boxes.milltap.top);
