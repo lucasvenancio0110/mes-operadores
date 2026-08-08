@@ -1,0 +1,39 @@
+/* NEOMES — renderer experimental PixiJS para a planta da fábrica.
+   O mapa DOM clássico permanece no documento como fallback. */
+.factory-renderer-switch{display:inline-flex;align-items:center;gap:4px;padding:4px;border:1px solid #2a3a53;border-radius:12px;background:#0b1320}
+.factory-renderer-switch button{border:0;border-radius:9px;padding:8px 11px;background:transparent;color:#9ba8bb;font:700 .72rem/1 system-ui;cursor:pointer}
+.factory-renderer-switch button[aria-pressed="true"]{background:#2c1230;color:#ffd9f7;box-shadow:inset 0 0 0 1px rgba(230,60,195,.42)}
+.factory-renderer-switch button[data-factory-renderer="pixi"]::after{content:'GPU';margin-left:6px;padding:2px 5px;border-radius:99px;background:#cf31b0;color:#fff;font-size:.56rem;letter-spacing:.08em}
+
+.prep-map-viewport{position:relative}
+.factory-pixi-host{position:absolute;inset:0;z-index:12;overflow:hidden;border-radius:inherit;background:radial-gradient(circle at 50% 18%,rgba(67,88,132,.12),transparent 42%),#070b13;touch-action:none;isolation:isolate}
+.factory-pixi-canvas{display:block;width:100%!important;height:100%!important;touch-action:none;outline:none}
+.factory-pixi-controls{position:absolute;z-index:15;top:12px;left:50%;display:flex;align-items:center;gap:5px;transform:translateX(-50%);padding:5px;border:1px solid rgba(67,86,119,.8);border-radius:14px;background:rgba(7,11,19,.88);backdrop-filter:blur(16px);box-shadow:0 10px 30px rgba(0,0,0,.2)}
+.factory-pixi-controls button{min-width:40px;height:36px;border:1px solid #26364e;border-radius:10px;background:#111d2e;color:#f4f7fb;font:800 .78rem/1 system-ui;cursor:pointer}
+.factory-pixi-controls button[data-pixi-action="fit"]{min-width:72px;background:#321435;border-color:#6c2d67;color:#ffd8f8}
+.factory-pixi-controls output{min-width:50px;text-align:center;color:#b6c2d3;font:800 .68rem/1 system-ui}
+.factory-pixi-badge{position:absolute;z-index:15;left:12px;bottom:12px;display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid rgba(61,82,113,.76);border-radius:11px;background:rgba(7,11,19,.84);color:#aebacf;font:700 .65rem/1.2 system-ui;backdrop-filter:blur(14px);pointer-events:none}
+.factory-pixi-badge i{width:7px;height:7px;border-radius:50%;background:#2bd17f;box-shadow:0 0 0 4px rgba(43,209,127,.1)}
+.factory-pixi-error{position:absolute;z-index:20;inset:18px;display:grid;place-items:center;padding:24px;border:1px solid #693447;border-radius:18px;background:#120b12;color:#f6dce8;text-align:center;font:700 .8rem/1.45 system-ui}
+
+.factory-renderer-pixi [data-map-stage],
+.factory-renderer-pixi .factory-minimap,
+.factory-renderer-pixi .prep-map-pan-hint,
+.factory-renderer-pixi .prep-map-zoom{visibility:hidden!important;pointer-events:none!important}
+.factory-renderer-pixi .factory-pixi-host,
+.factory-renderer-pixi .factory-pixi-controls,
+.factory-renderer-pixi .factory-pixi-badge{visibility:visible!important;pointer-events:auto}
+.factory-renderer-pixi .factory-pixi-badge{pointer-events:none}
+.factory-renderer-pixi [data-factory-action="minimap"]{display:none!important}
+
+@media(min-width:761px){
+  .factory-renderer-pixi.factory-workspace:not(.is-factory-fullscreen)>.prep-map-viewport{height:min(78dvh,980px)!important;min-height:620px!important;overflow:hidden!important}
+}
+@media(max-width:760px){
+  .factory-renderer-switch{width:100%;justify-content:stretch}
+  .factory-renderer-switch button{flex:1;padding:9px 8px}
+  .factory-renderer-pixi.factory-workspace:not(.is-factory-fullscreen)>.prep-map-viewport{height:68dvh!important;min-height:440px!important;overflow:hidden!important}
+  .factory-pixi-controls{top:9px}
+  .factory-pixi-controls button{height:34px;min-width:38px}
+  .factory-pixi-badge{left:9px;bottom:9px}
+}
