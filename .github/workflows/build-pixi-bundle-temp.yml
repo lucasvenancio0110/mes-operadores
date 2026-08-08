@@ -30,7 +30,7 @@ jobs:
           node-version: 22
 
       - name: Instalar dependências fixadas
-        run: npm install --no-audit --no-fund --package-lock=false
+        run: npm install --no-audit --no-fund
 
       - name: Gerar e validar bundle Pixi
         run: |
@@ -42,15 +42,15 @@ jobs:
           test -s app/vendor/factory-map-pixi.bundle.js
           grep -q "PixiJS" app/vendor/factory-map-pixi.bundle.js
 
-      - name: Commitar somente o bundle gerado
+      - name: Commitar lockfile e bundle gerado
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/vendor/factory-map-pixi.bundle.js
+          git add package-lock.json app/vendor/factory-map-pixi.bundle.js
           if git diff --cached --quiet; then
-            echo "Bundle já está atualizado."
+            echo "Bundle e lockfile já estão atualizados."
             exit 0
           fi
-          git commit -m "build: gera bundle local PixiJS [skip ci]"
+          git commit -m "build: fixa bundle local PixiJS [skip ci]"
           git push origin HEAD:agent/factory-map-pixi-beta
