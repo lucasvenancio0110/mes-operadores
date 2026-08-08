@@ -117,8 +117,8 @@ jobs:
             sleep 2
           done
           test -n "$INDEX"
-          printf '%s' "$INDEX" | grep -q 'factory-map-pixi-adapter.js'
-          printf '%s' "$INDEX" | grep -q 'PIXI BETA'
+          grep -q 'factory-map-pixi-adapter.js' "$RUNNER_TEMP/index.html"
+          grep -q 'PIXI BETA' "$RUNNER_TEMP/index.html"
 
           WRITE_STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/write-block.json" -w '%{http_code}' -X POST "$BETA_URL/api/v1/machine-states" -H 'Content-Type: application/json' --data '{}')"
           test "$WRITE_STATUS" = "423"
