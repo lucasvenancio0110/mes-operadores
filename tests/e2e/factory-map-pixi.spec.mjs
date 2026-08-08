@@ -75,6 +75,7 @@ async function activatePixi(page){
   await expect.poll(()=>page.evaluate(()=>Boolean(window.NEOMES_FACTORY_PIXI?.ready)),{ timeout:12000 }).toBe(true);
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.machineCount||0)).toBe(136);
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.visibleMachineCount||0)).toBe(136);
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.highlightedMachineCount||0)).toBe(0);
   await expect(page.locator('.factory-pixi-error')).toHaveCount(0);
 }
 
@@ -121,7 +122,7 @@ test('Pixi GPU monta as 136 máquinas, navega, dá zoom e abre detalhe real',asy
   expect(errors.consoleErrors).toEqual([]);
 });
 
-test('Pixi acompanha busca/rerender e volta ao mapa clássico sem perder funcionalidade',async({page})=>{
+test('Pixi acompanha busca/destaque e volta ao mapa clássico sem perder funcionalidade',async({page})=>{
   const errors=await boot(page);
   await activatePixi(page);
 
@@ -130,13 +131,15 @@ test('Pixi acompanha busca/rerender e volta ao mapa clássico sem perder funcion
   await expect(page.getByText('1 máquina localizada',{ exact:true })).toBeVisible();
   await expect(page.locator('.prep-map-machine')).toHaveCount(136);
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.machineCount||0),{ timeout:12000 }).toBe(136);
-  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.visibleMachineCount||0),{ timeout:12000 }).toBe(1);
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.visibleMachineCount||0),{ timeout:12000 }).toBe(136);
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.highlightedMachineCount||0),{ timeout:12000 }).toBe(1);
   const canvasBox=await page.locator('.factory-pixi-canvas').boundingBox();
   const point=await page.evaluate(()=>window.NEOMES_FACTORY_PIXI.project('tnl-091'));
   expect(point.x).toBeGreaterThan(0);expect(point.y).toBeGreaterThan(0);
   expect(point.x).toBeLessThan(canvasBox.width);expect(point.y).toBeLessThan(canvasBox.height);
 
   await search.fill('');
+  await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.highlightedMachineCount||0),{ timeout:12000 }).toBe(0);
   await expect.poll(()=>page.evaluate(()=>window.NEOMES_FACTORY_PIXI?.visibleMachineCount||0),{ timeout:12000 }).toBe(136);
 
   await page.locator('[data-factory-renderer="classic"]').click();
