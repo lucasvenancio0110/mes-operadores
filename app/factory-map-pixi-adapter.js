@@ -171,5 +171,15 @@ document.addEventListener('click',event=>{
 
 document.addEventListener('input',event=>{if(event.target.id==='prepSearch'&&preference==='pixi')requestAnimationFrame(()=>{const list=machineDescriptors();controller?.update(list);if(event.target.value.trim()&&list.length===1)controller?.focus(list[0].id);});});
 
+window.NEOMES_FACTORY_PIXI={
+  setRenderer:setPreference,
+  get renderer(){return preference;},
+  get ready(){return Boolean(controller);},
+  get machineCount(){return controller?.machineCount||0;},
+  project(id){return controller?.project?.(id)||null;},
+  focus(id){return controller?.focus?.(id)||false;},
+  fit(){return controller?.fit?.();}
+};
+
 window.addEventListener('beforeunload',()=>{surfaceObserver?.disconnect();appObserver.disconnect();destroyPixi();});
 scheduleEnhance();
