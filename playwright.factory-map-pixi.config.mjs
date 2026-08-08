@@ -20,14 +20,14 @@ export default defineConfig({
   outputDir:'test-results/factory-map-pixi',
   reporter:[['line'],['html',{ outputFolder:'playwright-report/factory-map-pixi',open:'never' }]],
   use:{
-    baseURL:'http://127.0.0.1:4175',
+    baseURL:'http://127.0.0.1:4174',
     trace:'retain-on-failure',
     screenshot:'only-on-failure',
     video:'retain-on-failure'
   },
   webServer:{
-    command:'PORT=4175 node tests/e2e/factory-map-server.mjs',
-    url:'http://127.0.0.1:4175',
+    command:'node tests/e2e/factory-map-server.mjs',
+    url:'http://127.0.0.1:4174',
     reuseExistingServer:false,
     timeout:15000
   },
